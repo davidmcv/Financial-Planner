@@ -168,6 +168,16 @@ def prompt_for_sex() -> str:
         print("  Please enter M or F.")
 
 
+def prompt_yes_no(question: str) -> bool:
+    while True:
+        raw = input(f"{question} (y/n): ").strip().lower()
+        if raw in ("y", "yes"):
+            return True
+        if raw in ("n", "no"):
+            return False
+        print("  Please enter y or n.")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Calculate UK State Pension age from date of birth.",
@@ -181,22 +191,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="Sex recorded at birth. Only affects the calculation for "
              "people born before 6 April 1955.",
     )
+    parser.add_argument(
+        "--spouse-dob", type=parse_date,
+        help="Spouse/partner's date of birth, YYYY-MM-DD. If given, their "
+             "State Pension age is calculated too.",
+    )
+    parser.add_argument(
+        "--spouse-sex", choices=["M", "F", "m", "f"],
+        help="Spouse/partner's sex recorded at birth.",
+    )
     return parser
 
 
-def main():
-    parser = build_parser()
-    args = parser.parse_args()
-
-    dob = args.dob if args.dob else prompt_for_dob()
-
-    today = date.today()
-    if dob > today:
-        print("Error: date of birth cannot be in the future.", file=sys.stderr)
-        sys.exit(1)
-
-    sex = args.sex.upper() if args.sex else prompt_for_sex()
-
+def report_spa(label: str, dob: date, sex: str, today: date) -> date:
+    """Print the State Pension age report for one person and return their
+    SPA date."""
     try:
         years, months = calculate_spa_age(dob, sex)
     except ValueError as exc:
@@ -206,6 +215,7 @@ def main():
     spa_date = add_years_months(dob, years, months)
 
     print()
+    print(f"{label}")
     print(f"Date of birth:        {dob.isoformat()}")
     print(f"State Pension age:    {format_age(years, months)}")
     print(f"Reaches SPA on:       {spa_date.isoformat()}")
@@ -221,12 +231,53 @@ def main():
         print(f"State Pension age reached {delta_days} days ago.")
 
     if in_transition_window(dob):
-        print()
         print("Note: this date of birth falls within a transitional period "
               "where the State Pension age was phased in gradually. This "
               "result is a close estimate based on the published "
               "legislation. Please confirm the exact date at:")
         print("  https://www.gov.uk/state-pension-age")
+
+    return spa_date
+
+
+def main():
+    parser = build_parser()
+    args = parser.parse_args()
+
+    today = date.today()
+
+    dob = args.dob if args.dob else prompt_for_dob()
+    if dob > today:
+        print("Error: date of birth cannot be in the future.", file=sys.stderr)
+        sys.exit(1)
+    sex = args.sex.upper() if args.sex else prompt_for_sex()
+
+    spouse_dob = args.spouse_dob
+    spouse_sex = args.spouse_sex.upper() if args.spouse_sex else None
+    if spouse_dob is None and not args.dob:
+        if prompt_yes_no("Add your wife/spouse/partner's details too?"):
+            spouse_dob = prompt_for_dob()
+            spouse_sex = prompt_for_sex()
+    elif spouse_dob is not None and spouse_sex is None:
+        spouse_sex = prompt_for_sex()
+
+    if spouse_dob is not None and spouse_dob > today:
+        print("Error: spouse's date of birth cannot be in the future.", file=sys.stderr)
+        sys.exit(1)
+
+    your_spa_date = report_spa("You", dob, sex, today)
+
+    if spouse_dob is not None:
+        spouse_spa_date = report_spa("Your spouse", spouse_dob, spouse_sex, today)
+
+        print()
+        if your_spa_date == spouse_spa_date:
+            print("You both reach State Pension age on the same date.")
+        else:
+            later = "You" if your_spa_date > spouse_spa_date else "Your spouse"
+            gap_days = abs((your_spa_date - spouse_spa_date).days)
+            print(f"{later} reach{'es' if later == 'Your spouse' else ''} "
+                  f"State Pension age later, by {gap_days} days.")
 
 
 if __name__ == "__main__":
