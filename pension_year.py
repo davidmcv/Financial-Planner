@@ -273,18 +273,28 @@ def generate_flat_growth_series(start_age: int, start_date: date, end_age: int,
 
 def generate_dc_drawdown_series(start_age: int, start_date: date, end_age: int,
                                  pot_value: float, drawdown_rate_pct: float,
-                                 pot_growth_rate_pct: float):
+                                 pot_growth_rate_pct: float,
+                                 injection_date: date = None, injection_amount: float = 0.0):
     """Return one (age, date, private_annual, pot_start) entry per whole
     age-year from start_age to end_age (inclusive). Each year, drawdown_rate_pct
     percent of the pot's current balance is withdrawn as income; the
     remaining balance then grows at pot_growth_rate_pct percent for the
-    year, becoming the following year's opening balance."""
+    year, becoming the following year's opening balance.
+
+    If injection_date is given, injection_amount is added to the pot's
+    balance at the first row on or after that date, before that year's
+    withdrawal is calculated - used to model a lump sum (e.g. an inherited
+    pension pot) landing partway through the series."""
     drawdown_rate = drawdown_rate_pct / 100
     growth_rate = pot_growth_rate_pct / 100
     series = []
     pot = pot_value
+    injected = False
     for offset, age in enumerate(range(start_age, end_age + 1)):
         row_date = add_years_months(start_date, offset, 0)
+        if injection_date is not None and not injected and row_date >= injection_date:
+            pot += injection_amount
+            injected = True
         withdrawal = pot * drawdown_rate
         series.append({
             "age": age, "date": row_date,
@@ -292,6 +302,21 @@ def generate_dc_drawdown_series(start_age: int, start_date: date, end_age: int,
         })
         pot = (pot - withdrawal) * (1 + growth_rate)
     return series
+
+
+def remaining_dc_pot_at_end(start_age: int, start_date: date, end_age: int,
+                             pot_value: float, drawdown_rate_pct: float,
+                             pot_growth_rate_pct: float) -> float:
+    """Return the pot's leftover balance the year after end_age - i.e. what
+    would be left to pass on if the pot holder died right after their final
+    (end_age) withdrawal and that year's growth."""
+    drawdown_rate = drawdown_rate_pct / 100
+    growth_rate = pot_growth_rate_pct / 100
+    pot = pot_value
+    for _ in range(start_age, end_age + 1):
+        withdrawal = pot * drawdown_rate
+        pot = (pot - withdrawal) * (1 + growth_rate)
+    return pot
 
 
 def _build_income_rows(series: list, spa_date: date, state_pension_weekly: float,
@@ -354,16 +379,56 @@ def generate_dc_drawdown_table(start_age: int, start_date: date, end_age: int,
                                 pot_growth_rate_pct: float,
                                 spa_date: date = None, state_pension_weekly: float = 0.0,
                                 state_pension_growth_rate_pct: float = TRIPLE_LOCK_ASSUMED_RATE,
-                                today: date = None, discount_rate_pct: float = DISCOUNT_RATE_DEFAULT):
+                                today: date = None, discount_rate_pct: float = DISCOUNT_RATE_DEFAULT,
+                                injection_date: date = None, injection_amount: float = 0.0):
     """Return one row per whole age-year from start_age to end_age
     (inclusive), for income drawn from a DC pension pot: each year withdraws
     drawdown_rate_pct percent of the pot's current balance, and the
     remaining balance grows at pot_growth_rate_pct percent. See
-    _build_income_rows for the State Pension / present-value layering."""
+    _build_income_rows for the State Pension / present-value layering, and
+    generate_dc_drawdown_series for the injection_date/injection_amount
+    lump-sum mechanism."""
     series = generate_dc_drawdown_series(start_age, start_date, end_age,
-                                          pot_value, drawdown_rate_pct, pot_growth_rate_pct)
+                                          pot_value, drawdown_rate_pct, pot_growth_rate_pct,
+                                          injection_date, injection_amount)
     return _build_income_rows(series, spa_date, state_pension_weekly,
                                state_pension_growth_rate_pct, today, discount_rate_pct)
+
+
+def apply_inherited_pot(rows: list, inherited_series: list, today: date,
+                         discount_rate_pct: float):
+    """Add an inherited pot's income (a raw series from
+    generate_dc_drawdown_series, e.g. seeded with pot_value=0 and an
+    injection at the date of inheritance) into an existing rows list,
+    matching by calendar year. Recomputes annual/monthly/weekly/present
+    for any row whose year gains inherited income; other rows are returned
+    unchanged. Used when the survivor has no DC pot of their own, so the
+    inherited pot is tracked as a separate sub-account rather than merged
+    into an existing pot simulation."""
+    inherited_by_year = {
+        e["date"].year: e["private_annual"] for e in inherited_series
+        if e["private_annual"] > 0
+    }
+    if not inherited_by_year:
+        return rows
+
+    updated = []
+    for row in rows:
+        extra = inherited_by_year.get(row["date"].year, 0.0)
+        if extra:
+            row = dict(row)
+            row["private_annual"] += extra
+            row["annual"] = row["private_annual"] + row["state_annual"]
+            row["monthly"] = row["annual"] / 12
+            row["weekly"] = row["annual"] / 52
+            row["present_annual"] = discount_to_present(
+                row["annual"], row["date"], today, discount_rate_pct)
+        updated.append(row)
+    return updated
+
+
+FV_PV_EXPLANATION = ("FV = nominal future value; PV = present-day "
+                      "(inflation-adjusted) value; figures rounded to £")
 
 
 def build_flat_assumption_lines(start_income, growth_rate_pct, state_pension_weekly,
@@ -376,6 +441,7 @@ def build_flat_assumption_lines(start_income, growth_rate_pct, state_pension_wee
         f"{state_pension_growth_rate_pct:.1f}% per year (assumed triple lock)",
         f"Present values discounted at {discount_rate_pct:.1f}% per year "
         f"(assumed inflation) back to today ({today.isoformat()})",
+        FV_PV_EXPLANATION,
     ]
 
 
@@ -391,10 +457,16 @@ def build_dc_assumption_lines(pot_value, drawdown_rate_pct, pot_growth_rate_pct,
         f"{state_pension_growth_rate_pct:.1f}% per year (assumed triple lock)",
         f"Present values discounted at {discount_rate_pct:.1f}% per year "
         f"(assumed inflation) back to today ({today.isoformat()})",
+        FV_PV_EXPLANATION,
     ]
 
 
 def print_income_table(label: str, rows: list, assumption_lines: list):
+    """Print a person's income table in a compact, ~80-character-wide
+    layout (fits an iPad screen without wrapping). Money is rounded to
+    the nearest pound for display only - the underlying rows keep full
+    precision. FV = nominal future value; PV = present-day (inflation-
+    adjusted) value; both are explained once in the assumption lines."""
     print()
     if not rows:
         print(f"{label}: private pension access age is already at or beyond "
@@ -406,24 +478,151 @@ def print_income_table(label: str, rows: list, assumption_lines: list):
 
     has_pot = "pot_start" in rows[0]
     if has_pot:
-        print(f"  {'Age':>4}  {'Year':<12}{'Pot Start (£)':>16}{'Drawdown (£/yr)':>17}"
-              f"{'State (£/yr)':>15}{'Weekly (£)':>13}{'Monthly (£)':>14}"
-              f"{'Future (£/yr)':>15}{'Present (£/yr)':>16}")
+        print(f"  {'Age':>3} {'Year':>4} {'Pot':>10} {'Draw':>8} {'State':>7} "
+              f"{'Weekly':>7} {'Month':>7} {'FV':>9} {'PV':>9}")
         for row in rows:
-            print(f"  {row['age']:>4}  {row['date'].isoformat():<12}"
-                  f"{row['pot_start']:>16,.2f}{row['private_annual']:>17,.2f}"
-                  f"{row['state_annual']:>15,.2f}{row['weekly']:>13,.2f}"
-                  f"{row['monthly']:>14,.2f}{row['annual']:>15,.2f}"
-                  f"{row['present_annual']:>16,.2f}")
+            print(f"  {row['age']:>3} {row['date'].year:>4} "
+                  f"{row['pot_start']:>10,.0f} {row['private_annual']:>8,.0f} "
+                  f"{row['state_annual']:>7,.0f} {row['weekly']:>7,.0f} "
+                  f"{row['monthly']:>7,.0f} {row['annual']:>9,.0f} "
+                  f"{row['present_annual']:>9,.0f}")
     else:
-        print(f"  {'Age':>4}  {'Year':<12}{'Private (£/yr)':>16}{'State (£/yr)':>15}"
-              f"{'Weekly (£)':>13}{'Monthly (£)':>14}{'Future (£/yr)':>15}"
-              f"{'Present (£/yr)':>16}")
+        print(f"  {'Age':>3} {'Year':>4} {'Priv':>8} {'State':>7} "
+              f"{'Weekly':>7} {'Month':>7} {'FV':>9} {'PV':>9}")
         for row in rows:
-            print(f"  {row['age']:>4}  {row['date'].isoformat():<12}"
-                  f"{row['private_annual']:>16,.2f}{row['state_annual']:>15,.2f}"
-                  f"{row['weekly']:>13,.2f}{row['monthly']:>14,.2f}"
-                  f"{row['annual']:>15,.2f}{row['present_annual']:>16,.2f}")
+            print(f"  {row['age']:>3} {row['date'].year:>4} "
+                  f"{row['private_annual']:>8,.0f} {row['state_annual']:>7,.0f} "
+                  f"{row['weekly']:>7,.0f} {row['monthly']:>7,.0f} "
+                  f"{row['annual']:>9,.0f} {row['present_annual']:>9,.0f}")
+
+
+def apply_pension_transfer(your_summary: "PersonSummary", spouse_summary: "PersonSummary",
+                            your_rows: list, spouse_rows: list,
+                            your_pension_pot, your_drawdown_rate, your_pot_growth_rate,
+                            spouse_pension_pot, spouse_drawdown_rate, spouse_pot_growth_rate,
+                            state_pension_weekly: float, state_pension_growth_rate: float,
+                            discount_rate: float, today: date):
+    """If one person used a DC pension pot (--pension-pot) and reaches
+    average life expectancy before the other, their remaining pot balance
+    is assumed to transfer to the survivor as a lump sum, boosting the
+    survivor's income from that point onward. A flat --income stream has
+    no pot balance, so nothing transfers if the deceased wasn't in pot mode.
+
+    Returns (your_rows, spouse_rows, note) - rows updated for the survivor
+    (unchanged for the deceased, whose own table still reflects only their
+    own lifetime), and a human-readable note describing the transfer, or
+    note=None if no transfer applies."""
+    if not your_rows or not spouse_rows:
+        return your_rows, spouse_rows, None
+    if your_summary.life_expectancy_date == spouse_summary.life_expectancy_date:
+        return your_rows, spouse_rows, None
+
+    if your_summary.life_expectancy_date < spouse_summary.life_expectancy_date:
+        deceased_label, survivor_label = "You", "your spouse"
+        deceased_summary, survivor_summary = your_summary, spouse_summary
+        deceased_pot, deceased_drawdown, deceased_growth = (
+            your_pension_pot, your_drawdown_rate, your_pot_growth_rate)
+        survivor_pot, survivor_drawdown, survivor_growth = (
+            spouse_pension_pot, spouse_drawdown_rate, spouse_pot_growth_rate)
+    else:
+        deceased_label, survivor_label = "Your spouse", "you"
+        deceased_summary, survivor_summary = spouse_summary, your_summary
+        deceased_pot, deceased_drawdown, deceased_growth = (
+            spouse_pension_pot, spouse_drawdown_rate, spouse_pot_growth_rate)
+        survivor_pot, survivor_drawdown, survivor_growth = (
+            your_pension_pot, your_drawdown_rate, your_pot_growth_rate)
+
+    if deceased_pot is None:
+        return your_rows, spouse_rows, None
+
+    remaining = remaining_dc_pot_at_end(
+        deceased_summary.nmpa_age, deceased_summary.nmpa_date, deceased_summary.life_expectancy_age,
+        deceased_pot, deceased_drawdown, deceased_growth,
+    )
+    if remaining <= 0:
+        return your_rows, spouse_rows, None
+
+    transfer_date = add_years_months(deceased_summary.life_expectancy_date, 0, 1)
+
+    if survivor_pot is not None:
+        used_drawdown, used_growth = survivor_drawdown, survivor_growth
+        survivor_updated_rows = generate_dc_drawdown_table(
+            survivor_summary.nmpa_age, survivor_summary.nmpa_date, survivor_summary.life_expectancy_age,
+            survivor_pot, survivor_drawdown, survivor_growth,
+            survivor_summary.spa_date, state_pension_weekly, state_pension_growth_rate,
+            today, discount_rate,
+            injection_date=transfer_date, injection_amount=remaining,
+        )
+    else:
+        used_drawdown, used_growth = deceased_drawdown, deceased_growth
+        inherited_series = generate_dc_drawdown_series(
+            survivor_summary.nmpa_age, survivor_summary.nmpa_date, survivor_summary.life_expectancy_age,
+            0.0, deceased_drawdown, deceased_growth,
+            injection_date=transfer_date, injection_amount=remaining,
+        )
+        survivor_current_rows = your_rows if survivor_label == "you" else spouse_rows
+        survivor_updated_rows = apply_inherited_pot(
+            survivor_current_rows, inherited_series, today, discount_rate)
+
+    note = (
+        f"Note: {deceased_label} {'reaches' if deceased_label == 'Your spouse' else 'reach'} "
+        f"average life expectancy first (around {deceased_summary.life_expectancy_date.isoformat()}). "
+        f"Their remaining DC pension pot (approx £{remaining:,.0f}) is assumed to transfer to "
+        f"{survivor_label} from {transfer_date.isoformat()}, added to the table above from that "
+        f"point (drawn down at {used_drawdown:.1f}%/year, pot growing at {used_growth:.1f}%/year)."
+    )
+
+    if survivor_label == "your spouse":
+        return your_rows, survivor_updated_rows, note
+    return survivor_updated_rows, spouse_rows, note
+
+
+def combine_income_tables(rows_a: list, rows_b: list):
+    """Combine two people's income rows into a household-total table, keyed
+    by calendar year (each person's rows fall on one anniversary per year,
+    so their date's year is a safe, collision-free key). A year present for
+    only one person contributes £0 for the other."""
+    by_year_a = {r["date"].year: r for r in rows_a}
+    by_year_b = {r["date"].year: r for r in rows_b}
+    years = sorted(set(by_year_a) | set(by_year_b))
+
+    combined = []
+    for year in years:
+        ra = by_year_a.get(year)
+        rb = by_year_b.get(year)
+        your_annual = ra["annual"] if ra else 0.0
+        spouse_annual = rb["annual"] if rb else 0.0
+        your_present = ra["present_annual"] if ra else 0.0
+        spouse_present = rb["present_annual"] if rb else 0.0
+        total_annual = your_annual + spouse_annual
+        combined.append({
+            "year": year,
+            "your_annual": your_annual,
+            "spouse_annual": spouse_annual,
+            "annual": total_annual,
+            "monthly": total_annual / 12,
+            "weekly": total_annual / 52,
+            "present_annual": your_present + spouse_present,
+        })
+    return combined
+
+
+def print_combined_income_table(rows: list):
+    """Print the combined household table in the same compact, ~80-char
+    layout as print_income_table (see its docstring for FV/PV)."""
+    print()
+    if not rows:
+        print("Combined household income: not generated - both people need "
+              "an --income/--pension-pot projection for this to be shown.")
+        return
+    print("Combined household projected pension income")
+    print(f"  {'Year':>4} {'You':>8} {'Spouse':>8} {'Weekly':>7} {'Month':>7} "
+          f"{'FV':>9} {'PV':>9}")
+    for row in rows:
+        print(f"  {row['year']:>4} {row['your_annual']:>8,.0f} "
+              f"{row['spouse_annual']:>8,.0f} {row['weekly']:>7,.0f} "
+              f"{row['monthly']:>7,.0f} {row['annual']:>9,.0f} "
+              f"{row['present_annual']:>9,.0f}")
 
 
 def parse_date(value: str) -> date:
@@ -631,13 +830,16 @@ def report_spa(label: str, dob: date, sex: str, today: date, seen_terms: set) ->
     )
 
 
-def handle_income_table(label: str, summary: "PersonSummary", income, growth_rate,
-                         pension_pot, drawdown_rate, pot_growth_rate,
-                         state_pension_weekly, state_pension_growth_rate,
-                         discount_rate, today: date):
-    """Generate and print the income projection table for one person, using
-    the DC pot drawdown model if pension_pot is given, else the flat-growth
-    --income model. Does nothing if neither is given."""
+def generate_income_rows_and_lines(summary: "PersonSummary", income, growth_rate,
+                                    pension_pot, drawdown_rate, pot_growth_rate,
+                                    state_pension_weekly, state_pension_growth_rate,
+                                    discount_rate, today: date):
+    """Generate one person's income rows and the assumption lines to print
+    alongside them, using the DC pot drawdown model if pension_pot is
+    given, else the flat-growth --income model. Returns ([], []) if
+    neither is given. Generation is separate from printing so a possible
+    pension transfer (see apply_pension_transfer) can adjust the rows
+    first."""
     if pension_pot is not None:
         rows = generate_dc_drawdown_table(
             summary.nmpa_age, summary.nmpa_date, summary.life_expectancy_age,
@@ -649,7 +851,7 @@ def handle_income_table(label: str, summary: "PersonSummary", income, growth_rat
             pension_pot, drawdown_rate, pot_growth_rate,
             state_pension_weekly, state_pension_growth_rate, discount_rate, today,
         )
-        print_income_table(label, rows, lines)
+        return rows, lines
     elif income is not None:
         rows = generate_income_table(
             summary.nmpa_age, summary.nmpa_date, summary.life_expectancy_age,
@@ -661,7 +863,8 @@ def handle_income_table(label: str, summary: "PersonSummary", income, growth_rat
             income, growth_rate, state_pension_weekly,
             state_pension_growth_rate, discount_rate, today,
         )
-        print_income_table(label, rows, lines)
+        return rows, lines
+    return [], []
 
 
 def main():
@@ -692,8 +895,8 @@ def main():
     seen_terms = set()
     your_summary = report_spa("You", dob, sex, today, seen_terms)
 
-    handle_income_table(
-        "You", your_summary, args.income, args.income_growth_rate,
+    your_rows, your_lines = generate_income_rows_and_lines(
+        your_summary, args.income, args.income_growth_rate,
         args.pension_pot, args.drawdown_rate, args.pot_growth_rate,
         args.state_pension_weekly, args.state_pension_growth_rate,
         args.discount_rate, today,
@@ -702,12 +905,30 @@ def main():
     if spouse_dob is not None:
         spouse_summary = report_spa("Your spouse", spouse_dob, spouse_sex, today, seen_terms)
 
-        handle_income_table(
-            "Your spouse", spouse_summary, args.spouse_income, args.spouse_income_growth_rate,
+        spouse_rows, spouse_lines = generate_income_rows_and_lines(
+            spouse_summary, args.spouse_income, args.spouse_income_growth_rate,
             args.spouse_pension_pot, args.spouse_drawdown_rate, args.spouse_pot_growth_rate,
             args.state_pension_weekly, args.state_pension_growth_rate,
             args.discount_rate, today,
         )
+
+        your_rows, spouse_rows, transfer_note = apply_pension_transfer(
+            your_summary, spouse_summary, your_rows, spouse_rows,
+            args.pension_pot, args.drawdown_rate, args.pot_growth_rate,
+            args.spouse_pension_pot, args.spouse_drawdown_rate, args.spouse_pot_growth_rate,
+            args.state_pension_weekly, args.state_pension_growth_rate,
+            args.discount_rate, today,
+        )
+
+        print_income_table("You", your_rows, your_lines)
+        print_income_table("Your spouse", spouse_rows, spouse_lines)
+
+        if transfer_note:
+            print()
+            print(transfer_note)
+
+        if your_rows and spouse_rows:
+            print_combined_income_table(combine_income_tables(your_rows, spouse_rows))
 
         print()
         if your_summary.spa_date == spouse_summary.spa_date:
@@ -717,6 +938,8 @@ def main():
             gap_days = abs((your_summary.spa_date - spouse_summary.spa_date).days)
             print(f"{later} reach{'es' if later == 'Your spouse' else ''} "
                   f"State Pension age later, by {gap_days} days.")
+    else:
+        print_income_table("You", your_rows, your_lines)
 
 
 if __name__ == "__main__":
