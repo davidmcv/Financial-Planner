@@ -25,6 +25,7 @@ No third-party dependencies; standard library only.
 """
 
 import argparse
+import calendar
 import sys
 from datetime import date, timedelta
 
@@ -161,6 +162,39 @@ def format_age(years: int, months: int) -> str:
     return " ".join(parts)
 
 
+def calendar_diff(earlier: date, later: date):
+    """Return (years, months, days) between two dates, calendar-correct
+    (e.g. 2028-03-01 to 2040-03-01 is exactly 12 years, 0 months, 0 days)."""
+    years = later.year - earlier.year
+    months = later.month - earlier.month
+    days = later.day - earlier.day
+    if days < 0:
+        months -= 1
+        prev_month = later.month - 1 or 12
+        prev_year = later.year if later.month > 1 else later.year - 1
+        days += calendar.monthrange(prev_year, prev_month)[1]
+    if months < 0:
+        years -= 1
+        months += 12
+    return years, months, days
+
+
+# Acronyms are spelled out in full the first time they appear in a run's
+# output, then abbreviated on subsequent uses.
+TLA_EXPANSIONS = {
+    "SPA": "State Pension Age (SPA)",
+    "SIPP": "Self-Invested Personal Pension (SIPP)",
+    "NMPA": "Normal Minimum Pension Age (NMPA)",
+}
+
+
+def term_label(term: str, seen_terms: set) -> str:
+    if term not in seen_terms:
+        seen_terms.add(term)
+        return TLA_EXPANSIONS[term]
+    return term
+
+
 def parse_date(value: str) -> date:
     try:
         return date.fromisoformat(value)
@@ -222,7 +256,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def report_spa(label: str, dob: date, sex: str, today: date) -> date:
+def report_spa(label: str, dob: date, sex: str, today: date, seen_terms: set) -> date:
     """Print the State Pension age report for one person and return their
     SPA date."""
     try:
@@ -236,7 +270,7 @@ def report_spa(label: str, dob: date, sex: str, today: date) -> date:
     print()
     print(f"{label}")
     print(f"Date of birth:        {dob.isoformat()}")
-    print(f"State Pension age:    {format_age(years, months)}")
+    print(f"{term_label('SPA', seen_terms)}: {format_age(years, months)}")
     print(f"Reaches SPA on:       {spa_date.isoformat()}")
 
     if spa_date > today:
@@ -247,7 +281,7 @@ def report_spa(label: str, dob: date, sex: str, today: date) -> date:
               f"({delta_days} days)")
     else:
         delta_days = (today - spa_date).days
-        print(f"State Pension age reached {delta_days} days ago.")
+        print(f"SPA reached {delta_days} days ago.")
 
     if in_transition_window(dob):
         print("Note: this date of birth falls within a transitional period "
@@ -257,12 +291,17 @@ def report_spa(label: str, dob: date, sex: str, today: date) -> date:
         print("  https://www.gov.uk/state-pension-age")
 
     nmpa_age, nmpa_date = calculate_nmpa_access(dob)
-    print(f"SIPP/private pension:  can normally be accessed from age {nmpa_age}, "
-          f"on {nmpa_date.isoformat()}")
+    print(f"{term_label('SIPP', seen_terms)}/private pension: can normally be "
+          f"accessed from age {nmpa_age}, on {nmpa_date.isoformat()}")
     if nmpa_age == 57:
-        print("  (Normal Minimum Pension Age rises from 55 to 57 on 6 April "
-              "2028; some older scheme rules give a lower 'protected "
-              "pension age' - check with your provider.)")
+        print(f"  ({term_label('NMPA', seen_terms)} rises from 55 to 57 on "
+              f"6 April 2028; some older scheme rules give a lower "
+              f"'protected pension age' - check with your provider.)")
+
+    gap_years, gap_months, gap_days = calendar_diff(nmpa_date, spa_date)
+    gap_total_days = (spa_date - nmpa_date).days
+    print(f"Gap between private pension and SPA: {gap_years} years, "
+          f"{gap_months} months, {gap_days} days ({gap_total_days} days total)")
 
     return spa_date
 
@@ -292,10 +331,11 @@ def main():
         print("Error: spouse's date of birth cannot be in the future.", file=sys.stderr)
         sys.exit(1)
 
-    your_spa_date = report_spa("You", dob, sex, today)
+    seen_terms = set()
+    your_spa_date = report_spa("You", dob, sex, today, seen_terms)
 
     if spouse_dob is not None:
-        spouse_spa_date = report_spa("Your spouse", spouse_dob, spouse_sex, today)
+        spouse_spa_date = report_spa("Your spouse", spouse_dob, spouse_sex, today, seen_terms)
 
         print()
         if your_spa_date == spouse_spa_date:
