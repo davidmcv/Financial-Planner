@@ -225,6 +225,47 @@ class TestGenerateIncomeTable(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["age"], 78)
 
+    def test_no_state_pension_when_spa_date_omitted(self):
+        rows = pw.generate_income_table(55, date(2028, 3, 1), 57, 10000, 0.0)
+        self.assertTrue(all(r["state_annual"] == 0.0 for r in rows))
+        self.assertTrue(all(r["annual"] == r["private_annual"] for r in rows))
+
+    def test_state_pension_zero_before_spa_and_added_from_spa(self):
+        rows = pw.generate_income_table(
+            55, date(2028, 3, 1), 60, 10000, 0.0,
+            spa_date=date(2030, 3, 1), state_pension_weekly=100.0,
+        )
+        before = {r["age"]: r for r in rows if r["age"] < 57}
+        self.assertTrue(all(r["state_annual"] == 0.0 for r in before.values()))
+        self.assertTrue(all(r["annual"] == r["private_annual"] for r in before.values()))
+
+        from_spa = {r["age"]: r for r in rows if r["age"] >= 57}
+        self.assertTrue(all(r["state_annual"] > 0.0 for r in from_spa.values()))
+        first_spa_row = from_spa[57]
+        self.assertAlmostEqual(first_spa_row["state_annual"], 100.0 * 52)
+        self.assertAlmostEqual(first_spa_row["annual"],
+                                first_spa_row["private_annual"] + 100.0 * 52)
+
+    def test_state_pension_compounds_from_its_own_start_year(self):
+        rows = pw.generate_income_table(
+            65, date(2038, 3, 1), 68, 10000, 10.0,
+            spa_date=date(2040, 3, 1), state_pension_weekly=100.0,
+        )
+        by_age = {r["age"]: r for r in rows}
+        # SPA reached at age 67: state pension starts there at 100*52,
+        # then compounds 10% per year from that point (not from age 65).
+        self.assertEqual(by_age[65]["state_annual"], 0.0)
+        self.assertEqual(by_age[66]["state_annual"], 0.0)
+        self.assertAlmostEqual(by_age[67]["state_annual"], 100.0 * 52)
+        self.assertAlmostEqual(by_age[68]["state_annual"], 100.0 * 52 * 1.10)
+
+    def test_spa_date_before_start_date_includes_state_pension_from_row_one(self):
+        rows = pw.generate_income_table(
+            60, date(2033, 3, 1), 62, 10000, 0.0,
+            spa_date=date(2020, 1, 1), state_pension_weekly=100.0,
+        )
+        self.assertTrue(all(r["state_annual"] == 100.0 * 52 for r in rows))
+
 
 class TestPrintIncomeTable(unittest.TestCase):
     def test_empty_rows_prints_no_projection_message(self):
@@ -239,10 +280,22 @@ class TestPrintIncomeTable(unittest.TestCase):
         with redirect_stdout(buf):
             pw.print_income_table("You", rows, 24000, 0.0)
         output = buf.getvalue()
-        self.assertIn("You projected private pension income", output)
+        self.assertIn("You projected pension income", output)
         self.assertIn("£24,000.00", output)
         self.assertIn("2028-03-01", output)
         self.assertIn("461.54", output)  # weekly = 24000/52
+
+    def test_state_pension_rate_shown_in_header(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            pw.print_income_table("You", [{
+                "age": 67, "date": date(2040, 3, 1), "private_annual": 30000.0,
+                "state_annual": 11973.0, "annual": 41973.0,
+                "monthly": 41973.0 / 12, "weekly": 41973.0 / 52,
+            }], 30000, 2.0, state_pension_weekly=230.25)
+        output = buf.getvalue()
+        self.assertIn("£230.25/week", output)
+        self.assertIn("11,973.00", output)
 
 
 class TestCli(unittest.TestCase):
@@ -268,20 +321,26 @@ class TestCli(unittest.TestCase):
         self.assertIn("Average UK life expectancy (Office for National "
                        "Statistics (ONS) estimate): 78 years 7 months, "
                        "around 2051-10-01", result.stdout)
-        self.assertNotIn("projected private pension income", result.stdout)
+        self.assertNotIn("projected pension income", result.stdout)
 
     def test_income_flag_prints_projection_table(self):
         result = self.run_cli(
             "--dob", "1973-03-01", "--sex", "M", "--income", "24000",
         )
         self.assertEqual(result.returncode, 0)
-        self.assertIn("You projected private pension income", result.stdout)
-        self.assertIn("Starting annual income: £24,000.00, growing at 2.0% "
-                       "per year", result.stdout)
-        # First row: age 55, 2028-03-01, unchanged starting income.
-        self.assertIn("55  2028-03-01          461.54       2,000.00      "
-                       "24,000.00", result.stdout)
-        # Last row: age 78 (life expectancy), income compounded for 23 years.
+        self.assertIn("You projected pension income", result.stdout)
+        self.assertIn("Starting private pension income: £24,000.00/year, "
+                       "growing at 2.0% per year", result.stdout)
+        # First row (age 55): private=state pension not yet due (£0), total
+        # equals the unchanged starting income.
+        self.assertIn(
+            "55  2028-03-01         24,000.00           0.00        "
+            "461.54       2,000.00      24,000.00", result.stdout)
+        # SPA reached at age 67 (2040-03-01): State Pension added on top.
+        self.assertIn(
+            "67  2040-03-01         30,437.80      11,973.00        "
+            "815.59       3,534.23      42,410.80", result.stdout)
+        # Last row: age 78 (life expectancy).
         self.assertIn("78  2051-03-01", result.stdout)
 
     def test_custom_growth_rate_is_applied(self):
@@ -291,8 +350,27 @@ class TestCli(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0)
         self.assertIn("growing at 0.0% per year", result.stdout)
-        # Flat income: 24 rows (age 55-78 inclusive) plus the header line.
-        self.assertEqual(result.stdout.count("10,000.00"), 25)
+        # Private income stays flat at £10,000.00 for all 24 rows (age
+        # 55-78); Total also reads £10,000.00 for the 12 rows before SPA
+        # (age 55-66, no State Pension yet); plus one header occurrence.
+        self.assertEqual(result.stdout.count("10,000.00"), 24 + 12 + 1)
+
+    def test_state_pension_included_by_default(self):
+        result = self.run_cli(
+            "--dob", "1973-03-01", "--sex", "M", "--income", "24000",
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("State Pension added from SPA: £230.25/week "
+                       "(£11,973.00/year)", result.stdout)
+
+    def test_state_pension_weekly_override(self):
+        result = self.run_cli(
+            "--dob", "1973-03-01", "--sex", "M", "--income", "24000",
+            "--state-pension-weekly", "300",
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("State Pension added from SPA: £300.00/week "
+                       "(£15,600.00/year)", result.stdout)
 
     def test_spouse_income_only_shown_for_spouse(self):
         result = self.run_cli(
@@ -301,9 +379,10 @@ class TestCli(unittest.TestCase):
             "--spouse-income", "18000",
         )
         self.assertEqual(result.returncode, 0)
-        self.assertNotIn("You projected private pension income", result.stdout)
-        self.assertIn("Your spouse projected private pension income", result.stdout)
-        self.assertIn("Starting annual income: £18,000.00", result.stdout)
+        self.assertNotIn("You projected pension income", result.stdout)
+        self.assertIn("Your spouse projected pension income", result.stdout)
+        self.assertIn("Starting private pension income: £18,000.00/year",
+                       result.stdout)
 
     def test_ons_acronym_expanded_once_across_both_people(self):
         result = self.run_cli(

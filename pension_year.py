@@ -7,8 +7,10 @@ date of birth and, for people born before the rules were equalised, sex.
 Also reports the Normal Minimum Pension Age (NMPA) - the earliest age a
 SIPP or other private/personal pension can normally be accessed - and the
 average UK life expectancy for that sex. Optionally prints a year-by-year
-projected private pension income table, from NMPA access age up to average
-life expectancy, growing at a given annual rate (--income/--spouse-income).
+projected pension income table, from NMPA access age up to average life
+expectancy (--income/--spouse-income), with private pension income
+compounding at a given annual rate and the State Pension added on top from
+SPA age onward (--state-pension-weekly).
 
 State Pension age has been raised several times by different Acts of
 Parliament:
@@ -222,41 +224,67 @@ def term_label(term: str, seen_terms: set) -> str:
     return term
 
 
+# Full new State Pension weekly rate, 2025/26 tax year (DWP/GOV.UK, uprated
+# each April - most recently by the "triple lock"). Override with
+# --state-pension-weekly if a newer rate has since been announced.
+STATE_PENSION_WEEKLY_DEFAULT = 230.25
+
+
 def generate_income_table(start_age: int, start_date: date, end_age: int,
-                           start_income: float, growth_rate_pct: float):
+                           start_income: float, growth_rate_pct: float,
+                           spa_date: date = None, state_pension_weekly: float = 0.0):
     """Return one row per whole age-year from start_age to end_age
-    (inclusive), with annual income compounding at growth_rate_pct percent
-    per year from start_income in the first row. Returns [] if start_age
-    is already past end_age (e.g. private pension access age is beyond
-    average life expectancy)."""
+    (inclusive). Private pension income compounds at growth_rate_pct percent
+    per year from start_income in the first row. From the first row on or
+    after spa_date, the State Pension (state_pension_weekly * 52/year) is
+    added on top, itself compounding at growth_rate_pct percent per year
+    from when it starts. Returns [] if start_age is already past end_age
+    (e.g. private pension access age is beyond average life expectancy)."""
     rate = growth_rate_pct / 100
     rows = []
+    state_pension_start_offset = None
     for offset, age in enumerate(range(start_age, end_age + 1)):
-        annual = start_income * ((1 + rate) ** offset)
+        row_date = add_years_months(start_date, offset, 0)
+        private_annual = start_income * ((1 + rate) ** offset)
+
+        state_annual = 0.0
+        if spa_date is not None and row_date >= spa_date:
+            if state_pension_start_offset is None:
+                state_pension_start_offset = offset
+            state_annual = (state_pension_weekly * 52) * (
+                (1 + rate) ** (offset - state_pension_start_offset)
+            )
+
+        total_annual = private_annual + state_annual
         rows.append({
             "age": age,
-            "date": add_years_months(start_date, offset, 0),
-            "annual": annual,
-            "monthly": annual / 12,
-            "weekly": annual / 52,
+            "date": row_date,
+            "private_annual": private_annual,
+            "state_annual": state_annual,
+            "annual": total_annual,
+            "monthly": total_annual / 12,
+            "weekly": total_annual / 52,
         })
     return rows
 
 
 def print_income_table(label: str, rows: list, start_income: float,
-                        growth_rate_pct: float):
+                        growth_rate_pct: float, state_pension_weekly: float = 0.0):
     print()
     if not rows:
         print(f"{label}: private pension access age is already at or beyond "
               f"average life expectancy - no income projection generated.")
         return
-    print(f"{label} projected private pension income")
-    print(f"  Starting annual income: £{start_income:,.2f}, growing at "
-          f"{growth_rate_pct:.1f}% per year")
-    print(f"  {'Age':>4}  {'Year':<12}{'Weekly (£)':>14}{'Monthly (£)':>15}"
-          f"{'Annual (£)':>15}")
+    print(f"{label} projected pension income")
+    print(f"  Starting private pension income: £{start_income:,.2f}/year, "
+          f"growing at {growth_rate_pct:.1f}% per year")
+    print(f"  State Pension added from SPA: £{state_pension_weekly:,.2f}/week "
+          f"(£{state_pension_weekly * 52:,.2f}/year), same growth rate")
+    print(f"  {'Age':>4}  {'Year':<12}{'Private (£/yr)':>16}{'State (£/yr)':>15}"
+          f"{'Weekly (£)':>14}{'Monthly (£)':>15}{'Total (£/yr)':>15}")
     for row in rows:
         print(f"  {row['age']:>4}  {row['date'].isoformat():<12}"
+              f"{row['private_annual']:>16,.2f}{row['state_annual']:>15,.2f}"
               f"{row['weekly']:>14,.2f}{row['monthly']:>15,.2f}"
               f"{row['annual']:>15,.2f}")
 
@@ -340,6 +368,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--spouse-income-growth-rate", type=float, default=2.0,
         help="Spouse/partner's anticipated annual income growth rate as a "
              "percentage (default: 2.0).",
+    )
+    parser.add_argument(
+        "--state-pension-weekly", type=float, default=STATE_PENSION_WEEKLY_DEFAULT,
+        help="Full new State Pension weekly rate, added to the income table "
+             f"from SPA age onward (default: £{STATE_PENSION_WEEKLY_DEFAULT:.2f}, "
+             "the 2025/26 rate - override if a newer rate applies). Applies "
+             "to both people.",
     )
     return parser
 
@@ -447,8 +482,10 @@ def main():
             your_summary.nmpa_age, your_summary.nmpa_date,
             your_summary.life_expectancy_age,
             args.income, args.income_growth_rate,
+            your_summary.spa_date, args.state_pension_weekly,
         )
-        print_income_table("You", your_rows, args.income, args.income_growth_rate)
+        print_income_table("You", your_rows, args.income, args.income_growth_rate,
+                            args.state_pension_weekly)
 
     if spouse_dob is not None:
         spouse_summary = report_spa("Your spouse", spouse_dob, spouse_sex, today, seen_terms)
@@ -458,9 +495,10 @@ def main():
                 spouse_summary.nmpa_age, spouse_summary.nmpa_date,
                 spouse_summary.life_expectancy_age,
                 args.spouse_income, args.spouse_income_growth_rate,
+                spouse_summary.spa_date, args.state_pension_weekly,
             )
             print_income_table("Your spouse", spouse_rows, args.spouse_income,
-                                args.spouse_income_growth_rate)
+                                args.spouse_income_growth_rate, args.state_pension_weekly)
 
         print()
         if your_summary.spa_date == spouse_summary.spa_date:
