@@ -8,9 +8,13 @@ Also reports the Normal Minimum Pension Age (NMPA) - the earliest age a
 SIPP or other private/personal pension can normally be accessed - and the
 average UK life expectancy for that sex. Optionally prints a year-by-year
 projected pension income table, from NMPA access age up to average life
-expectancy (--income/--spouse-income), with private pension income
-compounding at a given annual rate and the State Pension added on top from
-SPA age onward (--state-pension-weekly).
+expectancy, either as a flat income compounding at a given rate
+(--income/--spouse-income) or as a percentage drawdown of a DC pension pot
+(--pension-pot/--spouse-pension-pot), with the State Pension added on top
+from SPA age onward, growing at an assumed "triple lock" rate
+(--state-pension-weekly/--state-pension-growth-rate). Each row also shows
+the present-day (inflation-adjusted) value of that year's income
+(--discount-rate), alongside its nominal future value.
 
 State Pension age has been raised several times by different Acts of
 Parliament:
@@ -229,64 +233,197 @@ def term_label(term: str, seen_terms: set) -> str:
 # --state-pension-weekly if a newer rate has since been announced.
 STATE_PENSION_WEEKLY_DEFAULT = 230.25
 
+# The "triple lock" raises the State Pension each year by the highest of CPI
+# inflation, average earnings growth, or 2.5%. Future inflation/earnings
+# figures aren't knowable in advance, so this uses the legislated 2.5%
+# underpin as a conservative planning assumption - actual increases have
+# often been higher. Override via --state-pension-growth-rate.
+TRIPLE_LOCK_ASSUMED_RATE = 2.5
 
-def generate_income_table(start_age: int, start_date: date, end_age: int,
-                           start_income: float, growth_rate_pct: float,
-                           spa_date: date = None, state_pension_weekly: float = 0.0):
-    """Return one row per whole age-year from start_age to end_age
-    (inclusive). Private pension income compounds at growth_rate_pct percent
-    per year from start_income in the first row. From the first row on or
-    after spa_date, the State Pension (state_pension_weekly * 52/year) is
-    added on top, itself compounding at growth_rate_pct percent per year
-    from when it starts. Returns [] if start_age is already past end_age
-    (e.g. private pension access age is beyond average life expectancy)."""
+# Assumed future inflation rate used to convert nominal (future-pounds)
+# income into present-day purchasing power. Override via --discount-rate.
+DISCOUNT_RATE_DEFAULT = 2.5
+
+
+def discount_to_present(nominal_amount: float, future_date: date, today: date,
+                         discount_rate_pct: float) -> float:
+    """Convert a nominal future amount into present-day purchasing power,
+    discounting at discount_rate_pct percent per year from today to
+    future_date. Returns the amount unchanged if today is None or
+    future_date is not after today."""
+    if today is None or future_date <= today:
+        return nominal_amount
+    years = (future_date - today).days / 365.25
+    return nominal_amount / ((1 + discount_rate_pct / 100) ** years)
+
+
+def generate_flat_growth_series(start_age: int, start_date: date, end_age: int,
+                                 start_income: float, growth_rate_pct: float):
+    """Return one (age, date, private_annual) entry per whole age-year from
+    start_age to end_age (inclusive), income compounding at growth_rate_pct
+    percent per year from start_income in the first row."""
     rate = growth_rate_pct / 100
-    rows = []
-    state_pension_start_offset = None
+    series = []
     for offset, age in enumerate(range(start_age, end_age + 1)):
         row_date = add_years_months(start_date, offset, 0)
         private_annual = start_income * ((1 + rate) ** offset)
+        series.append({"age": age, "date": row_date, "private_annual": private_annual})
+    return series
+
+
+def generate_dc_drawdown_series(start_age: int, start_date: date, end_age: int,
+                                 pot_value: float, drawdown_rate_pct: float,
+                                 pot_growth_rate_pct: float):
+    """Return one (age, date, private_annual, pot_start) entry per whole
+    age-year from start_age to end_age (inclusive). Each year, drawdown_rate_pct
+    percent of the pot's current balance is withdrawn as income; the
+    remaining balance then grows at pot_growth_rate_pct percent for the
+    year, becoming the following year's opening balance."""
+    drawdown_rate = drawdown_rate_pct / 100
+    growth_rate = pot_growth_rate_pct / 100
+    series = []
+    pot = pot_value
+    for offset, age in enumerate(range(start_age, end_age + 1)):
+        row_date = add_years_months(start_date, offset, 0)
+        withdrawal = pot * drawdown_rate
+        series.append({
+            "age": age, "date": row_date,
+            "private_annual": withdrawal, "pot_start": pot,
+        })
+        pot = (pot - withdrawal) * (1 + growth_rate)
+    return series
+
+
+def _build_income_rows(series: list, spa_date: date, state_pension_weekly: float,
+                        state_pension_growth_rate_pct: float, today: date,
+                        discount_rate_pct: float):
+    """Layer the State Pension (from spa_date onward) and present-value
+    discounting on top of a private-income series, producing the final rows
+    used by print_income_table."""
+    sp_rate = state_pension_growth_rate_pct / 100
+    state_pension_start_offset = None
+    rows = []
+    for offset, entry in enumerate(series):
+        row_date = entry["date"]
+        private_annual = entry["private_annual"]
 
         state_annual = 0.0
         if spa_date is not None and row_date >= spa_date:
             if state_pension_start_offset is None:
                 state_pension_start_offset = offset
             state_annual = (state_pension_weekly * 52) * (
-                (1 + rate) ** (offset - state_pension_start_offset)
+                (1 + sp_rate) ** (offset - state_pension_start_offset)
             )
 
         total_annual = private_annual + state_annual
-        rows.append({
-            "age": age,
+        row = {
+            "age": entry["age"],
             "date": row_date,
             "private_annual": private_annual,
             "state_annual": state_annual,
             "annual": total_annual,
             "monthly": total_annual / 12,
             "weekly": total_annual / 52,
-        })
+            "present_annual": discount_to_present(total_annual, row_date, today, discount_rate_pct),
+        }
+        if "pot_start" in entry:
+            row["pot_start"] = entry["pot_start"]
+        rows.append(row)
     return rows
 
 
-def print_income_table(label: str, rows: list, start_income: float,
-                        growth_rate_pct: float, state_pension_weekly: float = 0.0):
+def generate_income_table(start_age: int, start_date: date, end_age: int,
+                           start_income: float, growth_rate_pct: float,
+                           spa_date: date = None, state_pension_weekly: float = 0.0,
+                           state_pension_growth_rate_pct: float = TRIPLE_LOCK_ASSUMED_RATE,
+                           today: date = None, discount_rate_pct: float = DISCOUNT_RATE_DEFAULT):
+    """Return one row per whole age-year from start_age to end_age
+    (inclusive), for a private pension income that starts at start_income
+    and compounds at growth_rate_pct percent per year. See
+    _build_income_rows for the State Pension / present-value layering.
+    Returns [] if start_age is already past end_age (e.g. private pension
+    access age is beyond average life expectancy)."""
+    series = generate_flat_growth_series(start_age, start_date, end_age,
+                                          start_income, growth_rate_pct)
+    return _build_income_rows(series, spa_date, state_pension_weekly,
+                               state_pension_growth_rate_pct, today, discount_rate_pct)
+
+
+def generate_dc_drawdown_table(start_age: int, start_date: date, end_age: int,
+                                pot_value: float, drawdown_rate_pct: float,
+                                pot_growth_rate_pct: float,
+                                spa_date: date = None, state_pension_weekly: float = 0.0,
+                                state_pension_growth_rate_pct: float = TRIPLE_LOCK_ASSUMED_RATE,
+                                today: date = None, discount_rate_pct: float = DISCOUNT_RATE_DEFAULT):
+    """Return one row per whole age-year from start_age to end_age
+    (inclusive), for income drawn from a DC pension pot: each year withdraws
+    drawdown_rate_pct percent of the pot's current balance, and the
+    remaining balance grows at pot_growth_rate_pct percent. See
+    _build_income_rows for the State Pension / present-value layering."""
+    series = generate_dc_drawdown_series(start_age, start_date, end_age,
+                                          pot_value, drawdown_rate_pct, pot_growth_rate_pct)
+    return _build_income_rows(series, spa_date, state_pension_weekly,
+                               state_pension_growth_rate_pct, today, discount_rate_pct)
+
+
+def build_flat_assumption_lines(start_income, growth_rate_pct, state_pension_weekly,
+                                 state_pension_growth_rate_pct, discount_rate_pct, today):
+    return [
+        f"Starting private pension income: £{start_income:,.2f}/year, "
+        f"growing at {growth_rate_pct:.1f}% per year",
+        f"State Pension added from SPA: £{state_pension_weekly:,.2f}/week "
+        f"(£{state_pension_weekly * 52:,.2f}/year), growing at "
+        f"{state_pension_growth_rate_pct:.1f}% per year (assumed triple lock)",
+        f"Present values discounted at {discount_rate_pct:.1f}% per year "
+        f"(assumed inflation) back to today ({today.isoformat()})",
+    ]
+
+
+def build_dc_assumption_lines(pot_value, drawdown_rate_pct, pot_growth_rate_pct,
+                               state_pension_weekly, state_pension_growth_rate_pct,
+                               discount_rate_pct, today):
+    return [
+        f"DC pension pot: £{pot_value:,.2f} starting value, "
+        f"{drawdown_rate_pct:.1f}% annual drawdown, {pot_growth_rate_pct:.1f}% "
+        f"assumed pot growth",
+        f"State Pension added from SPA: £{state_pension_weekly:,.2f}/week "
+        f"(£{state_pension_weekly * 52:,.2f}/year), growing at "
+        f"{state_pension_growth_rate_pct:.1f}% per year (assumed triple lock)",
+        f"Present values discounted at {discount_rate_pct:.1f}% per year "
+        f"(assumed inflation) back to today ({today.isoformat()})",
+    ]
+
+
+def print_income_table(label: str, rows: list, assumption_lines: list):
     print()
     if not rows:
         print(f"{label}: private pension access age is already at or beyond "
               f"average life expectancy - no income projection generated.")
         return
     print(f"{label} projected pension income")
-    print(f"  Starting private pension income: £{start_income:,.2f}/year, "
-          f"growing at {growth_rate_pct:.1f}% per year")
-    print(f"  State Pension added from SPA: £{state_pension_weekly:,.2f}/week "
-          f"(£{state_pension_weekly * 52:,.2f}/year), same growth rate")
-    print(f"  {'Age':>4}  {'Year':<12}{'Private (£/yr)':>16}{'State (£/yr)':>15}"
-          f"{'Weekly (£)':>14}{'Monthly (£)':>15}{'Total (£/yr)':>15}")
-    for row in rows:
-        print(f"  {row['age']:>4}  {row['date'].isoformat():<12}"
-              f"{row['private_annual']:>16,.2f}{row['state_annual']:>15,.2f}"
-              f"{row['weekly']:>14,.2f}{row['monthly']:>15,.2f}"
-              f"{row['annual']:>15,.2f}")
+    for line in assumption_lines:
+        print(f"  {line}")
+
+    has_pot = "pot_start" in rows[0]
+    if has_pot:
+        print(f"  {'Age':>4}  {'Year':<12}{'Pot Start (£)':>16}{'Drawdown (£/yr)':>17}"
+              f"{'State (£/yr)':>15}{'Weekly (£)':>13}{'Monthly (£)':>14}"
+              f"{'Future (£/yr)':>15}{'Present (£/yr)':>16}")
+        for row in rows:
+            print(f"  {row['age']:>4}  {row['date'].isoformat():<12}"
+                  f"{row['pot_start']:>16,.2f}{row['private_annual']:>17,.2f}"
+                  f"{row['state_annual']:>15,.2f}{row['weekly']:>13,.2f}"
+                  f"{row['monthly']:>14,.2f}{row['annual']:>15,.2f}"
+                  f"{row['present_annual']:>16,.2f}")
+    else:
+        print(f"  {'Age':>4}  {'Year':<12}{'Private (£/yr)':>16}{'State (£/yr)':>15}"
+              f"{'Weekly (£)':>13}{'Monthly (£)':>14}{'Future (£/yr)':>15}"
+              f"{'Present (£/yr)':>16}")
+        for row in rows:
+            print(f"  {row['age']:>4}  {row['date'].isoformat():<12}"
+                  f"{row['private_annual']:>16,.2f}{row['state_annual']:>15,.2f}"
+                  f"{row['weekly']:>13,.2f}{row['monthly']:>14,.2f}"
+                  f"{row['annual']:>15,.2f}{row['present_annual']:>16,.2f}")
 
 
 def parse_date(value: str) -> date:
@@ -352,7 +489,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Your starting annual private pension income at SIPP/NMPA "
              "access age, e.g. 24000. If given, prints a year-by-year "
              "income projection (weekly/monthly/annual) growing at "
-             "--income-growth-rate up to your average UK life expectancy.",
+             "--income-growth-rate up to your average UK life expectancy. "
+             "Ignored if --pension-pot is given.",
     )
     parser.add_argument(
         "--income-growth-rate", type=float, default=2.0,
@@ -360,9 +498,26 @@ def build_parser() -> argparse.ArgumentParser:
              "(default: 2.0).",
     )
     parser.add_argument(
+        "--pension-pot", type=float,
+        help="Your DC (defined contribution) pension pot starting value, "
+             "e.g. 1000000. If given, income is modelled as a percentage "
+             "drawdown of this pot each year (--drawdown-rate) instead of "
+             "a flat growing income, and takes priority over --income.",
+    )
+    parser.add_argument(
+        "--drawdown-rate", type=float, default=4.0,
+        help="Percentage of the pot's current balance withdrawn as income "
+             "each year (default: 4.0).",
+    )
+    parser.add_argument(
+        "--pot-growth-rate", type=float, default=6.0,
+        help="Assumed annual investment growth rate of the pot's remaining "
+             "balance, as a percentage (default: 6.0).",
+    )
+    parser.add_argument(
         "--spouse-income", type=float,
         help="Spouse/partner's starting annual private pension income. "
-             "Requires --spouse-dob.",
+             "Requires --spouse-dob. Ignored if --spouse-pension-pot is given.",
     )
     parser.add_argument(
         "--spouse-income-growth-rate", type=float, default=2.0,
@@ -370,11 +525,38 @@ def build_parser() -> argparse.ArgumentParser:
              "percentage (default: 2.0).",
     )
     parser.add_argument(
+        "--spouse-pension-pot", type=float,
+        help="Spouse/partner's DC pension pot starting value. If given, "
+             "takes priority over --spouse-income.",
+    )
+    parser.add_argument(
+        "--spouse-drawdown-rate", type=float, default=4.0,
+        help="Spouse/partner's percentage of pot balance withdrawn each "
+             "year (default: 4.0).",
+    )
+    parser.add_argument(
+        "--spouse-pot-growth-rate", type=float, default=6.0,
+        help="Spouse/partner's assumed annual pot investment growth rate "
+             "as a percentage (default: 6.0).",
+    )
+    parser.add_argument(
         "--state-pension-weekly", type=float, default=STATE_PENSION_WEEKLY_DEFAULT,
         help="Full new State Pension weekly rate, added to the income table "
              f"from SPA age onward (default: £{STATE_PENSION_WEEKLY_DEFAULT:.2f}, "
              "the 2025/26 rate - override if a newer rate applies). Applies "
              "to both people.",
+    )
+    parser.add_argument(
+        "--state-pension-growth-rate", type=float, default=TRIPLE_LOCK_ASSUMED_RATE,
+        help="Assumed annual State Pension growth rate as a percentage, "
+             f"representing the triple lock (default: {TRIPLE_LOCK_ASSUMED_RATE}, "
+             "its legislated minimum - actual rises may be higher).",
+    )
+    parser.add_argument(
+        "--discount-rate", type=float, default=DISCOUNT_RATE_DEFAULT,
+        help="Assumed annual inflation rate as a percentage, used to convert "
+             f"future income into present-day purchasing power (default: "
+             f"{DISCOUNT_RATE_DEFAULT}).",
     )
     return parser
 
@@ -449,6 +631,39 @@ def report_spa(label: str, dob: date, sex: str, today: date, seen_terms: set) ->
     )
 
 
+def handle_income_table(label: str, summary: "PersonSummary", income, growth_rate,
+                         pension_pot, drawdown_rate, pot_growth_rate,
+                         state_pension_weekly, state_pension_growth_rate,
+                         discount_rate, today: date):
+    """Generate and print the income projection table for one person, using
+    the DC pot drawdown model if pension_pot is given, else the flat-growth
+    --income model. Does nothing if neither is given."""
+    if pension_pot is not None:
+        rows = generate_dc_drawdown_table(
+            summary.nmpa_age, summary.nmpa_date, summary.life_expectancy_age,
+            pension_pot, drawdown_rate, pot_growth_rate,
+            summary.spa_date, state_pension_weekly, state_pension_growth_rate,
+            today, discount_rate,
+        )
+        lines = build_dc_assumption_lines(
+            pension_pot, drawdown_rate, pot_growth_rate,
+            state_pension_weekly, state_pension_growth_rate, discount_rate, today,
+        )
+        print_income_table(label, rows, lines)
+    elif income is not None:
+        rows = generate_income_table(
+            summary.nmpa_age, summary.nmpa_date, summary.life_expectancy_age,
+            income, growth_rate,
+            summary.spa_date, state_pension_weekly, state_pension_growth_rate,
+            today, discount_rate,
+        )
+        lines = build_flat_assumption_lines(
+            income, growth_rate, state_pension_weekly,
+            state_pension_growth_rate, discount_rate, today,
+        )
+        print_income_table(label, rows, lines)
+
+
 def main():
     parser = build_parser()
     args = parser.parse_args()
@@ -477,28 +692,22 @@ def main():
     seen_terms = set()
     your_summary = report_spa("You", dob, sex, today, seen_terms)
 
-    if args.income is not None:
-        your_rows = generate_income_table(
-            your_summary.nmpa_age, your_summary.nmpa_date,
-            your_summary.life_expectancy_age,
-            args.income, args.income_growth_rate,
-            your_summary.spa_date, args.state_pension_weekly,
-        )
-        print_income_table("You", your_rows, args.income, args.income_growth_rate,
-                            args.state_pension_weekly)
+    handle_income_table(
+        "You", your_summary, args.income, args.income_growth_rate,
+        args.pension_pot, args.drawdown_rate, args.pot_growth_rate,
+        args.state_pension_weekly, args.state_pension_growth_rate,
+        args.discount_rate, today,
+    )
 
     if spouse_dob is not None:
         spouse_summary = report_spa("Your spouse", spouse_dob, spouse_sex, today, seen_terms)
 
-        if args.spouse_income is not None:
-            spouse_rows = generate_income_table(
-                spouse_summary.nmpa_age, spouse_summary.nmpa_date,
-                spouse_summary.life_expectancy_age,
-                args.spouse_income, args.spouse_income_growth_rate,
-                spouse_summary.spa_date, args.state_pension_weekly,
-            )
-            print_income_table("Your spouse", spouse_rows, args.spouse_income,
-                                args.spouse_income_growth_rate, args.state_pension_weekly)
+        handle_income_table(
+            "Your spouse", spouse_summary, args.spouse_income, args.spouse_income_growth_rate,
+            args.spouse_pension_pot, args.spouse_drawdown_rate, args.spouse_pot_growth_rate,
+            args.state_pension_weekly, args.state_pension_growth_rate,
+            args.discount_rate, today,
+        )
 
         print()
         if your_summary.spa_date == spouse_summary.spa_date:

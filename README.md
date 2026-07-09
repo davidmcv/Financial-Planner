@@ -8,14 +8,25 @@ year-by-year projected pension income table.
 ```
 python3 pension_year.py --dob 1973-03-01 --sex M \
   --spouse-dob 1976-04-01 --spouse-sex F \
-  --income 24000 --spouse-income 18000
+  --pension-pot 1000000 --drawdown-rate 4 --pot-growth-rate 6 \
+  --spouse-income 18000
 ```
 
-`--income` / `--spouse-income` (starting annual private pension income) trigger a projected income
-table, from private pension access age up to average UK life expectancy, growing at
-`--income-growth-rate` / `--spouse-income-growth-rate` percent per year (default 2.0). From State
-Pension age onward, the full new State Pension is added on top (`--state-pension-weekly`, default
-the 2025/26 rate of £230.25/week - override if a newer rate applies).
+Private pension income can be modelled two ways, per person:
+- `--income`/`--spouse-income` (+ `--income-growth-rate`, default 2.0%): a flat starting income
+  compounding at a fixed rate each year.
+- `--pension-pot`/`--spouse-pension-pot` (+ `--drawdown-rate`, default 4.0%, and
+  `--pot-growth-rate`, default 6.0%): a DC pension pot, withdrawing a percentage of the current
+  balance each year, with the remainder growing at the assumed rate. Takes priority over `--income`
+  if both are given.
+
+From State Pension age onward, the full new State Pension is added on top
+(`--state-pension-weekly`, default the 2025/26 rate of £230.25/week), growing at an assumed "triple
+lock" rate (`--state-pension-growth-rate`, default 2.5% - the legislated minimum, since future
+CPI/earnings figures aren't known in advance).
+
+Each row also shows the present-day (inflation-adjusted) value of that year's income alongside its
+nominal future value, discounted at `--discount-rate` (default 2.5%).
 
 ## Tests
 
