@@ -26,11 +26,19 @@ lock" rate (`--state-pension-growth-rate`, default 2.5% - the legislated minimum
 CPI/earnings figures aren't known in advance).
 
 Each row also shows the present-day (inflation-adjusted) value of that year's income alongside its
-nominal future value, discounted at `--discount-rate` (default 2.5%).
+nominal future value (labelled PV and FV), discounted at `--discount-rate` (default 2.5%). Tables
+are formatted to fit in ~80 characters (an iPad screen without wrapping): money is rounded to the
+nearest pound, and dates are shown as just the calendar year.
 
 If both you and your spouse have an income projection (`--income`/`--pension-pot` and
 `--spouse-income`/`--spouse-pension-pot`), a combined household table is also printed, summing both
 incomes by calendar year (a year covered by only one person shows £0 for the other).
+
+If one of you used `--pension-pot` and reaches average life expectancy before the other, their
+remaining DC pension pot is assumed to transfer to the survivor as a lump sum from that point,
+boosting the survivor's income for their remaining years (drawn down at the survivor's own rate if
+they also have a pot, otherwise at the deceased's rate as a separate inherited sub-account). A flat
+`--income` stream has no pot balance, so nothing transfers if the deceased wasn't in pot mode.
 
 ## Tests
 

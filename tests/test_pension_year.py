@@ -337,6 +337,177 @@ class TestGenerateDcDrawdownTable(unittest.TestCase):
         self.assertEqual(rows, [])
 
 
+class TestDcDrawdownInjection(unittest.TestCase):
+    def test_no_injection_matches_plain_series(self):
+        plain = pw.generate_dc_drawdown_series(55, date(2028, 3, 1), 57, 1000000, 4.0, 6.0)
+        injected = pw.generate_dc_drawdown_series(
+            55, date(2028, 3, 1), 57, 1000000, 4.0, 6.0, injection_date=None)
+        self.assertEqual(plain, injected)
+
+    def test_injection_before_series_start_applies_to_first_row(self):
+        series = pw.generate_dc_drawdown_series(
+            55, date(2028, 3, 1), 55, 1000000, 4.0, 6.0,
+            injection_date=date(2020, 1, 1), injection_amount=500000,
+        )
+        self.assertAlmostEqual(series[0]["pot_start"], 1500000.0)
+        self.assertAlmostEqual(series[0]["private_annual"], 1500000.0 * 0.04)
+
+    def test_injection_mid_series_applies_from_matching_row_onward(self):
+        series = pw.generate_dc_drawdown_series(
+            55, date(2028, 3, 1), 58, 1000000, 4.0, 0.0,
+            injection_date=date(2030, 3, 1), injection_amount=200000,
+        )
+        by_age = {e["age"]: e for e in series}
+        # Age 56 (2029): before injection - pot unaffected.
+        self.assertLess(by_age[56]["pot_start"], 1000000.0)
+        # Age 57 (2030): injection date reached - pot jumps up by 200,000.
+        pot_before_injection_year = by_age[56]["pot_start"] - by_age[56]["private_annual"]
+        self.assertAlmostEqual(by_age[57]["pot_start"], pot_before_injection_year + 200000.0)
+
+    def test_injection_after_series_end_never_applied(self):
+        series = pw.generate_dc_drawdown_series(
+            55, date(2028, 3, 1), 56, 1000000, 4.0, 6.0,
+            injection_date=date(2099, 1, 1), injection_amount=500000,
+        )
+        self.assertAlmostEqual(series[-1]["pot_start"], 1017600.0)  # unaffected
+
+
+class TestRemainingDcPotAtEnd(unittest.TestCase):
+    def test_matches_final_series_pot_after_growth(self):
+        series = pw.generate_dc_drawdown_series(55, date(2028, 3, 1), 60, 1000000, 4.0, 6.0)
+        last = series[-1]
+        expected = (last["pot_start"] - last["private_annual"]) * 1.06
+        remaining = pw.remaining_dc_pot_at_end(55, date(2028, 3, 1), 60, 1000000, 4.0, 6.0)
+        self.assertAlmostEqual(remaining, expected)
+
+    def test_zero_pot_stays_zero(self):
+        remaining = pw.remaining_dc_pot_at_end(55, date(2028, 3, 1), 60, 0.0, 4.0, 6.0)
+        self.assertEqual(remaining, 0.0)
+
+
+class TestApplyInheritedPot(unittest.TestCase):
+    def test_no_inherited_income_returns_rows_unchanged(self):
+        rows = pw.generate_income_table(55, date(2028, 3, 1), 57, 10000, 0.0)
+        result = pw.apply_inherited_pot(rows, [], today=None, discount_rate_pct=2.5)
+        self.assertEqual(result, rows)
+
+    def test_inherited_income_added_only_to_matching_years(self):
+        rows = pw.generate_income_table(55, date(2028, 3, 1), 57, 10000, 0.0)
+        inherited = pw.generate_dc_drawdown_series(
+            55, date(2028, 3, 1), 57, 0.0, 4.0, 0.0,
+            injection_date=date(2029, 3, 1), injection_amount=100000,
+        )
+        result = pw.apply_inherited_pot(rows, inherited, today=None, discount_rate_pct=2.5)
+        by_age = {r["age"]: r for r in result}
+        self.assertEqual(by_age[55]["private_annual"], 10000.0)  # unaffected
+        self.assertAlmostEqual(by_age[56]["private_annual"], 10000.0 + 100000.0 * 0.04)
+        self.assertAlmostEqual(by_age[56]["annual"], by_age[56]["private_annual"])
+
+
+class TestApplyPensionTransfer(unittest.TestCase):
+    def make_summary(self, life_expectancy_date, nmpa_age=55, nmpa_date=date(2028, 3, 1),
+                      life_expectancy_age=78, spa_date=date(2040, 3, 1)):
+        return pw.PersonSummary(
+            spa_date=spa_date, nmpa_age=nmpa_age, nmpa_date=nmpa_date,
+            life_expectancy_age=life_expectancy_age,
+            life_expectancy_date=life_expectancy_date,
+        )
+
+    def test_no_transfer_when_life_expectancy_dates_equal(self):
+        summary = self.make_summary(date(2051, 3, 1))
+        your_rows = pw.generate_dc_drawdown_table(55, date(2028, 3, 1), 78, 1000000, 4.0, 6.0)
+        spouse_rows = pw.generate_income_table(55, date(2028, 3, 1), 78, 18000, 2.0)
+        result = pw.apply_pension_transfer(
+            summary, summary, your_rows, spouse_rows,
+            1000000, 4.0, 6.0, None, 4.0, 6.0,
+            230.25, 2.5, 2.5, date(2026, 1, 1),
+        )
+        self.assertEqual(result, (your_rows, spouse_rows, None))
+
+    def test_no_transfer_when_deceased_used_flat_income(self):
+        your_summary = self.make_summary(date(2051, 3, 1))
+        spouse_summary = self.make_summary(date(2058, 3, 1))
+        your_rows = pw.generate_income_table(55, date(2028, 3, 1), 78, 24000, 2.0)
+        spouse_rows = pw.generate_income_table(55, date(2028, 3, 1), 78, 18000, 2.0)
+        _, _, note = pw.apply_pension_transfer(
+            your_summary, spouse_summary, your_rows, spouse_rows,
+            None, 4.0, 6.0, None, 4.0, 6.0,
+            230.25, 2.5, 2.5, date(2026, 1, 1),
+        )
+        self.assertIsNone(note)
+
+    def test_earlier_life_expectancy_pot_transfers_to_survivor(self):
+        your_summary = self.make_summary(date(2051, 3, 1), life_expectancy_age=78)
+        spouse_summary = self.make_summary(date(2058, 4, 1), nmpa_date=date(2033, 4, 1),
+                                            life_expectancy_age=82)
+        your_rows = pw.generate_dc_drawdown_table(
+            55, date(2028, 3, 1), 78, 1000000, 4.0, 6.0,
+            your_summary.spa_date, 230.25, 2.5, date(2026, 1, 1), 2.5)
+        spouse_rows = pw.generate_income_table(
+            57, date(2033, 4, 1), 82, 18000, 2.0,
+            spouse_summary.spa_date, 230.25, 2.5, date(2026, 1, 1), 2.5)
+
+        new_your_rows, new_spouse_rows, note = pw.apply_pension_transfer(
+            your_summary, spouse_summary, your_rows, spouse_rows,
+            1000000, 4.0, 6.0, None, 4.0, 6.0,
+            230.25, 2.5, 2.5, date(2026, 1, 1),
+        )
+
+        self.assertIsNotNone(note)
+        self.assertIn("You reach average life expectancy first", note)
+        # The deceased's own rows are untouched.
+        self.assertEqual(new_your_rows, your_rows)
+        # The survivor's rows for years after the transfer gain extra income.
+        old_by_year = {r["date"].year: r for r in spouse_rows}
+        new_by_year = {r["date"].year: r for r in new_spouse_rows}
+        year_after_death = 2052
+        self.assertGreater(
+            new_by_year[year_after_death]["private_annual"],
+            old_by_year[year_after_death]["private_annual"],
+        )
+        # Years before the deceased's death are unaffected.
+        self.assertEqual(
+            new_by_year[2040]["private_annual"], old_by_year[2040]["private_annual"])
+
+    def test_survivor_with_own_pot_gets_merged_pot(self):
+        your_summary = self.make_summary(date(2051, 3, 1), life_expectancy_age=78)
+        spouse_summary = self.make_summary(date(2058, 4, 1), nmpa_date=date(2033, 4, 1),
+                                            life_expectancy_age=82)
+        your_rows = pw.generate_dc_drawdown_table(
+            55, date(2028, 3, 1), 78, 1000000, 4.0, 6.0,
+            your_summary.spa_date, 230.25, 2.5, date(2026, 1, 1), 2.5)
+        spouse_rows = pw.generate_dc_drawdown_table(
+            57, date(2033, 4, 1), 82, 500000, 4.0, 6.0,
+            spouse_summary.spa_date, 230.25, 2.5, date(2026, 1, 1), 2.5)
+
+        _, new_spouse_rows, note = pw.apply_pension_transfer(
+            your_summary, spouse_summary, your_rows, spouse_rows,
+            1000000, 4.0, 6.0, 500000, 4.0, 6.0,
+            230.25, 2.5, 2.5, date(2026, 1, 1),
+        )
+
+        self.assertIsNotNone(note)
+        # Result still has a pot column (survivor's own pot, boosted).
+        self.assertIn("pot_start", new_spouse_rows[0])
+        old_by_year = {r["date"].year: r for r in spouse_rows}
+        new_by_year = {r["date"].year: r for r in new_spouse_rows}
+        self.assertGreater(
+            new_by_year[2052]["pot_start"], old_by_year[2052]["pot_start"])
+
+    def test_no_transfer_when_remaining_pot_not_positive(self):
+        your_summary = self.make_summary(date(2051, 3, 1), life_expectancy_age=78)
+        spouse_summary = self.make_summary(date(2058, 4, 1), nmpa_date=date(2033, 4, 1),
+                                            life_expectancy_age=82)
+        your_rows = pw.generate_dc_drawdown_table(55, date(2028, 3, 1), 78, 100000, 100.0, 0.0)
+        spouse_rows = pw.generate_income_table(57, date(2033, 4, 1), 82, 18000, 2.0)
+        _, _, note = pw.apply_pension_transfer(
+            your_summary, spouse_summary, your_rows, spouse_rows,
+            100000, 100.0, 0.0, None, 4.0, 6.0,
+            230.25, 2.5, 2.5, date(2026, 1, 1),
+        )
+        self.assertIsNone(note)
+
+
 class TestPrintIncomeTable(unittest.TestCase):
     def test_empty_rows_prints_no_projection_message(self):
         buf = io.StringIO()
@@ -352,8 +523,8 @@ class TestPrintIncomeTable(unittest.TestCase):
         output = buf.getvalue()
         self.assertIn("You projected pension income", output)
         self.assertIn("Starting income: £24,000.00/year", output)
-        self.assertIn("2028-03-01", output)
-        self.assertIn("461.54", output)  # weekly = 24000/52
+        self.assertIn("2028", output)
+        self.assertIn("462", output)  # weekly = round(24000/52)
 
     def test_dc_drawdown_rows_show_pot_column(self):
         rows = pw.generate_dc_drawdown_table(55, date(2028, 3, 1), 55, 1000000, 4.0, 6.0)
@@ -361,8 +532,9 @@ class TestPrintIncomeTable(unittest.TestCase):
         with redirect_stdout(buf):
             pw.print_income_table("You", rows, ["DC pot: £1,000,000.00"])
         output = buf.getvalue()
-        self.assertIn("Pot Start (£)", output)
-        self.assertIn("1,000,000.00", output)
+        self.assertIn("Pot", output)
+        self.assertIn("Draw", output)
+        self.assertIn("1,000,000", output)
 
     def test_flat_growth_rows_have_no_pot_column(self):
         rows = pw.generate_income_table(55, date(2028, 3, 1), 55, 24000, 0.0)
@@ -370,7 +542,7 @@ class TestPrintIncomeTable(unittest.TestCase):
         with redirect_stdout(buf):
             pw.print_income_table("You", rows, ["Starting income: £24,000.00/year"])
         output = buf.getvalue()
-        self.assertNotIn("Pot Start (£)", output)
+        self.assertNotIn("Draw", output)
 
     def test_present_and_future_columns_both_shown(self):
         rows = pw.generate_income_table(
@@ -379,8 +551,16 @@ class TestPrintIncomeTable(unittest.TestCase):
         with redirect_stdout(buf):
             pw.print_income_table("You", rows, ["Starting income: £24,000.00/year"])
         output = buf.getvalue()
-        self.assertIn("Future (£/yr)", output)
-        self.assertIn("Present (£/yr)", output)
+        self.assertIn("FV", output)
+        self.assertIn("PV", output)
+
+    def test_table_rows_fit_within_80_characters(self):
+        rows = pw.generate_dc_drawdown_table(55, date(2028, 3, 1), 78, 1000000, 4.0, 6.0)
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            pw.print_income_table("You", rows, ["DC pot: £1,000,000.00"])
+        lines = [line for line in buf.getvalue().splitlines() if line.strip()]
+        self.assertTrue(all(len(line) <= 80 for line in lines))
 
 
 class TestCombineIncomeTables(unittest.TestCase):
@@ -441,10 +621,10 @@ class TestPrintCombinedIncomeTable(unittest.TestCase):
             pw.print_combined_income_table(combined)
         output = buf.getvalue()
         self.assertIn("Combined household projected pension income", output)
-        self.assertIn("You (£/yr)", output)
-        self.assertIn("Spouse (£/yr)", output)
+        self.assertIn("You", output)
+        self.assertIn("Spouse", output)
         self.assertIn("2028", output)
-        self.assertIn("15,000.00", output)  # combined future annual
+        self.assertIn("15,000", output)  # combined future annual
 
 
 class TestCli(unittest.TestCase):
@@ -480,20 +660,30 @@ class TestCli(unittest.TestCase):
         self.assertIn("You projected pension income", result.stdout)
         self.assertIn("Starting private pension income: £24,000.00/year, "
                        "growing at 2.0% per year", result.stdout)
-        self.assertIn("Future (£/yr)", result.stdout)
-        self.assertIn("Present (£/yr)", result.stdout)
-        # First row (age 55): state pension not yet due (£0), Future total
-        # equals the unchanged starting income. (Present-value figures are
-        # not asserted exactly since they depend on today's date.)
+        self.assertIn("FV = nominal future value", result.stdout)
+        # First row (age 55): state pension not yet due (£0), FV equals the
+        # unchanged starting income. (PV not asserted exactly - depends on
+        # today's date.)
         self.assertIn(
-            "55  2028-03-01         24,000.00           0.00       "
-            "461.54      2,000.00      24,000.00", result.stdout)
-        # SPA reached at age 67 (2040-03-01): State Pension added on top.
+            "55 2028   24,000       0     462   2,000    24,000", result.stdout)
+        # SPA reached at age 67 (2040): State Pension added on top.
         self.assertIn(
-            "67  2040-03-01         30,437.80      11,973.00       "
-            "815.59      3,534.23      42,410.80", result.stdout)
+            "67 2040   30,438  11,973     816   3,534    42,411", result.stdout)
         # Last row: age 78 (life expectancy).
-        self.assertIn("78  2051-03-01", result.stdout)
+        self.assertIn("78 2051", result.stdout)
+
+    def test_table_rows_fit_within_80_characters(self):
+        result = self.run_cli(
+            "--dob", "1973-03-01", "--sex", "M",
+            "--pension-pot", "1000000", "--income-growth-rate", "0",
+        )
+        self.assertEqual(result.returncode, 0)
+        table_lines = [
+            line for line in result.stdout.splitlines()
+            if line.strip() and line.strip().split()[0].isdigit()
+        ]
+        self.assertTrue(table_lines)
+        self.assertTrue(all(len(line) <= 80 for line in table_lines))
 
     def test_custom_growth_rate_is_applied(self):
         result = self.run_cli(
@@ -502,10 +692,10 @@ class TestCli(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0)
         self.assertIn("growing at 0.0% per year", result.stdout)
-        # Private income stays flat at £10,000.00 for all 24 rows (age
-        # 55-78); Future total also reads £10,000.00 for the 12 rows before
-        # SPA (age 55-66, no State Pension yet); plus one header occurrence.
-        self.assertEqual(result.stdout.count("10,000.00"), 24 + 12 + 1)
+        # Private column flat at 10,000 for all 24 rows (age 55-78); FV
+        # also reads 10,000 for the 12 pre-SPA rows (no State Pension yet,
+        # age 55-66); plus one header occurrence ("£10,000.00").
+        self.assertEqual(result.stdout.count("10,000"), 24 + 12 + 1)
 
     def test_state_pension_included_by_default(self):
         result = self.run_cli(
@@ -552,9 +742,10 @@ class TestCli(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertIn("DC pension pot: £1,000,000.00 starting value, 4.0% "
                        "annual drawdown, 6.0% assumed pot growth", result.stdout)
-        self.assertIn("Pot Start (£)", result.stdout)
+        self.assertIn("Pot", result.stdout)
+        self.assertIn("Draw", result.stdout)
         # First row: 4% of the £1,000,000 starting pot.
-        self.assertIn("1,000,000.00        40,000.00", result.stdout)
+        self.assertIn("1,000,000   40,000", result.stdout)
 
     def test_pension_pot_takes_priority_over_income(self):
         result = self.run_cli(
@@ -596,8 +787,7 @@ class TestCli(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0)
         self.assertIn("Combined household projected pension income", result.stdout)
-        self.assertIn("You (£/yr)", result.stdout)
-        self.assertIn("Spouse (£/yr)", result.stdout)
+        self.assertIn("Year      You   Spouse", result.stdout)
 
     def test_combined_table_omitted_when_only_one_has_income(self):
         result = self.run_cli(
