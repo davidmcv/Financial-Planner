@@ -4,6 +4,8 @@ UK State Pension age calculator.
 
 Calculates the date a UK resident reaches State Pension age (SPA) based on
 date of birth and, for people born before the rules were equalised, sex.
+Also reports the Normal Minimum Pension Age (NMPA) - the earliest age a
+SIPP or other private/personal pension can normally be accessed.
 
 State Pension age has been raised several times by different Acts of
 Parliament:
@@ -68,6 +70,23 @@ TRANSITION_WINDOWS = [
 
 def in_transition_window(dob: date) -> bool:
     return any(start <= dob <= end for start, end in TRANSITION_WINDOWS)
+
+
+# Normal Minimum Pension Age (NMPA): the earliest age most people can draw
+# a SIPP or other private/personal pension without ill-health early access.
+# Currently 55; Finance Act 2022 raises it to 57 from 6 April 2028. Anyone
+# who reaches 55 before that date keeps access from 55; everyone reaching
+# 55 on or after that date must wait until 57.
+NMPA_RISE_DATE = date(2028, 4, 6)
+
+
+def calculate_nmpa_access(dob: date):
+    """Return (age_years, access_date) for when a SIPP/personal pension can
+    normally be accessed, per the Finance Act 2022 55->57 rise."""
+    age_55_date = add_years_months(dob, 55, 0)
+    if age_55_date < NMPA_RISE_DATE:
+        return 55, age_55_date
+    return 57, add_years_months(dob, 57, 0)
 
 
 def calculate_spa_age(dob: date, sex: str):
@@ -236,6 +255,14 @@ def report_spa(label: str, dob: date, sex: str, today: date) -> date:
               "result is a close estimate based on the published "
               "legislation. Please confirm the exact date at:")
         print("  https://www.gov.uk/state-pension-age")
+
+    nmpa_age, nmpa_date = calculate_nmpa_access(dob)
+    print(f"SIPP/private pension:  can normally be accessed from age {nmpa_age}, "
+          f"on {nmpa_date.isoformat()}")
+    if nmpa_age == 57:
+        print("  (Normal Minimum Pension Age rises from 55 to 57 on 6 April "
+              "2028; some older scheme rules give a lower 'protected "
+              "pension age' - check with your provider.)")
 
     return spa_date
 
