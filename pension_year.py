@@ -108,11 +108,13 @@ def calculate_spa_age(dob: date, sex: str):
     if sex == "M" and dob < date(1953, 12, 6):
         return 65, 0
 
-    # --- Women born 1953-04-06 to 1955-04-05: accelerated by 2011 Act ---
-    if sex == "F" and date(1953, 4, 6) <= dob <= date(1955, 4, 5):
+    # --- Women born 1953-04-06 to 1954-10-05: accelerated by 2011 Act,
+    # converging with the men's 65->66 transition below at 1954-10-06 so
+    # both sexes land on the same unisex 66 plateau from that date. ---
+    if sex == "F" and date(1953, 4, 6) <= dob <= date(1954, 10, 5):
         return interpolate_months(
-            dob, date(1953, 4, 6), date(1955, 4, 6),
-            63, 0, 65, 0,
+            dob, date(1953, 4, 6), date(1954, 10, 6),
+            63, 0, 66, 0,
         )
 
     # --- Men born 1953-12-06 to 1954-10-05: 65 -> 66 ---
@@ -121,12 +123,6 @@ def calculate_spa_age(dob: date, sex: str):
             dob, date(1953, 12, 6), date(1954, 10, 6),
             65, 0, 66, 0,
         )
-
-    # --- Everyone born 1955-04-06 to 1954-10-05 gap-filler (women reaching
-    # 65 before the unisex 66 band kicks in): treat as flat 65/66 boundary ---
-    if sex == "F" and date(1955, 4, 6) <= dob <= date(1954, 10, 5):
-        # unreachable (kept for clarity of intent); real logic below covers it
-        pass
 
     # --- Unisex flat 66 plateau ---
     if date(1954, 10, 6) <= dob <= date(1960, 4, 5):
