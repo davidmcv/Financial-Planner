@@ -383,6 +383,70 @@ class TestPrintIncomeTable(unittest.TestCase):
         self.assertIn("Present (£/yr)", output)
 
 
+class TestCombineIncomeTables(unittest.TestCase):
+    def test_overlapping_years_sum_both_incomes(self):
+        rows_a = pw.generate_income_table(55, date(2028, 3, 1), 57, 10000, 0.0)
+        rows_b = pw.generate_income_table(55, date(2028, 4, 1), 57, 5000, 0.0)
+        combined = pw.combine_income_tables(rows_a, rows_b)
+        by_year = {r["year"]: r for r in combined}
+        self.assertEqual(by_year[2028]["your_annual"], 10000.0)
+        self.assertEqual(by_year[2028]["spouse_annual"], 5000.0)
+        self.assertEqual(by_year[2028]["annual"], 15000.0)
+
+    def test_non_overlapping_years_contribute_zero_for_absent_person(self):
+        rows_a = pw.generate_income_table(55, date(2028, 3, 1), 56, 10000, 0.0)
+        rows_b = pw.generate_income_table(60, date(2035, 3, 1), 61, 5000, 0.0)
+        combined = pw.combine_income_tables(rows_a, rows_b)
+        by_year = {r["year"]: r for r in combined}
+        self.assertEqual(by_year[2028]["your_annual"], 10000.0)
+        self.assertEqual(by_year[2028]["spouse_annual"], 0.0)
+        self.assertEqual(by_year[2035]["your_annual"], 0.0)
+        self.assertEqual(by_year[2035]["spouse_annual"], 5000.0)
+
+    def test_years_sorted_and_deduplicated(self):
+        rows_a = pw.generate_income_table(55, date(2028, 3, 1), 57, 10000, 0.0)
+        rows_b = pw.generate_income_table(56, date(2029, 3, 1), 58, 5000, 0.0)
+        combined = pw.combine_income_tables(rows_a, rows_b)
+        years = [r["year"] for r in combined]
+        self.assertEqual(years, sorted(set(years)))
+        self.assertEqual(years, [2028, 2029, 2030, 2031])
+
+    def test_present_values_summed_too(self):
+        rows_a = pw.generate_income_table(
+            55, date(2028, 3, 1), 55, 10000, 0.0, today=date(2026, 1, 1))
+        rows_b = pw.generate_income_table(
+            55, date(2028, 4, 1), 55, 5000, 0.0, today=date(2026, 1, 1))
+        combined = pw.combine_income_tables(rows_a, rows_b)
+        self.assertAlmostEqual(
+            combined[0]["present_annual"],
+            rows_a[0]["present_annual"] + rows_b[0]["present_annual"])
+
+    def test_empty_inputs_produce_empty_table(self):
+        self.assertEqual(pw.combine_income_tables([], []), [])
+
+
+class TestPrintCombinedIncomeTable(unittest.TestCase):
+    def test_empty_rows_prints_not_generated_message(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            pw.print_combined_income_table([])
+        self.assertIn("not generated", buf.getvalue())
+
+    def test_non_empty_rows_prints_header_and_values(self):
+        rows_a = pw.generate_income_table(55, date(2028, 3, 1), 55, 10000, 0.0)
+        rows_b = pw.generate_income_table(55, date(2028, 4, 1), 55, 5000, 0.0)
+        combined = pw.combine_income_tables(rows_a, rows_b)
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            pw.print_combined_income_table(combined)
+        output = buf.getvalue()
+        self.assertIn("Combined household projected pension income", output)
+        self.assertIn("You (£/yr)", output)
+        self.assertIn("Spouse (£/yr)", output)
+        self.assertIn("2028", output)
+        self.assertIn("15,000.00", output)  # combined future annual
+
+
 class TestCli(unittest.TestCase):
     def run_cli(self, *args, input_text=None):
         return subprocess.run(
@@ -523,6 +587,32 @@ class TestCli(unittest.TestCase):
         self.assertIn("Starting private pension income: £24,000.00/year",
                        result.stdout)
         self.assertIn("DC pension pot: £500,000.00 starting value", result.stdout)
+
+    def test_combined_table_shown_when_both_have_income(self):
+        result = self.run_cli(
+            "--dob", "1973-03-01", "--sex", "M", "--income", "24000",
+            "--spouse-dob", "1976-04-01", "--spouse-sex", "F",
+            "--spouse-income", "18000",
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("Combined household projected pension income", result.stdout)
+        self.assertIn("You (£/yr)", result.stdout)
+        self.assertIn("Spouse (£/yr)", result.stdout)
+
+    def test_combined_table_omitted_when_only_one_has_income(self):
+        result = self.run_cli(
+            "--dob", "1973-03-01", "--sex", "M", "--income", "24000",
+            "--spouse-dob", "1976-04-01", "--spouse-sex", "F",
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertNotIn("Combined household projected pension income", result.stdout)
+
+    def test_combined_table_omitted_without_spouse(self):
+        result = self.run_cli(
+            "--dob", "1973-03-01", "--sex", "M", "--income", "24000",
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertNotIn("Combined household projected pension income", result.stdout)
 
     def test_ons_acronym_expanded_once_across_both_people(self):
         result = self.run_cli(

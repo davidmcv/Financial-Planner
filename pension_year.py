@@ -426,6 +426,52 @@ def print_income_table(label: str, rows: list, assumption_lines: list):
                   f"{row['annual']:>15,.2f}{row['present_annual']:>16,.2f}")
 
 
+def combine_income_tables(rows_a: list, rows_b: list):
+    """Combine two people's income rows into a household-total table, keyed
+    by calendar year (each person's rows fall on one anniversary per year,
+    so their date's year is a safe, collision-free key). A year present for
+    only one person contributes £0 for the other."""
+    by_year_a = {r["date"].year: r for r in rows_a}
+    by_year_b = {r["date"].year: r for r in rows_b}
+    years = sorted(set(by_year_a) | set(by_year_b))
+
+    combined = []
+    for year in years:
+        ra = by_year_a.get(year)
+        rb = by_year_b.get(year)
+        your_annual = ra["annual"] if ra else 0.0
+        spouse_annual = rb["annual"] if rb else 0.0
+        your_present = ra["present_annual"] if ra else 0.0
+        spouse_present = rb["present_annual"] if rb else 0.0
+        total_annual = your_annual + spouse_annual
+        combined.append({
+            "year": year,
+            "your_annual": your_annual,
+            "spouse_annual": spouse_annual,
+            "annual": total_annual,
+            "monthly": total_annual / 12,
+            "weekly": total_annual / 52,
+            "present_annual": your_present + spouse_present,
+        })
+    return combined
+
+
+def print_combined_income_table(rows: list):
+    print()
+    if not rows:
+        print("Combined household income: not generated - both people need "
+              "an --income/--pension-pot projection for this to be shown.")
+        return
+    print("Combined household projected pension income")
+    print(f"  {'Year':>6}{'You (£/yr)':>14}{'Spouse (£/yr)':>16}{'Weekly (£)':>13}"
+          f"{'Monthly (£)':>14}{'Future (£/yr)':>15}{'Present (£/yr)':>16}")
+    for row in rows:
+        print(f"  {row['year']:>6}{row['your_annual']:>14,.2f}"
+              f"{row['spouse_annual']:>16,.2f}{row['weekly']:>13,.2f}"
+              f"{row['monthly']:>14,.2f}{row['annual']:>15,.2f}"
+              f"{row['present_annual']:>16,.2f}")
+
+
 def parse_date(value: str) -> date:
     try:
         return date.fromisoformat(value)
@@ -634,10 +680,11 @@ def report_spa(label: str, dob: date, sex: str, today: date, seen_terms: set) ->
 def handle_income_table(label: str, summary: "PersonSummary", income, growth_rate,
                          pension_pot, drawdown_rate, pot_growth_rate,
                          state_pension_weekly, state_pension_growth_rate,
-                         discount_rate, today: date):
+                         discount_rate, today: date) -> list:
     """Generate and print the income projection table for one person, using
     the DC pot drawdown model if pension_pot is given, else the flat-growth
-    --income model. Does nothing if neither is given."""
+    --income model. Returns the generated rows ([] if neither is given), so
+    callers can combine two people's rows into a household total."""
     if pension_pot is not None:
         rows = generate_dc_drawdown_table(
             summary.nmpa_age, summary.nmpa_date, summary.life_expectancy_age,
@@ -650,6 +697,7 @@ def handle_income_table(label: str, summary: "PersonSummary", income, growth_rat
             state_pension_weekly, state_pension_growth_rate, discount_rate, today,
         )
         print_income_table(label, rows, lines)
+        return rows
     elif income is not None:
         rows = generate_income_table(
             summary.nmpa_age, summary.nmpa_date, summary.life_expectancy_age,
@@ -662,6 +710,8 @@ def handle_income_table(label: str, summary: "PersonSummary", income, growth_rat
             state_pension_growth_rate, discount_rate, today,
         )
         print_income_table(label, rows, lines)
+        return rows
+    return []
 
 
 def main():
@@ -692,7 +742,7 @@ def main():
     seen_terms = set()
     your_summary = report_spa("You", dob, sex, today, seen_terms)
 
-    handle_income_table(
+    your_rows = handle_income_table(
         "You", your_summary, args.income, args.income_growth_rate,
         args.pension_pot, args.drawdown_rate, args.pot_growth_rate,
         args.state_pension_weekly, args.state_pension_growth_rate,
@@ -702,12 +752,15 @@ def main():
     if spouse_dob is not None:
         spouse_summary = report_spa("Your spouse", spouse_dob, spouse_sex, today, seen_terms)
 
-        handle_income_table(
+        spouse_rows = handle_income_table(
             "Your spouse", spouse_summary, args.spouse_income, args.spouse_income_growth_rate,
             args.spouse_pension_pot, args.spouse_drawdown_rate, args.spouse_pot_growth_rate,
             args.state_pension_weekly, args.state_pension_growth_rate,
             args.discount_rate, today,
         )
+
+        if your_rows and spouse_rows:
+            print_combined_income_table(combine_income_tables(your_rows, spouse_rows))
 
         print()
         if your_summary.spa_date == spouse_summary.spa_date:

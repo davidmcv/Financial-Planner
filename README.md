@@ -28,6 +28,10 @@ CPI/earnings figures aren't known in advance).
 Each row also shows the present-day (inflation-adjusted) value of that year's income alongside its
 nominal future value, discounted at `--discount-rate` (default 2.5%).
 
+If both you and your spouse have an income projection (`--income`/`--pension-pot` and
+`--spouse-income`/`--spouse-pension-pot`), a combined household table is also printed, summing both
+incomes by calendar year (a year covered by only one person shows £0 for the other).
+
 ## Tests
 
 Run the test suite (standard library `unittest`, no dependencies to install):
