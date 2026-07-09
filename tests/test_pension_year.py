@@ -250,6 +250,7 @@ class TestGenerateIncomeTable(unittest.TestCase):
         rows = pw.generate_income_table(
             65, date(2038, 3, 1), 68, 10000, 10.0,
             spa_date=date(2040, 3, 1), state_pension_weekly=100.0,
+            state_pension_growth_rate_pct=10.0,
         )
         by_age = {r["age"]: r for r in rows}
         # SPA reached at age 67: state pension starts there at 100*52,
@@ -259,43 +260,127 @@ class TestGenerateIncomeTable(unittest.TestCase):
         self.assertAlmostEqual(by_age[67]["state_annual"], 100.0 * 52)
         self.assertAlmostEqual(by_age[68]["state_annual"], 100.0 * 52 * 1.10)
 
+    def test_state_pension_defaults_to_triple_lock_assumed_rate(self):
+        rows = pw.generate_income_table(
+            65, date(2038, 3, 1), 66, 10000, 0.0,
+            spa_date=date(2038, 3, 1), state_pension_weekly=100.0,
+        )
+        by_age = {r["age"]: r for r in rows}
+        self.assertAlmostEqual(
+            by_age[66]["state_annual"],
+            100.0 * 52 * (1 + pw.TRIPLE_LOCK_ASSUMED_RATE / 100),
+        )
+
     def test_spa_date_before_start_date_includes_state_pension_from_row_one(self):
         rows = pw.generate_income_table(
             60, date(2033, 3, 1), 62, 10000, 0.0,
             spa_date=date(2020, 1, 1), state_pension_weekly=100.0,
+            state_pension_growth_rate_pct=0.0,
         )
         self.assertTrue(all(r["state_annual"] == 100.0 * 52 for r in rows))
+
+
+class TestDiscountToPresent(unittest.TestCase):
+    def test_no_today_returns_nominal_unchanged(self):
+        self.assertEqual(
+            pw.discount_to_present(1000.0, date(2030, 1, 1), None, 2.5), 1000.0)
+
+    def test_future_date_not_after_today_returns_nominal_unchanged(self):
+        self.assertEqual(
+            pw.discount_to_present(1000.0, date(2020, 1, 1), date(2026, 1, 1), 2.5),
+            1000.0)
+
+    def test_discounts_one_year_out(self):
+        # ~365 days ~ 1 year (uses a 365.25-day year), so this should land
+        # close to the standard 1000/1.10 one-year discount.
+        result = pw.discount_to_present(1000.0, date(2027, 1, 1), date(2026, 1, 1), 10.0)
+        self.assertAlmostEqual(result, 1000.0 / 1.10, delta=1.0)
+
+    def test_zero_discount_rate_leaves_amount_unchanged(self):
+        result = pw.discount_to_present(1000.0, date(2030, 1, 1), date(2026, 1, 1), 0.0)
+        self.assertAlmostEqual(result, 1000.0)
+
+
+class TestGenerateDcDrawdownTable(unittest.TestCase):
+    def test_first_row_withdraws_percentage_of_starting_pot(self):
+        rows = pw.generate_dc_drawdown_table(
+            55, date(2028, 3, 1), 55, 1000000, 4.0, 6.0)
+        self.assertAlmostEqual(rows[0]["private_annual"], 40000.0)
+        self.assertAlmostEqual(rows[0]["pot_start"], 1000000.0)
+
+    def test_pot_grows_net_of_withdrawal_and_growth(self):
+        rows = pw.generate_dc_drawdown_table(
+            55, date(2028, 3, 1), 56, 1000000, 4.0, 6.0)
+        # Year 1: withdraw 40,000 -> remaining 960,000 -> grows 6% -> 1,017,600.
+        self.assertAlmostEqual(rows[1]["pot_start"], 1017600.0)
+        self.assertAlmostEqual(rows[1]["private_annual"], 1017600.0 * 0.04)
+
+    def test_zero_growth_and_drawdown_keeps_pot_flat(self):
+        rows = pw.generate_dc_drawdown_table(
+            55, date(2028, 3, 1), 58, 500000, 0.0, 0.0)
+        self.assertTrue(all(r["pot_start"] == 500000.0 for r in rows))
+        self.assertTrue(all(r["private_annual"] == 0.0 for r in rows))
+
+    def test_state_pension_and_present_value_layered_on_top(self):
+        rows = pw.generate_dc_drawdown_table(
+            55, date(2028, 3, 1), 60, 1000000, 4.0, 6.0,
+            spa_date=date(2033, 3, 1), state_pension_weekly=100.0,
+            today=date(2028, 3, 1),
+        )
+        by_age = {r["age"]: r for r in rows}
+        self.assertEqual(by_age[59]["state_annual"], 0.0)
+        self.assertGreater(by_age[60]["state_annual"], 0.0)
+        self.assertLess(by_age[60]["present_annual"], by_age[60]["annual"])
+
+    def test_start_age_past_end_age_returns_empty_list(self):
+        rows = pw.generate_dc_drawdown_table(90, date(2020, 1, 1), 78, 1000000, 4.0, 6.0)
+        self.assertEqual(rows, [])
 
 
 class TestPrintIncomeTable(unittest.TestCase):
     def test_empty_rows_prints_no_projection_message(self):
         buf = io.StringIO()
         with redirect_stdout(buf):
-            pw.print_income_table("You", [], 10000, 2.0)
+            pw.print_income_table("You", [], ["some assumption"])
         self.assertIn("no income projection generated", buf.getvalue())
 
-    def test_non_empty_rows_prints_header_and_values(self):
+    def test_non_empty_rows_prints_header_assumptions_and_values(self):
         rows = pw.generate_income_table(55, date(2028, 3, 1), 56, 24000, 0.0)
         buf = io.StringIO()
         with redirect_stdout(buf):
-            pw.print_income_table("You", rows, 24000, 0.0)
+            pw.print_income_table("You", rows, ["Starting income: £24,000.00/year"])
         output = buf.getvalue()
         self.assertIn("You projected pension income", output)
-        self.assertIn("£24,000.00", output)
+        self.assertIn("Starting income: £24,000.00/year", output)
         self.assertIn("2028-03-01", output)
         self.assertIn("461.54", output)  # weekly = 24000/52
 
-    def test_state_pension_rate_shown_in_header(self):
+    def test_dc_drawdown_rows_show_pot_column(self):
+        rows = pw.generate_dc_drawdown_table(55, date(2028, 3, 1), 55, 1000000, 4.0, 6.0)
         buf = io.StringIO()
         with redirect_stdout(buf):
-            pw.print_income_table("You", [{
-                "age": 67, "date": date(2040, 3, 1), "private_annual": 30000.0,
-                "state_annual": 11973.0, "annual": 41973.0,
-                "monthly": 41973.0 / 12, "weekly": 41973.0 / 52,
-            }], 30000, 2.0, state_pension_weekly=230.25)
+            pw.print_income_table("You", rows, ["DC pot: £1,000,000.00"])
         output = buf.getvalue()
-        self.assertIn("£230.25/week", output)
-        self.assertIn("11,973.00", output)
+        self.assertIn("Pot Start (£)", output)
+        self.assertIn("1,000,000.00", output)
+
+    def test_flat_growth_rows_have_no_pot_column(self):
+        rows = pw.generate_income_table(55, date(2028, 3, 1), 55, 24000, 0.0)
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            pw.print_income_table("You", rows, ["Starting income: £24,000.00/year"])
+        output = buf.getvalue()
+        self.assertNotIn("Pot Start (£)", output)
+
+    def test_present_and_future_columns_both_shown(self):
+        rows = pw.generate_income_table(
+            55, date(2028, 3, 1), 55, 24000, 0.0, today=date(2026, 7, 9))
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            pw.print_income_table("You", rows, ["Starting income: £24,000.00/year"])
+        output = buf.getvalue()
+        self.assertIn("Future (£/yr)", output)
+        self.assertIn("Present (£/yr)", output)
 
 
 class TestCli(unittest.TestCase):
@@ -331,15 +416,18 @@ class TestCli(unittest.TestCase):
         self.assertIn("You projected pension income", result.stdout)
         self.assertIn("Starting private pension income: £24,000.00/year, "
                        "growing at 2.0% per year", result.stdout)
-        # First row (age 55): private=state pension not yet due (£0), total
-        # equals the unchanged starting income.
+        self.assertIn("Future (£/yr)", result.stdout)
+        self.assertIn("Present (£/yr)", result.stdout)
+        # First row (age 55): state pension not yet due (£0), Future total
+        # equals the unchanged starting income. (Present-value figures are
+        # not asserted exactly since they depend on today's date.)
         self.assertIn(
-            "55  2028-03-01         24,000.00           0.00        "
-            "461.54       2,000.00      24,000.00", result.stdout)
+            "55  2028-03-01         24,000.00           0.00       "
+            "461.54      2,000.00      24,000.00", result.stdout)
         # SPA reached at age 67 (2040-03-01): State Pension added on top.
         self.assertIn(
-            "67  2040-03-01         30,437.80      11,973.00        "
-            "815.59       3,534.23      42,410.80", result.stdout)
+            "67  2040-03-01         30,437.80      11,973.00       "
+            "815.59      3,534.23      42,410.80", result.stdout)
         # Last row: age 78 (life expectancy).
         self.assertIn("78  2051-03-01", result.stdout)
 
@@ -351,8 +439,8 @@ class TestCli(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertIn("growing at 0.0% per year", result.stdout)
         # Private income stays flat at £10,000.00 for all 24 rows (age
-        # 55-78); Total also reads £10,000.00 for the 12 rows before SPA
-        # (age 55-66, no State Pension yet); plus one header occurrence.
+        # 55-78); Future total also reads £10,000.00 for the 12 rows before
+        # SPA (age 55-66, no State Pension yet); plus one header occurrence.
         self.assertEqual(result.stdout.count("10,000.00"), 24 + 12 + 1)
 
     def test_state_pension_included_by_default(self):
@@ -361,7 +449,8 @@ class TestCli(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0)
         self.assertIn("State Pension added from SPA: £230.25/week "
-                       "(£11,973.00/year)", result.stdout)
+                       "(£11,973.00/year), growing at 2.5% per year "
+                       "(assumed triple lock)", result.stdout)
 
     def test_state_pension_weekly_override(self):
         result = self.run_cli(
@@ -371,6 +460,46 @@ class TestCli(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertIn("State Pension added from SPA: £300.00/week "
                        "(£15,600.00/year)", result.stdout)
+
+    def test_state_pension_growth_rate_override(self):
+        result = self.run_cli(
+            "--dob", "1973-03-01", "--sex", "M", "--income", "24000",
+            "--state-pension-growth-rate", "5",
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("growing at 5.0% per year (assumed triple lock)", result.stdout)
+
+    def test_discount_rate_shown_and_overridable(self):
+        result = self.run_cli(
+            "--dob", "1973-03-01", "--sex", "M", "--income", "24000",
+            "--discount-rate", "3.5",
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn(
+            f"Present values discounted at 3.5% per year (assumed inflation) "
+            f"back to today ({date.today().isoformat()})", result.stdout)
+
+    def test_pension_pot_triggers_dc_drawdown_table(self):
+        result = self.run_cli(
+            "--dob", "1973-03-01", "--sex", "M",
+            "--pension-pot", "1000000", "--drawdown-rate", "4",
+            "--pot-growth-rate", "6",
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("DC pension pot: £1,000,000.00 starting value, 4.0% "
+                       "annual drawdown, 6.0% assumed pot growth", result.stdout)
+        self.assertIn("Pot Start (£)", result.stdout)
+        # First row: 4% of the £1,000,000 starting pot.
+        self.assertIn("1,000,000.00        40,000.00", result.stdout)
+
+    def test_pension_pot_takes_priority_over_income(self):
+        result = self.run_cli(
+            "--dob", "1973-03-01", "--sex", "M",
+            "--income", "24000", "--pension-pot", "1000000",
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("DC pension pot", result.stdout)
+        self.assertNotIn("Starting private pension income", result.stdout)
 
     def test_spouse_income_only_shown_for_spouse(self):
         result = self.run_cli(
@@ -383,6 +512,17 @@ class TestCli(unittest.TestCase):
         self.assertIn("Your spouse projected pension income", result.stdout)
         self.assertIn("Starting private pension income: £18,000.00/year",
                        result.stdout)
+
+    def test_spouse_pension_pot_independent_of_your_mode(self):
+        result = self.run_cli(
+            "--dob", "1973-03-01", "--sex", "M", "--income", "24000",
+            "--spouse-dob", "1976-04-01", "--spouse-sex", "F",
+            "--spouse-pension-pot", "500000",
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("Starting private pension income: £24,000.00/year",
+                       result.stdout)
+        self.assertIn("DC pension pot: £500,000.00 starting value", result.stdout)
 
     def test_ons_acronym_expanded_once_across_both_people(self):
         result = self.run_cli(
