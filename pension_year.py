@@ -319,6 +319,26 @@ def remaining_dc_pot_at_end(start_age: int, start_date: date, end_age: int,
     return pot
 
 
+def accumulate_pension_pot(pot_value: float, today: date, nmpa_date: date,
+                            annual_contribution: float, growth_rate_pct: float) -> float:
+    """Grow a pot from today up to (but not past) nmpa_date, one year at a
+    time: each year, annual_contribution is added and the balance then
+    grows at growth_rate_pct percent. Models employer pension
+    contributions accumulating during a person's working years, before
+    drawdown begins at NMPA age. Returns pot_value unchanged if nmpa_date
+    is not after today (already past NMPA age)."""
+    growth_rate = growth_rate_pct / 100
+    pot = pot_value
+    offset = 1
+    while True:
+        year_end = add_years_months(today, offset, 0)
+        if year_end > nmpa_date:
+            break
+        pot = (pot + annual_contribution) * (1 + growth_rate)
+        offset += 1
+    return pot
+
+
 def _build_income_rows(series: list, spa_date: date, state_pension_weekly: float,
                         state_pension_growth_rate_pct: float, today: date,
                         discount_rate_pct: float):
@@ -447,18 +467,39 @@ def build_flat_assumption_lines(start_income, growth_rate_pct, state_pension_wee
 
 def build_dc_assumption_lines(pot_value, drawdown_rate_pct, pot_growth_rate_pct,
                                state_pension_weekly, state_pension_growth_rate_pct,
-                               discount_rate_pct, today):
-    return [
-        f"DC pension pot: £{pot_value:,.2f} starting value, "
-        f"{drawdown_rate_pct:.1f}% annual drawdown, {pot_growth_rate_pct:.1f}% "
-        f"assumed pot growth",
+                               discount_rate_pct, today,
+                               salary=None, employer_contribution_rate_pct=0.0,
+                               employer_contribution_amount=0.0, starting_pot=None):
+    lines = []
+    if salary is not None:
+        lines.append(
+            f"DC pension pot today: £{pot_value:,.2f}; employer contribution: "
+            f"{employer_contribution_rate_pct:.1f}% of £{salary:,.2f} salary = "
+            f"£{employer_contribution_amount:,.2f}/year, added until SIPP/NMPA "
+            f"access age"
+        )
+        lines.append(
+            f"Pot after contributions and {pot_growth_rate_pct:.1f}% growth to "
+            f"access age: £{starting_pot:,.2f}, then {drawdown_rate_pct:.1f}% "
+            f"annual drawdown"
+        )
+    else:
+        lines.append(
+            f"DC pension pot: £{pot_value:,.2f} starting value, "
+            f"{drawdown_rate_pct:.1f}% annual drawdown, {pot_growth_rate_pct:.1f}% "
+            f"assumed pot growth"
+        )
+    lines.append(
         f"State Pension added from SPA: £{state_pension_weekly:,.2f}/week "
         f"(£{state_pension_weekly * 52:,.2f}/year), growing at "
-        f"{state_pension_growth_rate_pct:.1f}% per year (assumed triple lock)",
+        f"{state_pension_growth_rate_pct:.1f}% per year (assumed triple lock)"
+    )
+    lines.append(
         f"Present values discounted at {discount_rate_pct:.1f}% per year "
-        f"(assumed inflation) back to today ({today.isoformat()})",
-        FV_PV_EXPLANATION,
-    ]
+        f"(assumed inflation) back to today ({today.isoformat()})"
+    )
+    lines.append(FV_PV_EXPLANATION)
+    return lines
 
 
 def print_income_table(label: str, rows: list, assumption_lines: list):
@@ -634,6 +675,21 @@ def parse_date(value: str) -> date:
         )
 
 
+SALARY_MAX = 1_000_000.0
+
+
+def parse_salary(value: str) -> float:
+    try:
+        salary = float(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"Invalid salary '{value}'. Must be a number.")
+    if not (0 <= salary <= SALARY_MAX):
+        raise argparse.ArgumentTypeError(
+            f"Salary must be between £0 and £{SALARY_MAX:,.0f} (got £{salary:,.2f})."
+        )
+    return salary
+
+
 def prompt_for_dob() -> date:
     while True:
         raw = input("Date of birth (YYYY-MM-DD): ").strip()
@@ -712,6 +768,21 @@ def build_parser() -> argparse.ArgumentParser:
         "--pot-growth-rate", type=float, default=6.0,
         help="Assumed annual investment growth rate of the pot's remaining "
              "balance, as a percentage (default: 6.0).",
+    )
+    parser.add_argument(
+        "--salary", type=parse_salary, default=100.0,
+        help="Your gross annual salary, £0 to £1,000,000 (default: 100.00 "
+             "- a nominal value that makes the employer contribution "
+             "negligible unless you set a real salary). Only used with "
+             "--pension-pot: the employer contribution (--salary x "
+             "--employer-contribution-rate) is added to your pot each year "
+             "until your SIPP/NMPA access age, growing at --pot-growth-rate "
+             "alongside it.",
+    )
+    parser.add_argument(
+        "--employer-contribution-rate", type=float, default=15.0,
+        help="Employer pension contribution as a percentage of --salary "
+             "(default: 15.0).",
     )
     parser.add_argument(
         "--spouse-income", type=float,
@@ -833,25 +904,47 @@ def report_spa(label: str, dob: date, sex: str, today: date, seen_terms: set) ->
 def generate_income_rows_and_lines(summary: "PersonSummary", income, growth_rate,
                                     pension_pot, drawdown_rate, pot_growth_rate,
                                     state_pension_weekly, state_pension_growth_rate,
-                                    discount_rate, today: date):
+                                    discount_rate, today: date,
+                                    salary: float = None, employer_contribution_rate: float = 0.0):
     """Generate one person's income rows and the assumption lines to print
     alongside them, using the DC pot drawdown model if pension_pot is
     given, else the flat-growth --income model. Returns ([], []) if
     neither is given. Generation is separate from printing so a possible
     pension transfer (see apply_pension_transfer) can adjust the rows
-    first."""
+    first.
+
+    If pension_pot and salary are both given, pension_pot is treated as
+    today's pot value, which is grown via employer contributions
+    (salary x employer_contribution_rate) and investment growth
+    (pot_growth_rate) until the person's NMPA access age, before that
+    grown value becomes the drawdown table's starting pot.
+
+    Returns (rows, lines, effective_pension_pot) - effective_pension_pot is
+    the pot value actually used as the drawdown table's starting balance
+    (post-accumulation if salary was given), for callers such as
+    apply_pension_transfer that need the pot's value at NMPA age rather
+    than its value today. It's None when pension_pot wasn't given."""
     if pension_pot is not None:
+        starting_pot = pension_pot
+        employer_contribution_amount = 0.0
+        if salary is not None:
+            employer_contribution_amount = salary * employer_contribution_rate / 100
+            starting_pot = accumulate_pension_pot(
+                pension_pot, today, summary.nmpa_date,
+                employer_contribution_amount, pot_growth_rate,
+            )
         rows = generate_dc_drawdown_table(
             summary.nmpa_age, summary.nmpa_date, summary.life_expectancy_age,
-            pension_pot, drawdown_rate, pot_growth_rate,
+            starting_pot, drawdown_rate, pot_growth_rate,
             summary.spa_date, state_pension_weekly, state_pension_growth_rate,
             today, discount_rate,
         )
         lines = build_dc_assumption_lines(
             pension_pot, drawdown_rate, pot_growth_rate,
             state_pension_weekly, state_pension_growth_rate, discount_rate, today,
+            salary, employer_contribution_rate, employer_contribution_amount, starting_pot,
         )
-        return rows, lines
+        return rows, lines, starting_pot
     elif income is not None:
         rows = generate_income_table(
             summary.nmpa_age, summary.nmpa_date, summary.life_expectancy_age,
@@ -863,8 +956,8 @@ def generate_income_rows_and_lines(summary: "PersonSummary", income, growth_rate
             income, growth_rate, state_pension_weekly,
             state_pension_growth_rate, discount_rate, today,
         )
-        return rows, lines
-    return [], []
+        return rows, lines, None
+    return [], [], None
 
 
 def main():
@@ -895,17 +988,18 @@ def main():
     seen_terms = set()
     your_summary = report_spa("You", dob, sex, today, seen_terms)
 
-    your_rows, your_lines = generate_income_rows_and_lines(
+    your_rows, your_lines, your_effective_pot = generate_income_rows_and_lines(
         your_summary, args.income, args.income_growth_rate,
         args.pension_pot, args.drawdown_rate, args.pot_growth_rate,
         args.state_pension_weekly, args.state_pension_growth_rate,
         args.discount_rate, today,
+        args.salary, args.employer_contribution_rate,
     )
 
     if spouse_dob is not None:
         spouse_summary = report_spa("Your spouse", spouse_dob, spouse_sex, today, seen_terms)
 
-        spouse_rows, spouse_lines = generate_income_rows_and_lines(
+        spouse_rows, spouse_lines, spouse_effective_pot = generate_income_rows_and_lines(
             spouse_summary, args.spouse_income, args.spouse_income_growth_rate,
             args.spouse_pension_pot, args.spouse_drawdown_rate, args.spouse_pot_growth_rate,
             args.state_pension_weekly, args.state_pension_growth_rate,
@@ -914,8 +1008,8 @@ def main():
 
         your_rows, spouse_rows, transfer_note = apply_pension_transfer(
             your_summary, spouse_summary, your_rows, spouse_rows,
-            args.pension_pot, args.drawdown_rate, args.pot_growth_rate,
-            args.spouse_pension_pot, args.spouse_drawdown_rate, args.spouse_pot_growth_rate,
+            your_effective_pot, args.drawdown_rate, args.pot_growth_rate,
+            spouse_effective_pot, args.spouse_drawdown_rate, args.spouse_pot_growth_rate,
             args.state_pension_weekly, args.state_pension_growth_rate,
             args.discount_rate, today,
         )

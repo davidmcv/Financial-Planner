@@ -4,6 +4,7 @@ test runner required - matches the script's own no-dependencies policy.
 Run with: python3 -m unittest discover -s tests -t .
 """
 
+import argparse
 import io
 import os
 import subprocess
@@ -385,6 +386,66 @@ class TestRemainingDcPotAtEnd(unittest.TestCase):
         self.assertEqual(remaining, 0.0)
 
 
+class TestAccumulatePensionPot(unittest.TestCase):
+    def test_nmpa_date_not_after_today_returns_pot_unchanged(self):
+        result = pw.accumulate_pension_pot(
+            1000000, today=date(2028, 3, 1), nmpa_date=date(2028, 3, 1),
+            annual_contribution=9000, growth_rate_pct=6.0)
+        self.assertEqual(result, 1000000)
+
+    def test_one_whole_year_adds_contribution_then_grows(self):
+        result = pw.accumulate_pension_pot(
+            1000000, today=date(2027, 3, 1), nmpa_date=date(2028, 3, 1),
+            annual_contribution=9000, growth_rate_pct=6.0)
+        self.assertAlmostEqual(result, (1000000 + 9000) * 1.06)
+
+    def test_multiple_years_compound(self):
+        one_year = pw.accumulate_pension_pot(
+            1000000, today=date(2027, 3, 1), nmpa_date=date(2028, 3, 1),
+            annual_contribution=9000, growth_rate_pct=6.0)
+        two_years = pw.accumulate_pension_pot(
+            1000000, today=date(2026, 3, 1), nmpa_date=date(2028, 3, 1),
+            annual_contribution=9000, growth_rate_pct=6.0)
+        self.assertAlmostEqual(two_years, (one_year + 9000) * 1.06)
+
+    def test_partial_final_year_not_counted(self):
+        # Only 11 months remain (2027-04-01 to 2028-03-01) - not a whole
+        # year, so no contribution/growth is applied for it.
+        result = pw.accumulate_pension_pot(
+            1000000, today=date(2027, 4, 1), nmpa_date=date(2028, 3, 1),
+            annual_contribution=9000, growth_rate_pct=6.0)
+        self.assertEqual(result, 1000000)
+
+    def test_zero_contribution_still_applies_growth(self):
+        result = pw.accumulate_pension_pot(
+            1000000, today=date(2027, 3, 1), nmpa_date=date(2028, 3, 1),
+            annual_contribution=0, growth_rate_pct=6.0)
+        self.assertAlmostEqual(result, 1000000 * 1.06)
+
+
+class TestParseSalary(unittest.TestCase):
+    def test_valid_salary_parsed_as_float(self):
+        self.assertEqual(pw.parse_salary("60000"), 60000.0)
+
+    def test_zero_is_allowed(self):
+        self.assertEqual(pw.parse_salary("0"), 0.0)
+
+    def test_max_is_allowed(self):
+        self.assertEqual(pw.parse_salary("1000000"), 1000000.0)
+
+    def test_above_max_is_rejected(self):
+        with self.assertRaises(argparse.ArgumentTypeError):
+            pw.parse_salary("1000001")
+
+    def test_negative_is_rejected(self):
+        with self.assertRaises(argparse.ArgumentTypeError):
+            pw.parse_salary("-1")
+
+    def test_non_numeric_is_rejected(self):
+        with self.assertRaises(argparse.ArgumentTypeError):
+            pw.parse_salary("not-a-number")
+
+
 class TestApplyInheritedPot(unittest.TestCase):
     def test_no_inherited_income_returns_rows_unchanged(self):
         rows = pw.generate_income_table(55, date(2028, 3, 1), 57, 10000, 0.0)
@@ -740,12 +801,17 @@ class TestCli(unittest.TestCase):
             "--pot-growth-rate", "6",
         )
         self.assertEqual(result.returncode, 0)
-        self.assertIn("DC pension pot: £1,000,000.00 starting value, 4.0% "
-                       "annual drawdown, 6.0% assumed pot growth", result.stdout)
+        # Default --salary (100) still runs the pot through the
+        # today-to-NMPA-age accumulation phase (negligible contribution,
+        # but real investment growth), so the table's opening pot is
+        # slightly above the raw --pension-pot value - see the assumption
+        # lines for the exact accumulated figure.
+        self.assertIn("DC pension pot today: £1,000,000.00; employer "
+                       "contribution: 15.0% of £100.00 salary", result.stdout)
+        self.assertIn("Pot after contributions and 6.0% growth to access "
+                       "age:", result.stdout)
         self.assertIn("Pot", result.stdout)
         self.assertIn("Draw", result.stdout)
-        # First row: 4% of the £1,000,000 starting pot.
-        self.assertIn("1,000,000   40,000", result.stdout)
 
     def test_pension_pot_takes_priority_over_income(self):
         result = self.run_cli(
@@ -755,6 +821,49 @@ class TestCli(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertIn("DC pension pot", result.stdout)
         self.assertNotIn("Starting private pension income", result.stdout)
+
+    def test_salary_shows_employer_contribution_amount_and_rate(self):
+        result = self.run_cli(
+            "--dob", "1973-03-01", "--sex", "M",
+            "--pension-pot", "1000000", "--salary", "60000",
+            "--employer-contribution-rate", "15",
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("employer contribution: 15.0% of £60,000.00 salary = "
+                       "£9,000.00/year", result.stdout)
+
+    def test_default_salary_has_negligible_contribution(self):
+        result = self.run_cli(
+            "--dob", "1973-03-01", "--sex", "M", "--pension-pot", "1000000",
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("£100.00 salary = £15.00/year", result.stdout)
+
+    def test_employer_contribution_rate_override(self):
+        result = self.run_cli(
+            "--dob", "1973-03-01", "--sex", "M",
+            "--pension-pot", "1000000", "--salary", "60000",
+            "--employer-contribution-rate", "10",
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("employer contribution: 10.0% of £60,000.00 salary = "
+                       "£6,000.00/year", result.stdout)
+
+    def test_salary_above_one_million_is_rejected(self):
+        result = self.run_cli(
+            "--dob", "1973-03-01", "--sex", "M",
+            "--pension-pot", "1000000", "--salary", "1000001",
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("Salary must be between", result.stderr)
+
+    def test_salary_ignored_without_pension_pot(self):
+        result = self.run_cli(
+            "--dob", "1973-03-01", "--sex", "M",
+            "--income", "24000", "--salary", "60000",
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertNotIn("employer contribution", result.stdout)
 
     def test_spouse_income_only_shown_for_spouse(self):
         result = self.run_cli(
