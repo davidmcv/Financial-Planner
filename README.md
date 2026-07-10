@@ -9,6 +9,7 @@ year-by-year projected pension income table.
 python3 pension_year.py --dob 1973-03-01 --sex M \
   --spouse-dob 1976-04-01 --spouse-sex F \
   --pension-pot 1000000 --drawdown-rate 4 --pot-growth-rate 6 \
+  --salary 60000 --employer-contribution-rate 15 \
   --spouse-income 18000
 ```
 
@@ -19,6 +20,13 @@ Private pension income can be modelled two ways, per person:
   `--pot-growth-rate`, default 6.0%): a DC pension pot, withdrawing a percentage of the current
   balance each year, with the remainder growing at the assumed rate. Takes priority over `--income`
   if both are given.
+
+For you (not your spouse), `--pension-pot` is treated as today's pot value: `--salary` (gross
+annual salary, £0-£1,000,000, default £100 - a nominal value that makes the contribution
+negligible unless you set a real salary) and `--employer-contribution-rate` (default 15.0%) combine
+into an annual employer contribution, added to the pot each year until your SIPP/NMPA access age,
+compounding alongside `--pot-growth-rate`. The assumption lines above your table show both the
+contribution rate and its £ amount, plus the grown pot value at access age.
 
 From State Pension age onward, the full new State Pension is added on top
 (`--state-pension-weekly`, default the 2025/26 rate of £230.25/week), growing at an assumed "triple
