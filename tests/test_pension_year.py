@@ -446,6 +446,112 @@ class TestParseSalary(unittest.TestCase):
             pw.parse_salary("not-a-number")
 
 
+class TestCalculateGiftingSummary(unittest.TestCase):
+    def test_zero_recipients_gives_zero_ceiling(self):
+        s = pw.calculate_gifting_summary(0, 0, 250.0, 3000.0, None, 50000, 0, None)
+        self.assertEqual(s["num_recipients"], 0)
+        self.assertEqual(s["small_gifts_total"], 0.0)
+        self.assertEqual(s["tax_free_ceiling"], 3000.0)  # annual exemption still applies
+
+    def test_small_gifts_total_uses_statutory_default_when_no_custom_rate(self):
+        s = pw.calculate_gifting_summary(2, 3, 250.0, 3000.0, None, 50000, 0, None)
+        self.assertEqual(s["num_recipients"], 5)
+        self.assertEqual(s["per_recipient_amount"], 250.0)
+        self.assertFalse(s["is_custom_rate"])
+        self.assertEqual(s["small_gifts_total"], 1250.0)
+        self.assertEqual(s["tax_free_ceiling"], 1250.0 + 3000.0)
+
+    def test_custom_gift_per_recipient_overrides_small_gift_amount(self):
+        s = pw.calculate_gifting_summary(3, 0, 250.0, 3000.0, 1000.0, 50000, 0, None)
+        self.assertTrue(s["is_custom_rate"])
+        self.assertEqual(s["per_recipient_amount"], 1000.0)
+        self.assertEqual(s["small_gifts_total"], 3000.0)
+        self.assertEqual(s["tax_free_ceiling"], 6000.0)
+
+    def test_recommended_gift_capped_by_surplus_when_surplus_is_lower(self):
+        s = pw.calculate_gifting_summary(2, 3, 250.0, 3000.0, None,
+                                          available_income=24000, essential_spending=40000,
+                                          planned_annual_gift=None)
+        self.assertEqual(s["surplus"], 0.0)
+        self.assertEqual(s["recommended_gift"], 0.0)
+
+    def test_recommended_gift_is_full_ceiling_when_surplus_is_ample(self):
+        s = pw.calculate_gifting_summary(2, 3, 250.0, 3000.0, None,
+                                          available_income=100000, essential_spending=20000,
+                                          planned_annual_gift=None)
+        self.assertEqual(s["surplus"], 80000.0)
+        self.assertEqual(s["recommended_gift"], s["tax_free_ceiling"])
+
+    def test_surplus_never_negative(self):
+        s = pw.calculate_gifting_summary(1, 0, 250.0, 3000.0, None,
+                                          available_income=10000, essential_spending=50000,
+                                          planned_annual_gift=None)
+        self.assertEqual(s["surplus"], 0.0)
+
+    def test_no_planned_gift_leaves_excess_none(self):
+        s = pw.calculate_gifting_summary(1, 0, 250.0, 3000.0, None, 50000, 0, None)
+        self.assertIsNone(s["excess_over_ceiling"])
+
+    def test_planned_gift_within_ceiling_has_zero_excess(self):
+        s = pw.calculate_gifting_summary(1, 0, 250.0, 3000.0, None, 50000, 0,
+                                          planned_annual_gift=2000.0)
+        self.assertEqual(s["excess_over_ceiling"], 0.0)
+
+    def test_planned_gift_over_ceiling_reports_exact_excess(self):
+        s = pw.calculate_gifting_summary(2, 3, 250.0, 3000.0, None, 50000, 0,
+                                          planned_annual_gift=6000.0)
+        self.assertEqual(s["tax_free_ceiling"], 4250.0)
+        self.assertEqual(s["excess_over_ceiling"], 1750.0)
+
+
+class TestPrintGiftingSummary(unittest.TestCase):
+    def test_zero_recipients_prints_nothing_to_show(self):
+        s = pw.calculate_gifting_summary(0, 0, 250.0, 3000.0, None, 50000, 0, None)
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            pw.print_gifting_summary(s)
+        self.assertIn("nothing to show", buf.getvalue())
+
+    def test_summary_shows_ceiling_breakdown(self):
+        s = pw.calculate_gifting_summary(2, 3, 250.0, 3000.0, None, 50000, 20000, None)
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            pw.print_gifting_summary(s)
+        output = buf.getvalue()
+        self.assertIn("Recipients: 5", output)
+        self.assertIn("Small gifts total: £1,250.00", output)
+        self.assertIn("Annual exemption (total pot, not per person): £3,000.00", output)
+        self.assertIn("Maximum tax-free gifts this year: £4,250.00", output)
+
+    def test_excess_flagged_as_pet_when_over_ceiling(self):
+        s = pw.calculate_gifting_summary(2, 3, 250.0, 3000.0, None, 50000, 0,
+                                          planned_annual_gift=6000.0)
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            pw.print_gifting_summary(s)
+        output = buf.getvalue()
+        self.assertIn("£1,750.00 OVER the tax-free ceiling", output)
+        self.assertIn("Potentially Exempt Transfer (PET)", output)
+
+    def test_no_excess_message_when_within_ceiling(self):
+        s = pw.calculate_gifting_summary(2, 3, 250.0, 3000.0, None, 50000, 0,
+                                          planned_annual_gift=2000.0)
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            pw.print_gifting_summary(s)
+        output = buf.getvalue()
+        self.assertIn("within the tax-free ceiling, no excess", output)
+        self.assertNotIn("OVER the tax-free ceiling", output)
+
+    def test_no_planned_gift_omits_plan_lines(self):
+        s = pw.calculate_gifting_summary(2, 3, 250.0, 3000.0, None, 50000, 0, None)
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            pw.print_gifting_summary(s)
+        output = buf.getvalue()
+        self.assertNotIn("You plan to gift", output)
+
+
 class TestApplyInheritedPot(unittest.TestCase):
     def test_no_inherited_income_returns_rows_unchanged(self):
         rows = pw.generate_income_table(55, date(2028, 3, 1), 57, 10000, 0.0)
@@ -864,6 +970,42 @@ class TestCli(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0)
         self.assertNotIn("employer contribution", result.stdout)
+
+    def test_gifting_summary_shown_with_recipients(self):
+        result = self.run_cli(
+            "--dob", "1973-03-01", "--sex", "M", "--income", "24000",
+            "--num-children", "2", "--num-grandchildren", "3",
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("Tax-free gifting to children/grandchildren (per year)", result.stdout)
+        self.assertIn("Recipients: 5", result.stdout)
+        self.assertIn("Maximum tax-free gifts this year: £4,250.00", result.stdout)
+
+    def test_gifting_summary_omitted_without_recipients(self):
+        result = self.run_cli("--dob", "1973-03-01", "--sex", "M", "--income", "24000")
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("no children or grandchildren given", result.stdout)
+
+    def test_gifting_custom_rate_and_planned_gift_excess(self):
+        result = self.run_cli(
+            "--dob", "1973-03-01", "--sex", "M", "--income", "24000",
+            "--num-children", "3", "--gift-per-recipient", "1000",
+            "--planned-annual-gift", "10000",
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("3 (£1,000.00 each - custom rate)", result.stdout)
+        self.assertIn("Maximum tax-free gifts this year: £6,000.00", result.stdout)
+        self.assertIn("£4,000.00 OVER the tax-free ceiling", result.stdout)
+        self.assertIn("Potentially Exempt Transfer (PET)", result.stdout)
+
+    def test_gifting_essential_spending_reduces_surplus(self):
+        result = self.run_cli(
+            "--dob", "1973-03-01", "--sex", "M", "--income", "24000",
+            "--num-children", "1", "--essential-spending", "23000",
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("surplus £1,000.00", result.stdout)
+        self.assertIn("capped by your surplus, below the tax-free ceiling", result.stdout)
 
     def test_spouse_income_only_shown_for_spouse(self):
         result = self.run_cli(

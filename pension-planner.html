@@ -328,6 +328,7 @@
       <button class="tab-btn" data-tab="salary"><span class="icon">&#163;</span>Salary &amp; Pot</button>
       <button class="tab-btn" data-tab="projection"><span class="icon">&#8599;</span>Projection</button>
       <button class="tab-btn" data-tab="household"><span class="icon">&#8962;</span>Household</button>
+      <button class="tab-btn" data-tab="gifting"><span class="icon">&#127873;</span>Gifting</button>
     </nav>
     <div class="rail-footer">
       <button class="settings-btn" id="openSettings"><span>&#9881;</span> Assumptions</button>
@@ -512,6 +513,66 @@
         <p>Both incomes summed by calendar year, including any pension pot that transfers between you on death.</p>
       </div>
       <div id="householdCards"></div>
+    </section>
+
+    <!-- GIFTING -->
+    <section class="panel" id="tab-gifting">
+      <div class="panel-head">
+        <h1>Tax-free gifting</h1>
+        <p>How much you can gift each year to children and grandchildren without Inheritance Tax implications, and a recommended amount based on your surplus income.</p>
+      </div>
+
+      <div class="card">
+        <h2>Recipients &amp; allowance</h2>
+        <div class="field-row">
+          <div class="field">
+            <label for="numChildren">Number of children</label>
+            <input type="number" id="numChildren" value="2" min="0" step="1">
+          </div>
+          <div class="field">
+            <label for="numGrandchildren">Number of grandchildren</label>
+            <input type="number" id="numGrandchildren" value="3" min="0" step="1">
+          </div>
+        </div>
+        <div class="divider" style="margin: 14px 0;"></div>
+        <div class="field-row">
+          <div class="field">
+            <label for="smallGiftAmount">Small gifts exemption, per person (&pound;)</label>
+            <input type="number" id="smallGiftAmount" value="250" min="0" step="10">
+            <span class="hint">UK statutory rate &mdash; any number of recipients</span>
+          </div>
+          <div class="field">
+            <label for="annualExemption">Annual exemption, total pot (&pound;)</label>
+            <input type="number" id="annualExemption" value="3000" min="0" step="100">
+            <span class="hint">One shared allowance, not per recipient</span>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="giftPerRecipient">Custom rate per recipient (&pound;, optional)</label>
+            <input type="number" id="giftPerRecipient" value="" min="0" step="10">
+            <span class="hint">Overrides the small gifts exemption above if set</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Your spend rate</h2>
+        <div class="field-row">
+          <div class="field">
+            <label for="essentialSpending">Your essential annual spending (&pound;)</label>
+            <input type="number" id="essentialSpending" value="30000" min="0" step="500">
+            <span class="hint">What's left over is your gifting surplus</span>
+          </div>
+          <div class="field">
+            <label for="plannedAnnualGift">What you actually plan to gift (&pound;/year, optional)</label>
+            <input type="number" id="plannedAnnualGift" value="" min="0" step="100">
+            <span class="hint">Checked against the tax-free ceiling below</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="giftingCards"></div>
     </section>
 
   </main>
@@ -907,6 +968,30 @@ function readInputs() {
     spWeekly: parseFloat(els("statePensionWeekly").value) || 0,
     spGrowth: parseFloat(els("statePensionGrowth").value) || 0,
     discount: parseFloat(els("discountRate").value) || 0,
+    numChildren: parseInt(els("numChildren").value, 10) || 0,
+    numGrandchildren: parseInt(els("numGrandchildren").value, 10) || 0,
+    smallGiftAmount: parseFloat(els("smallGiftAmount").value) || 0,
+    annualExemption: parseFloat(els("annualExemption").value) || 0,
+    giftPerRecipient: els("giftPerRecipient").value === "" ? null : parseFloat(els("giftPerRecipient").value),
+    essentialSpending: parseFloat(els("essentialSpending").value) || 0,
+    plannedAnnualGift: els("plannedAnnualGift").value === "" ? null : parseFloat(els("plannedAnnualGift").value),
+  };
+}
+
+function calculateGiftingSummary(numChildren, numGrandchildren, smallGiftAmount, annualExemption,
+                                  giftPerRecipient, availableIncome, essentialSpending, plannedAnnualGift) {
+  const numRecipients = numChildren + numGrandchildren;
+  const perRecipientAmount = giftPerRecipient !== null ? giftPerRecipient : smallGiftAmount;
+  const smallGiftsTotal = perRecipientAmount * numRecipients;
+  const taxFreeCeiling = smallGiftsTotal + annualExemption;
+  const surplus = Math.max(0, availableIncome - essentialSpending);
+  const recommendedGift = Math.min(taxFreeCeiling, surplus);
+  const excessOverCeiling = plannedAnnualGift !== null ? Math.max(0, plannedAnnualGift - taxFreeCeiling) : null;
+  return {
+    numRecipients, perRecipientAmount, isCustomRate: giftPerRecipient !== null,
+    smallGiftsTotal, annualExemption, taxFreeCeiling,
+    availableIncome, essentialSpending, surplus, recommendedGift,
+    plannedAnnualGift, excessOverCeiling,
   };
 }
 
@@ -960,7 +1045,13 @@ function computeAll() {
     transferNote = transferResult.note;
   }
 
-  return { inp, today, you, spouse, yourRows, spouseRows, yourEffectivePot, yourContribution, transferNote };
+  const gifting = calculateGiftingSummary(
+    inp.numChildren, inp.numGrandchildren, inp.smallGiftAmount, inp.annualExemption,
+    inp.giftPerRecipient, yourRows.length ? yourRows[0].annual : 0,
+    inp.essentialSpending, inp.plannedAnnualGift
+  );
+
+  return { inp, today, you, spouse, yourRows, spouseRows, yourEffectivePot, yourContribution, transferNote, gifting };
 }
 
 /* ---------- render: People tab reacts via inputs directly, no render needed ---------- */
@@ -1083,6 +1174,79 @@ function renderHousehold(model) {
   els("householdCards").innerHTML = html;
 }
 
+function renderGifting(model) {
+  const g = model.gifting;
+  if (g.numRecipients === 0) {
+    els("giftingCards").innerHTML = `<div class="notice empty"><span class="icon">&#9432;</span>Add at least one child or grandchild above to see the tax-free gifting ceiling.</div>`;
+    return;
+  }
+  const rateLabel = g.isCustomRate
+    ? `custom rate of ${gbp2(g.perRecipientAmount)} each`
+    : `small gifts exemption of ${gbp2(g.perRecipientAmount)} each`;
+
+  let html = `
+    <div class="card">
+      <h2>Tax-free ceiling this year</h2>
+      <div class="stat-row">
+        <div class="stat">
+          <span class="label">Recipients</span>
+          <span class="value">${g.numRecipients}</span>
+          <span class="sub">${rateLabel}</span>
+        </div>
+        <div class="stat">
+          <span class="label">Small gifts total</span>
+          <span class="value">${gbp0(g.smallGiftsTotal)}</span>
+        </div>
+        <div class="stat">
+          <span class="label">Annual exemption</span>
+          <span class="value">${gbp0(g.annualExemption)}</span>
+          <span class="sub">total pot, not per person</span>
+        </div>
+        <div class="stat">
+          <span class="label">Maximum tax-free</span>
+          <span class="value">${gbp0(g.taxFreeCeiling)}</span>
+          <span class="sub">per year</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Recommended spend rate</h2>
+      <div class="stat-row">
+        <div class="stat">
+          <span class="label">Income this year</span>
+          <span class="value">${gbp0(g.availableIncome)}</span>
+        </div>
+        <div class="stat">
+          <span class="label">Essential spending</span>
+          <span class="value">${gbp0(g.essentialSpending)}</span>
+        </div>
+        <div class="stat">
+          <span class="label">Surplus</span>
+          <span class="value">${gbp0(g.surplus)}</span>
+        </div>
+        <div class="stat">
+          <span class="label">Recommended gift</span>
+          <span class="value">${gbp0(g.recommendedGift)}</span>
+          <span class="sub">${g.recommendedGift < g.taxFreeCeiling ? "capped by surplus" : "full tax-free ceiling"}</span>
+        </div>
+      </div>
+    </div>`;
+
+  if (g.plannedAnnualGift !== null) {
+    html += g.excessOverCeiling > 0
+      ? `<div class="notice"><span class="icon">&#9888;</span><span>You plan to gift ${gbp2(g.plannedAnnualGift)}/year &mdash;
+           <strong>${gbp2(g.excessOverCeiling)} OVER</strong> the tax-free ceiling. That excess is a
+           Potentially Exempt Transfer (PET): free of Inheritance Tax only if you survive 7 years
+           from the gift date.</span></div>`
+      : `<div class="notice info"><span class="icon">&#10003;</span><span>You plan to gift ${gbp2(g.plannedAnnualGift)}/year &mdash;
+           within the tax-free ceiling, no excess.</span></div>`;
+  }
+
+  html += `<p class="caption">Simplified planning estimate, not tax advice: assumes no unused prior-year carry-forward on the annual exemption, and that small gifts don't go to the same people who received a share of it.</p>`;
+  els("giftingCards").innerHTML = html;
+}
+
 function renderAll() {
   let model;
   try {
@@ -1095,6 +1259,7 @@ function renderAll() {
   renderSalary(model);
   renderProjection(model);
   renderHousehold(model);
+  renderGifting(model);
 }
 
 /* =========================================================================

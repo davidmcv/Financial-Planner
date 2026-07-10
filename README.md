@@ -56,6 +56,24 @@ boosting the survivor's income for their remaining years (drawn down at the surv
 they also have a pot, otherwise at the deceased's rate as a separate inherited sub-account). A flat
 `--income` stream has no pot balance, so nothing transfers if the deceased wasn't in pot mode.
 
+### Tax-free gifting
+
+`--num-children`/`--num-grandchildren` (default 0 each) print a tax-free gifting summary for you,
+combining two UK Inheritance Tax allowances:
+- `--small-gift-amount` (default £250): the "small gifts" exemption, per recipient, to any number
+  of people.
+- `--annual-exemption` (default £3,000): a single total pot for the year, **not** per recipient -
+  split it however you like across recipients.
+- `--gift-per-recipient`: overrides the small gifts exemption with a custom per-person figure, if
+  you want to plan around a different amount.
+
+The recommended gift is the tax-free ceiling capped by your surplus (your first year of private
+pension income minus `--essential-spending`, default £0). If you set `--planned-annual-gift`, it's
+checked against the ceiling and any excess is flagged clearly as a Potentially Exempt Transfer
+(PET) - only free of Inheritance Tax if you survive 7 years from the gift date. This is a
+simplified planning estimate, not tax advice: it assumes no unused prior-year carry-forward on the
+annual exemption, and that small gifts don't go to whoever received a share of it.
+
 ## Tests
 
 Run the test suite (standard library `unittest`, no dependencies to install):

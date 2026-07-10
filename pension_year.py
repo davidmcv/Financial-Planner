@@ -666,6 +666,97 @@ def print_combined_income_table(rows: list):
               f"{row['present_annual']:>9,.0f}")
 
 
+# UK Inheritance Tax gifting exemptions. Two allowances can normally be
+# combined, provided the £250 "small gift" doesn't go to someone who
+# already received part of the £3,000 "annual exemption" that tax year:
+#   - Small gifts exemption: up to £250/year to any number of individuals.
+#   - Annual exemption: £3,000/year total, split however you like across
+#     recipients (NOT £3,000 per person). Unused allowance can carry
+#     forward one year (not modelled here - this is a single-year figure).
+# Gifts above this combined ceiling are Potentially Exempt Transfers
+# (PETs): free of Inheritance Tax only if the giver survives 7 years.
+SMALL_GIFT_AMOUNT_DEFAULT = 250.0
+ANNUAL_EXEMPTION_DEFAULT = 3000.0
+
+
+def calculate_gifting_summary(num_children: int, num_grandchildren: int,
+                               small_gift_amount: float, annual_exemption: float,
+                               gift_per_recipient: float, available_income: float,
+                               essential_spending: float, planned_annual_gift: float):
+    """Compute the UK tax-free gifting ceiling for one person, a recommended
+    annual gift capped by surplus income, and (if planned_annual_gift is
+    given) how far a planned gift exceeds the tax-free ceiling.
+
+    Returns a dict with: num_recipients, per_recipient_amount,
+    small_gifts_total, annual_exemption, tax_free_ceiling, surplus,
+    recommended_gift, planned_annual_gift, excess_over_ceiling."""
+    num_recipients = num_children + num_grandchildren
+    per_recipient_amount = (
+        gift_per_recipient if gift_per_recipient is not None else small_gift_amount
+    )
+    small_gifts_total = per_recipient_amount * num_recipients
+    tax_free_ceiling = small_gifts_total + annual_exemption
+
+    surplus = max(0.0, available_income - essential_spending)
+    recommended_gift = min(tax_free_ceiling, surplus)
+
+    excess_over_ceiling = None
+    if planned_annual_gift is not None:
+        excess_over_ceiling = max(0.0, planned_annual_gift - tax_free_ceiling)
+
+    return {
+        "num_recipients": num_recipients,
+        "per_recipient_amount": per_recipient_amount,
+        "is_custom_rate": gift_per_recipient is not None,
+        "small_gifts_total": small_gifts_total,
+        "annual_exemption": annual_exemption,
+        "tax_free_ceiling": tax_free_ceiling,
+        "available_income": available_income,
+        "essential_spending": essential_spending,
+        "surplus": surplus,
+        "recommended_gift": recommended_gift,
+        "planned_annual_gift": planned_annual_gift,
+        "excess_over_ceiling": excess_over_ceiling,
+    }
+
+
+def print_gifting_summary(summary: dict):
+    print()
+    if summary["num_recipients"] == 0:
+        print("Tax-free gifting: no children or grandchildren given "
+              "(--num-children/--num-grandchildren) - nothing to show.")
+        return
+    print("Tax-free gifting to children/grandchildren (per year)")
+    print(f"  Recipients: {summary['num_recipients']} "
+          f"(£{summary['per_recipient_amount']:,.2f} each"
+          f"{' - custom rate' if summary['is_custom_rate'] else ' small gifts exemption'})")
+    print(f"  Small gifts total: £{summary['small_gifts_total']:,.2f}")
+    print(f"  Annual exemption (total pot, not per person): "
+          f"£{summary['annual_exemption']:,.2f}")
+    print(f"  Maximum tax-free gifts this year: £{summary['tax_free_ceiling']:,.2f}")
+    print(f"  Your income this year: £{summary['available_income']:,.2f}, "
+          f"less essential spending £{summary['essential_spending']:,.2f} "
+          f"= surplus £{summary['surplus']:,.2f}")
+    if summary["recommended_gift"] < summary["tax_free_ceiling"]:
+        print(f"  Recommended gift: £{summary['recommended_gift']:,.2f}/year "
+              f"(capped by your surplus, below the tax-free ceiling)")
+    else:
+        print(f"  Recommended gift: £{summary['recommended_gift']:,.2f}/year "
+              f"(the full tax-free ceiling - your surplus comfortably covers it)")
+    if summary["planned_annual_gift"] is not None:
+        excess = summary["excess_over_ceiling"]
+        if excess > 0:
+            print(f"  You plan to gift £{summary['planned_annual_gift']:,.2f}/year: "
+                  f"£{excess:,.2f} OVER the tax-free ceiling.")
+            print(f"    That excess is a Potentially Exempt Transfer (PET) - free of "
+                  f"Inheritance Tax only if you survive 7 years from the gift date.")
+        else:
+            print(f"  You plan to gift £{summary['planned_annual_gift']:,.2f}/year: "
+                  f"within the tax-free ceiling, no excess.")
+    print("  (Simplified planning estimate, not tax advice: assumes no unused prior-year "
+          "carry-forward, and that small gifts don't overlap annual-exemption recipients.)")
+
+
 def parse_date(value: str) -> date:
     try:
         return date.fromisoformat(value)
@@ -827,6 +918,40 @@ def build_parser() -> argparse.ArgumentParser:
         help="Assumed annual inflation rate as a percentage, used to convert "
              f"future income into present-day purchasing power (default: "
              f"{DISCOUNT_RATE_DEFAULT}).",
+    )
+    parser.add_argument(
+        "--num-children", type=int, default=0,
+        help="Number of children, for the tax-free gifting summary (default: 0).",
+    )
+    parser.add_argument(
+        "--num-grandchildren", type=int, default=0,
+        help="Number of grandchildren, for the tax-free gifting summary (default: 0).",
+    )
+    parser.add_argument(
+        "--small-gift-amount", type=float, default=SMALL_GIFT_AMOUNT_DEFAULT,
+        help="UK 'small gifts' exemption per recipient, per year (default: "
+             f"£{SMALL_GIFT_AMOUNT_DEFAULT:.2f}).",
+    )
+    parser.add_argument(
+        "--annual-exemption", type=float, default=ANNUAL_EXEMPTION_DEFAULT,
+        help="UK annual gift exemption - a single total pot for the year, "
+             f"not per recipient (default: £{ANNUAL_EXEMPTION_DEFAULT:.2f}).",
+    )
+    parser.add_argument(
+        "--gift-per-recipient", type=float, default=None,
+        help="Override --small-gift-amount with a custom tax-free amount per "
+             "child/grandchild, e.g. to plan around a different figure.",
+    )
+    parser.add_argument(
+        "--essential-spending", type=float, default=0.0,
+        help="Your own annual spending needs, used to work out the surplus "
+             "available for gifting from your first year of private pension "
+             "income (default: 0.0 - all income counted as surplus).",
+    )
+    parser.add_argument(
+        "--planned-annual-gift", type=float, default=None,
+        help="The amount you actually intend to gift per year in total, to "
+             "check against the tax-free ceiling and flag any excess.",
     )
     return parser
 
@@ -1034,6 +1159,14 @@ def main():
                   f"State Pension age later, by {gap_days} days.")
     else:
         print_income_table("You", your_rows, your_lines)
+
+    available_income = your_rows[0]["annual"] if your_rows else 0.0
+    gifting_summary = calculate_gifting_summary(
+        args.num_children, args.num_grandchildren,
+        args.small_gift_amount, args.annual_exemption, args.gift_per_recipient,
+        available_income, args.essential_spending, args.planned_annual_gift,
+    )
+    print_gifting_summary(gifting_summary)
 
 
 if __name__ == "__main__":
