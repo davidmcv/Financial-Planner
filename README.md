@@ -6,10 +6,16 @@ year-by-year projected pension income table.
 ## Web app
 
 `pension-planner.html` is a self-contained interactive version - open it directly in a browser
-(no server, no build step, no dependencies). It's split into five tabs (People, Pension Age,
-Salary & Pot, Projection, Household) instead of one dense wall of numbers, with live recalculation
-as you edit fields. The calculation logic mirrors `pension_year.py` exactly - see the `<script>` in
-the file for the JS port.
+(no server, no build step, no dependencies). It's split into six tabs (People, Pension Age,
+Salary & Pot, Projection, Household, Gifting) instead of one dense wall of numbers, with live
+recalculation as you edit fields. The calculation logic mirrors `pension_year.py` exactly - see the
+`<script>` in the file for the JS port.
+
+A "Profile" picker in the sidebar saves your inputs to the browser's local storage under a name you
+choose (e.g. "David & wife"), so you can switch between saved scenarios later. This is local-only,
+not a real login - there's no way to do genuine Google/Apple sign-in inside a static, dependency-free
+page without a hosted domain and registered OAuth credentials, so anyone with access to the browser
+can open any saved profile.
 
 ## Usage
 
@@ -55,6 +61,24 @@ remaining DC pension pot is assumed to transfer to the survivor as a lump sum fr
 boosting the survivor's income for their remaining years (drawn down at the survivor's own rate if
 they also have a pot, otherwise at the deceased's rate as a separate inherited sub-account). A flat
 `--income` stream has no pot balance, so nothing transfers if the deceased wasn't in pot mode.
+
+### Tax-free gifting
+
+`--num-children`/`--num-grandchildren` (default 0 each) print a tax-free gifting summary for you,
+combining two UK Inheritance Tax allowances:
+- `--small-gift-amount` (default £250): the "small gifts" exemption, per recipient, to any number
+  of people.
+- `--annual-exemption` (default £3,000): a single total pot for the year, **not** per recipient -
+  split it however you like across recipients.
+- `--gift-per-recipient`: overrides the small gifts exemption with a custom per-person figure, if
+  you want to plan around a different amount.
+
+The recommended gift is the tax-free ceiling capped by your surplus (your first year of private
+pension income minus `--essential-spending`, default £0). If you set `--planned-annual-gift`, it's
+checked against the ceiling and any excess is flagged clearly as a Potentially Exempt Transfer
+(PET) - only free of Inheritance Tax if you survive 7 years from the gift date. This is a
+simplified planning estimate, not tax advice: it assumes no unused prior-year carry-forward on the
+annual exemption, and that small gifts don't go to whoever received a share of it.
 
 ## Tests
 
