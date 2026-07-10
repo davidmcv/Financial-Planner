@@ -433,7 +433,7 @@
           <div class="field-row">
             <div class="field">
               <label for="yourPot">Pension pot today (&pound;)</label>
-              <input type="number" id="yourPot" value="1000000" min="0" step="1000">
+              <input type="text" inputmode="decimal" data-money="0" id="yourPot" value="1,000,000">
             </div>
             <div class="field">
               <label for="yourDrawdown">Annual drawdown (%)</label>
@@ -449,7 +449,7 @@
           <div class="field-row">
             <div class="field">
               <label for="yourSalary">Gross annual salary (&pound;)</label>
-              <input type="number" id="yourSalary" value="60000" min="0" max="1000000" step="500">
+              <input type="text" inputmode="decimal" data-money="0" id="yourSalary" value="60,000">
               <span class="hint">&pound;0 &ndash; &pound;1,000,000</span>
             </div>
             <div class="field">
@@ -467,7 +467,7 @@
           <div class="field-row">
             <div class="field">
               <label for="yourIncome">Starting annual income (&pound;)</label>
-              <input type="number" id="yourIncome" value="24000" min="0" step="500">
+              <input type="text" inputmode="decimal" data-money="0" id="yourIncome" value="24,000">
             </div>
             <div class="field">
               <label for="yourIncomeGrowth">Annual growth (%)</label>
@@ -488,7 +488,7 @@
           <div class="field-row">
             <div class="field">
               <label for="spousePot">Pension pot today (&pound;)</label>
-              <input type="number" id="spousePot" value="500000" min="0" step="1000">
+              <input type="text" inputmode="decimal" data-money="0" id="spousePot" value="500,000">
             </div>
             <div class="field">
               <label for="spouseDrawdown">Annual drawdown (%)</label>
@@ -505,7 +505,7 @@
           <div class="field-row">
             <div class="field">
               <label for="spouseIncome">Starting annual income (&pound;)</label>
-              <input type="number" id="spouseIncome" value="18000" min="0" step="500">
+              <input type="text" inputmode="decimal" data-money="0" id="spouseIncome" value="18,000">
             </div>
             <div class="field">
               <label for="spouseIncomeGrowth">Annual growth (%)</label>
@@ -557,19 +557,19 @@
         <div class="field-row">
           <div class="field">
             <label for="smallGiftAmount">Small gifts exemption, per person (&pound;)</label>
-            <input type="number" id="smallGiftAmount" value="250" min="0" step="10">
+            <input type="text" inputmode="decimal" data-money="0" id="smallGiftAmount" value="250">
             <span class="hint">UK statutory rate &mdash; any number of recipients</span>
           </div>
           <div class="field">
             <label for="annualExemption">Annual exemption, total pot (&pound;)</label>
-            <input type="number" id="annualExemption" value="3000" min="0" step="100">
+            <input type="text" inputmode="decimal" data-money="0" id="annualExemption" value="3,000">
             <span class="hint">One shared allowance, not per recipient</span>
           </div>
         </div>
         <div class="field-row">
           <div class="field">
             <label for="giftPerRecipient">Custom rate per recipient (&pound;, optional)</label>
-            <input type="number" id="giftPerRecipient" value="" min="0" step="10">
+            <input type="text" inputmode="decimal" data-money="0" id="giftPerRecipient" value="">
             <span class="hint">Overrides the small gifts exemption above if set</span>
           </div>
         </div>
@@ -580,13 +580,18 @@
         <div class="field-row">
           <div class="field">
             <label for="essentialSpending">Your essential annual spending (&pound;)</label>
-            <input type="number" id="essentialSpending" value="30000" min="0" step="500">
+            <input type="text" inputmode="decimal" data-money="0" id="essentialSpending" value="30,000">
             <span class="hint">What's left over is your gifting surplus</span>
           </div>
           <div class="field">
             <label for="plannedAnnualGift">What you actually plan to gift (&pound;/year, optional)</label>
-            <input type="number" id="plannedAnnualGift" value="" min="0" step="100">
+            <input type="text" inputmode="decimal" data-money="0" id="plannedAnnualGift" value="">
             <span class="hint">Checked against the tax-free ceiling below</span>
+          </div>
+          <div class="field">
+            <label for="giftStartYear">Gifting starts (year)</label>
+            <input type="number" id="giftStartYear" value="2026" min="1990" max="2100" step="1">
+            <span class="hint">Gifts repeat each year until your life expectancy</span>
           </div>
         </div>
       </div>
@@ -606,7 +611,7 @@
     </div>
     <div class="field">
       <label for="statePensionWeekly">Full new State Pension (&pound;/week)</label>
-      <input type="number" id="statePensionWeekly" value="230.25" min="0" step="0.01">
+      <input type="text" inputmode="decimal" data-money="2" id="statePensionWeekly" value="230.25">
       <span class="hint">2025/26 rate &mdash; override if a newer rate applies</span>
     </div>
     <div class="field">
@@ -621,6 +626,26 @@
     </div>
     <div class="modal-actions">
       <button class="btn-primary" id="applySettings">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROFILE MODAL (inline replacement for prompt()/confirm(), which
+     sandboxed pages block - the reason "+ New profile" did nothing) -->
+<div class="modal-backdrop" id="profileModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="profileModalTitle">New profile</h2>
+      <button class="icon-btn" id="closeProfileModal" aria-label="Close">&#10005;</button>
+    </div>
+    <div class="field" id="profileNameField">
+      <label for="profileNameInput">Profile name</label>
+      <input type="text" id="profileNameInput" placeholder='e.g. David, or "Household"' maxlength="40">
+      <span class="hint">Saves all current inputs in this browser only</span>
+    </div>
+    <p id="profileModalMessage" style="display: none; margin: 0; font-size: 0.9rem;"></p>
+    <div class="modal-actions">
+      <button class="btn-primary" id="profileModalConfirm">Save</button>
     </div>
   </div>
 </div>
@@ -950,6 +975,23 @@ function buildPersonSummary(dob, sex) {
 const gbp0 = n => "£" + Math.round(n).toLocaleString("en-GB");
 const gbp2 = n => "£" + n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+// Money inputs are type="text" with data-money="0|2" (decimal places) so
+// they can display comma separators - type="number" fields reject them.
+function parseMoney(value) {
+  const n = parseFloat(String(value).replace(/[£,\s]/g, ""));
+  return isNaN(n) ? NaN : n;
+}
+function formatMoneyInput(el) {
+  const dp = parseInt(el.dataset.money, 10) || 0;
+  if (el.value.trim() === "") return; // optional fields stay blank
+  const n = parseMoney(el.value);
+  if (isNaN(n)) return; // leave invalid text visible so the user can fix it
+  el.value = n.toLocaleString("en-GB", { minimumFractionDigits: dp, maximumFractionDigits: dp });
+}
+function formatAllMoneyInputs() {
+  document.querySelectorAll("input[data-money]").forEach(formatMoneyInput);
+}
+
 /* =========================================================================
    STATE + RENDERING
    ========================================================================= */
@@ -977,7 +1019,7 @@ const PROFILE_FIELD_IDS = [
   "spousePot", "spouseDrawdown", "spousePotGrowth", "spouseIncome", "spouseIncomeGrowth",
   "statePensionWeekly", "statePensionGrowth", "discountRate",
   "numChildren", "numGrandchildren", "smallGiftAmount", "annualExemption",
-  "giftPerRecipient", "essentialSpending", "plannedAnnualGift",
+  "giftPerRecipient", "essentialSpending", "plannedAnnualGift", "giftStartYear",
 ];
 let currentProfileName = null;
 
@@ -1000,6 +1042,7 @@ function collectProfileData() {
 
 function applyProfileData(data) {
   PROFILE_FIELD_IDS.forEach(id => { if (data[id] !== undefined) els(id).value = data[id]; });
+  formatAllMoneyInputs();
 
   const wantSpouseOn = !!data.spouseOn;
   els("spouseSwitch").classList.toggle("on", wantSpouseOn);
@@ -1053,6 +1096,8 @@ function onUserChange() {
 
 function readInputs() {
   const spouseOn = els("spouseSwitch").classList.contains("on");
+  const money = id => parseMoney(els(id).value) || 0;
+  const moneyOpt = id => els(id).value.trim() === "" ? null : (parseMoney(els(id).value) || 0);
   return {
     dob: parseD(els("dob").value),
     sex: els("sex").value,
@@ -1060,28 +1105,29 @@ function readInputs() {
     spouseDob: spouseOn ? parseD(els("spouseDob").value) : null,
     spouseSex: els("spouseSex").value,
     yourMode, spouseMode,
-    yourPot: parseFloat(els("yourPot").value) || 0,
+    yourPot: money("yourPot"),
     yourDrawdown: parseFloat(els("yourDrawdown").value) || 0,
     yourPotGrowth: parseFloat(els("yourPotGrowth").value) || 0,
-    yourSalary: Math.min(1000000, Math.max(0, parseFloat(els("yourSalary").value) || 0)),
+    yourSalary: Math.min(1000000, Math.max(0, money("yourSalary"))),
     yourEmployerRate: parseFloat(els("yourEmployerRate").value) || 0,
-    yourIncome: parseFloat(els("yourIncome").value) || 0,
+    yourIncome: money("yourIncome"),
     yourIncomeGrowth: parseFloat(els("yourIncomeGrowth").value) || 0,
-    spousePot: parseFloat(els("spousePot").value) || 0,
+    spousePot: money("spousePot"),
     spouseDrawdown: parseFloat(els("spouseDrawdown").value) || 0,
     spousePotGrowth: parseFloat(els("spousePotGrowth").value) || 0,
-    spouseIncome: parseFloat(els("spouseIncome").value) || 0,
+    spouseIncome: money("spouseIncome"),
     spouseIncomeGrowth: parseFloat(els("spouseIncomeGrowth").value) || 0,
-    spWeekly: parseFloat(els("statePensionWeekly").value) || 0,
+    spWeekly: money("statePensionWeekly"),
     spGrowth: parseFloat(els("statePensionGrowth").value) || 0,
     discount: parseFloat(els("discountRate").value) || 0,
     numChildren: parseInt(els("numChildren").value, 10) || 0,
     numGrandchildren: parseInt(els("numGrandchildren").value, 10) || 0,
-    smallGiftAmount: parseFloat(els("smallGiftAmount").value) || 0,
-    annualExemption: parseFloat(els("annualExemption").value) || 0,
-    giftPerRecipient: els("giftPerRecipient").value === "" ? null : parseFloat(els("giftPerRecipient").value),
-    essentialSpending: parseFloat(els("essentialSpending").value) || 0,
-    plannedAnnualGift: els("plannedAnnualGift").value === "" ? null : parseFloat(els("plannedAnnualGift").value),
+    smallGiftAmount: money("smallGiftAmount"),
+    annualExemption: money("annualExemption"),
+    giftPerRecipient: moneyOpt("giftPerRecipient"),
+    essentialSpending: money("essentialSpending"),
+    plannedAnnualGift: moneyOpt("plannedAnnualGift"),
+    giftStartYear: parseInt(els("giftStartYear").value, 10) || todayObj().y,
   };
 }
 
@@ -1099,6 +1145,72 @@ function calculateGiftingSummary(numChildren, numGrandchildren, smallGiftAmount,
     smallGiftsTotal, annualExemption, taxFreeCeiling,
     availableIncome, essentialSpending, surplus, recommendedGift,
     plannedAnnualGift, excessOverCeiling,
+  };
+}
+
+/* UK Inheritance Tax on gifts above the exemptions (PETs).
+   - Nil-rate band: the first £325,000 of chargeable transfers is taxed at 0%.
+     Gifts within 7 years of death use it up in date order, before the estate.
+   - Taper relief: reduces the TAX (not the gift) on PETs made 3-7 years
+     before death: <3yrs 40%, 3-4 32%, 4-5 24%, 5-6 16%, 6-7 8%, 7+ exempt. */
+const NIL_RATE_BAND = 325000;
+
+function taperedIhtRate(yearsSurvived) {
+  if (yearsSurvived >= 7) return 0;
+  if (yearsSurvived >= 6) return 8;
+  if (yearsSurvived >= 5) return 16;
+  if (yearsSurvived >= 4) return 24;
+  if (yearsSurvived >= 3) return 32;
+  return 40;
+}
+
+function buildGiftIhtSchedule(startYear, today, deathDate, plannedGift, taxFreeCeiling) {
+  /* One gift per year of plannedGift, on today's month/day, from startYear
+     until (but not past) the assumed death date. The excess of each gift
+     over the tax-free ceiling is a PET; PETs within 7 years of death eat
+     the nil-rate band chronologically, then pay IHT at the tapered rate. */
+  const rows = [];
+  for (let year = startYear; ; year++) {
+    const giftDate = { y: year, m: today.m, d: Math.min(today.d, daysInMonth(year, today.m)) };
+    if (cmp(giftDate, deathDate) >= 0) break;
+    const pet = Math.max(0, plannedGift - taxFreeCeiling);
+    rows.push({
+      giftDate,
+      gift: plannedGift,
+      taxFree: Math.min(plannedGift, taxFreeCeiling),
+      pet,
+      yearsSurvived: daysBetween(giftDate, deathDate) / 365.25,
+    });
+    if (rows.length > 100) break; // safety
+  }
+
+  let nrbRemaining = NIL_RATE_BAND;
+  let totalIht = 0, totalPets = 0, atRiskPets = 0, exemptPets = 0;
+  rows.forEach(r => {
+    totalPets += r.pet;
+    r.taperRate = taperedIhtRate(r.yearsSurvived);
+    if (r.pet <= 0) {
+      r.status = "no PET"; r.taxable = 0; r.iht = 0;
+    } else if (r.taperRate === 0) {
+      r.status = "exempt (7+ yrs)"; r.taxable = 0; r.iht = 0;
+      exemptPets += r.pet;
+    } else {
+      atRiskPets += r.pet;
+      const coveredByNrb = Math.min(r.pet, nrbRemaining);
+      nrbRemaining -= coveredByNrb;
+      r.taxable = r.pet - coveredByNrb;
+      r.iht = r.taxable * r.taperRate / 100;
+      r.status = r.iht > 0 ? `taxed at ${r.taperRate}%` : "within nil-rate band";
+      totalIht += r.iht;
+    }
+  });
+
+  return {
+    rows, deathDate,
+    totalGifted: rows.reduce((s, r) => s + r.gift, 0),
+    totalPets, exemptPets, atRiskPets,
+    nrbUsed: NIL_RATE_BAND - nrbRemaining,
+    totalIht,
   };
 }
 
@@ -1158,7 +1270,15 @@ function computeAll() {
     inp.essentialSpending, inp.plannedAnnualGift
   );
 
-  return { inp, today, you, spouse, yourRows, spouseRows, yourEffectivePot, yourContribution, transferNote, gifting };
+  let giftSchedule = null;
+  if (gifting.plannedAnnualGift !== null && gifting.numRecipients > 0) {
+    giftSchedule = buildGiftIhtSchedule(
+      inp.giftStartYear, today, you.lifeExpDate,
+      gifting.plannedAnnualGift, gifting.taxFreeCeiling
+    );
+  }
+
+  return { inp, today, you, spouse, yourRows, spouseRows, yourEffectivePot, yourContribution, transferNote, gifting, giftSchedule };
 }
 
 /* ---------- render: People tab reacts via inputs directly, no render needed ---------- */
@@ -1203,7 +1323,8 @@ function renderAge(model) {
 }
 
 function renderSalary(model) {
-  els("yourContributionAmount").textContent = `${gbp2(model.yourContribution)} / year`;
+  els("yourContributionAmount").textContent =
+    `${gbp2(model.yourContribution)} / year (${gbp2(model.yourContribution / 12)} / month)`;
 }
 
 function tableHtml(rows, hasPot, discountRate) {
@@ -1350,8 +1471,78 @@ function renderGifting(model) {
            within the tax-free ceiling, no excess.</span></div>`;
   }
 
+  html += renderGiftIhtSchedule(model);
+
   html += `<p class="caption">Simplified planning estimate, not tax advice: assumes no unused prior-year carry-forward on the annual exemption, and that small gifts don't go to the same people who received a share of it.</p>`;
   els("giftingCards").innerHTML = html;
+}
+
+function renderGiftIhtSchedule(model) {
+  const s = model.giftSchedule;
+  if (!s) {
+    return `<div class="notice empty"><span class="icon">&#9432;</span>Enter a planned annual gift above to track gifts over time and see the Inheritance Tax due if you die at your average life expectancy.</div>`;
+  }
+  if (!s.rows.length) {
+    return `<div class="notice empty"><span class="icon">&#9432;</span>The gifting start year is at or after your assumed life expectancy (${fmtDate(s.deathDate)}) &mdash; no gifts to track.</div>`;
+  }
+
+  const head = `<tr><th>Gift date</th><th>Gift</th><th>Tax-free</th><th>PET</th><th>Yrs before death</th><th>IHT rate</th><th>IHT due</th></tr>`;
+  const body = s.rows.map(r => {
+    const atRisk = r.pet > 0 && r.taperRate > 0;
+    return `<tr class="${atRisk ? "spa-row" : ""}">
+      <td>${fmtDate(r.giftDate)}</td><td>${gbp0(r.gift)}</td><td>${gbp0(r.taxFree)}</td>
+      <td>${gbp0(r.pet)}</td><td>${r.yearsSurvived.toFixed(1)}</td>
+      <td>${r.pet > 0 ? r.taperRate + "%" : "&mdash;"}</td><td>${gbp0(r.iht)}</td>
+    </tr>`;
+  }).join("");
+
+  const verdict = s.totalIht > 0
+    ? `<div class="notice"><span class="icon">&#9888;</span><span>If you die at your average life expectancy
+         (${fmtDate(s.deathDate)}), <strong>${gbp0(s.totalIht)} of Inheritance Tax</strong> would be due on the
+         gifts made within 7 years of death (after the &pound;325,000 nil-rate band and taper relief).</span></div>`
+    : s.atRiskPets > 0
+      ? `<div class="notice info"><span class="icon">&#10003;</span><span>Gifts within 7 years of death total
+           ${gbp0(s.atRiskPets)}, but they all fit inside the &pound;325,000 nil-rate band &mdash; no IHT is due on
+           the gifts themselves. They do use up ${gbp0(s.nrbUsed)} of the band that would otherwise shelter your estate.</span></div>`
+      : `<div class="notice info"><span class="icon">&#10003;</span><span>Every gift is made more than 7 years
+           before your assumed death &mdash; all PETs become fully exempt and no IHT is due on them.</span></div>`;
+
+  return `
+    <div class="card">
+      <h2>Gift tracker &amp; IHT on death</h2>
+      <div class="stat-row" style="margin-bottom: 14px;">
+        <div class="stat">
+          <span class="label">Assumed death</span>
+          <span class="value">${s.deathDate.y}</span>
+          <span class="sub">your avg life expectancy, ${fmtDate(s.deathDate)}</span>
+        </div>
+        <div class="stat">
+          <span class="label">Total gifted</span>
+          <span class="value">${gbp0(s.totalGifted)}</span>
+          <span class="sub">over ${s.rows.length} year${s.rows.length !== 1 ? "s" : ""}</span>
+        </div>
+        <div class="stat">
+          <span class="label">PETs exempt (7+ yrs)</span>
+          <span class="value">${gbp0(s.exemptPets)}</span>
+        </div>
+        <div class="stat">
+          <span class="label">PETs within 7 yrs</span>
+          <span class="value">${gbp0(s.atRiskPets)}</span>
+          <span class="sub">nil-rate band used: ${gbp0(s.nrbUsed)}</span>
+        </div>
+        <div class="stat">
+          <span class="label">IHT due at death</span>
+          <span class="value">${gbp0(s.totalIht)}</span>
+        </div>
+      </div>
+      ${verdict}
+      <div class="table-scroll" style="margin-top: 14px;"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>
+      <p class="caption">Highlighted rows = gifts within 7 years of assumed death (at risk). Each year's PET is the
+        amount over the tax-free ceiling. PETs within 7 years use the &pound;325,000 nil-rate band in date order;
+        the rest is taxed at 40% with taper relief (3&ndash;4&nbsp;yrs&nbsp;32%, 4&ndash;5&nbsp;24%, 5&ndash;6&nbsp;16%,
+        6&ndash;7&nbsp;8%). Simplified: ignores the estate itself sharing the nil-rate band, spousal transfers,
+        and the residence nil-rate band.</p>
+    </div>`;
 }
 
 function renderAll() {
@@ -1406,8 +1597,11 @@ function wireSegmented(segId, potFieldsId, incomeFieldsId, setMode) {
 wireSegmented("yourModeSeg", "yourPotFields", "yourIncomeFields", m => yourMode = m);
 wireSegmented("spouseModeSeg", "spousePotFields", "spouseIncomeFields", m => spouseMode = m);
 
-document.querySelectorAll("input, select:not(#profileSelect)").forEach(inp => {
-  inp.addEventListener("change", onUserChange);
+document.querySelectorAll("input:not(#profileNameInput), select:not(#profileSelect)").forEach(inp => {
+  inp.addEventListener("change", () => {
+    if (inp.dataset.money !== undefined) formatMoneyInput(inp);
+    onUserChange();
+  });
 });
 
 els("openSettings").addEventListener("click", () => els("settingsModal").classList.add("open"));
@@ -1419,12 +1613,7 @@ els("profileSelect").addEventListener("change", () => {
   const val = els("profileSelect").value;
   const profiles = loadProfiles();
   if (val === "__new__") {
-    const name = (prompt("Profile name (e.g. your name, or \"Household\"):") || "").trim();
-    if (!name) { refreshProfileSelect(); return; }
-    profiles[name] = collectProfileData();
-    saveProfiles(profiles);
-    currentProfileName = name;
-    refreshProfileSelect();
+    openProfileModal("new");
     return;
   }
   if (val === "") {
@@ -1435,19 +1624,67 @@ els("profileSelect").addEventListener("change", () => {
   currentProfileName = val;
   if (profiles[val]) applyProfileData(profiles[val]);
   refreshProfileSelect();
+  renderAll();
 });
 
 els("deleteProfile").addEventListener("click", () => {
   if (!currentProfileName) return;
-  if (!confirm(`Delete the saved profile "${currentProfileName}"? This can't be undone.`)) return;
-  const profiles = loadProfiles();
-  delete profiles[currentProfileName];
-  saveProfiles(profiles);
-  currentProfileName = null;
+  openProfileModal("delete");
+});
+
+let profileModalMode = null; // "new" | "delete"
+
+function openProfileModal(mode) {
+  profileModalMode = mode;
+  const isNew = mode === "new";
+  els("profileModalTitle").textContent = isNew ? "New profile" : "Delete profile";
+  els("profileNameField").style.display = isNew ? "" : "none";
+  els("profileModalMessage").style.display = isNew ? "none" : "";
+  if (!isNew) {
+    els("profileModalMessage").textContent =
+      `Delete the saved profile "${currentProfileName}"? This can't be undone.`;
+  }
+  els("profileModalConfirm").textContent = isNew ? "Save" : "Delete";
+  els("profileModal").classList.add("open");
+  if (isNew) {
+    els("profileNameInput").value = "";
+    els("profileNameInput").focus();
+  }
+}
+
+function closeProfileModal() {
+  els("profileModal").classList.remove("open");
+  profileModalMode = null;
   refreshProfileSelect();
+}
+
+els("profileModalConfirm").addEventListener("click", () => {
+  if (profileModalMode === "new") {
+    const name = els("profileNameInput").value.trim();
+    if (!name) { els("profileNameInput").focus(); return; }
+    const profiles = loadProfiles();
+    profiles[name] = collectProfileData();
+    saveProfiles(profiles);
+    currentProfileName = name;
+  } else if (profileModalMode === "delete" && currentProfileName) {
+    const profiles = loadProfiles();
+    delete profiles[currentProfileName];
+    saveProfiles(profiles);
+    currentProfileName = null;
+  }
+  closeProfileModal();
+});
+els("closeProfileModal").addEventListener("click", closeProfileModal);
+els("profileModal").addEventListener("click", e => {
+  if (e.target === els("profileModal")) closeProfileModal();
+});
+els("profileNameInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") els("profileModalConfirm").click();
 });
 
 refreshProfileSelect();
 
+els("giftStartYear").value = todayObj().y;
+formatAllMoneyInputs();
 renderAll();
 </script>

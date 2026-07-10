@@ -8,8 +8,16 @@ year-by-year projected pension income table.
 `pension-planner.html` is a self-contained interactive version - open it directly in a browser
 (no server, no build step, no dependencies). It's split into six tabs (People, Pension Age,
 Salary & Pot, Projection, Household, Gifting) instead of one dense wall of numbers, with live
-recalculation as you edit fields. The calculation logic mirrors `pension_year.py` exactly - see the
+recalculation as you edit fields. All money is shown in GBP with comma separators, in the input
+fields as well as the tables. The calculation logic mirrors `pension_year.py` exactly - see the
 `<script>` in the file for the JS port.
+
+The Gifting tab also tracks planned gifts year by year until your average life expectancy and
+estimates the Inheritance Tax due at death: each year's excess over the tax-free ceiling is a
+Potentially Exempt Transfer (PET); PETs made within 7 years of death use the £325,000 nil-rate
+band in date order, and the remainder is taxed at 40% with taper relief (3-4 yrs 32%, 4-5 24%,
+5-6 16%, 6-7 8%; 7+ years fully exempt). This is a simplified planning estimate - it ignores the
+estate itself sharing the nil-rate band, spousal transfers, and the residence nil-rate band.
 
 A "Profile" picker in the sidebar saves your inputs to the browser's local storage under a name you
 choose (e.g. "David & wife"), so you can switch between saved scenarios later. This is local-only,
