@@ -3,6 +3,14 @@ A program to calculate what year a person in the UK can receive the UK Governmen
 when they can access a private pension (SIPP), their average UK life expectancy, and an optional
 year-by-year projected pension income table.
 
+## Web app
+
+`pension-planner.html` is a self-contained interactive version - open it directly in a browser
+(no server, no build step, no dependencies). It's split into five tabs (People, Pension Age,
+Salary & Pot, Projection, Household) instead of one dense wall of numbers, with live recalculation
+as you edit fields. The calculation logic mirrors `pension_year.py` exactly - see the `<script>` in
+the file for the JS port.
+
 ## Usage
 
 ```

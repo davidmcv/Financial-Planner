@@ -1,0 +1,1147 @@
+<title>Pension Planner</title>
+<style>
+  :root {
+    --paper: #F4F7F5;
+    --surface: #FFFFFF;
+    --surface-2: #EBF0ED;
+    --border: #DCE4E0;
+    --ink: #0F1D19;
+    --ink-muted: #55665F;
+    --ink-faint: #8A968F;
+    --accent: #1F6F5C;
+    --accent-strong: #14503F;
+    --accent-wash: #E4EEE9;
+    --gold: #A8762E;
+    --gold-wash: #F5EBDA;
+    --good: #2E8B57;
+    --warn: #9C6B0B;
+    --critical: #B23B3B;
+    --critical-wash: #FBEAEA;
+    --shadow: 0 1px 2px rgba(15, 29, 25, 0.06), 0 8px 24px -12px rgba(15, 29, 25, 0.18);
+    --radius: 14px;
+    --font-display: ui-serif, "Iowan Old Style", "Palatino Linotype", "Georgia", serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #0D1512;
+      --surface: #142019;
+      --surface-2: #1B2921;
+      --border: #223129;
+      --ink: #E8EFEB;
+      --ink-muted: #9FB0A8;
+      --ink-faint: #6C7C74;
+      --accent: #4FBE9E;
+      --accent-strong: #7ED4B8;
+      --accent-wash: #16332A;
+      --gold: #D9A44E;
+      --gold-wash: #2E2515;
+      --good: #4CAF7A;
+      --warn: #D9A73C;
+      --critical: #E88787;
+      --critical-wash: #331A1A;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 28px -14px rgba(0, 0, 0, 0.6);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #0D1512; --surface: #142019; --surface-2: #1B2921; --border: #223129;
+    --ink: #E8EFEB; --ink-muted: #9FB0A8; --ink-faint: #6C7C74;
+    --accent: #4FBE9E; --accent-strong: #7ED4B8; --accent-wash: #16332A;
+    --gold: #D9A44E; --gold-wash: #2E2515;
+    --good: #4CAF7A; --warn: #D9A73C; --critical: #E88787; --critical-wash: #331A1A;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 28px -14px rgba(0, 0, 0, 0.6);
+  }
+  :root[data-theme="light"] {
+    --paper: #F4F7F5; --surface: #FFFFFF; --surface-2: #EBF0ED; --border: #DCE4E0;
+    --ink: #0F1D19; --ink-muted: #55665F; --ink-faint: #8A968F;
+    --accent: #1F6F5C; --accent-strong: #14503F; --accent-wash: #E4EEE9;
+    --gold: #A8762E; --gold-wash: #F5EBDA;
+    --good: #2E8B57; --warn: #9C6B0B; --critical: #B23B3B; --critical-wash: #FBEAEA;
+    --shadow: 0 1px 2px rgba(15, 29, 25, 0.06), 0 8px 24px -12px rgba(15, 29, 25, 0.18);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.45;
+  }
+  h1, h2, h3 { font-family: var(--font-display); font-weight: 600; text-wrap: balance; margin: 0; }
+  .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  a { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .app {
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* ---------- Nav rail ---------- */
+  .rail {
+    flex: 0 0 220px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 20px 14px;
+    gap: 18px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+  .brand {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0 8px;
+  }
+  .brand .mark {
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .brand .sub {
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .tabs {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .tab-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-align: left;
+    background: transparent;
+    border: none;
+    color: var(--ink-muted);
+    font: inherit;
+    font-size: 0.92rem;
+    padding: 10px 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+  .tab-btn .icon { width: 18px; text-align: center; opacity: 0.85; }
+  .tab-btn:hover { background: var(--surface-2); color: var(--ink); }
+  .tab-btn.active { background: var(--accent-wash); color: var(--accent-strong); font-weight: 600; }
+
+  .rail-footer { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
+  .settings-btn {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface-2); border: 1px solid var(--border); color: var(--ink);
+    font: inherit; font-size: 0.85rem; padding: 9px 12px; border-radius: 10px; cursor: pointer;
+  }
+  .settings-btn:hover { border-color: var(--accent); }
+
+  /* ---------- Main content ---------- */
+  .content {
+    flex: 1;
+    min-width: 0;
+    padding: 32px 40px 64px;
+    max-width: 980px;
+  }
+  .panel { display: none; flex-direction: column; gap: 22px; }
+  .panel.active { display: flex; }
+
+  .panel-head { display: flex; flex-direction: column; gap: 4px; margin-bottom: 4px; }
+  .panel-head h1 { font-size: 1.6rem; }
+  .panel-head p { margin: 0; color: var(--ink-muted); font-size: 0.94rem; max-width: 62ch; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+    box-shadow: var(--shadow);
+  }
+  .card + .card { margin-top: 0; }
+  .card h2 { font-size: 1.05rem; margin-bottom: 14px; }
+  .card h3 { font-size: 0.95rem; margin-bottom: 10px; color: var(--ink); }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 760px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 0.78rem; color: var(--ink-muted); letter-spacing: 0.01em; }
+  .field input, .field select {
+    font: inherit; font-size: 0.94rem;
+    padding: 9px 11px;
+    border-radius: 9px;
+    border: 1px solid var(--border);
+    background: var(--paper);
+    color: var(--ink);
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+  .field .hint { font-size: 0.74rem; color: var(--ink-faint); }
+  .field-row { display: flex; flex-wrap: wrap; gap: 14px; }
+  .field-row .field { flex: 1 1 160px; }
+
+  .switch-row { display: flex; align-items: center; gap: 10px; }
+  .switch-row label { font-size: 0.92rem; color: var(--ink); }
+  .switch {
+    position: relative; width: 40px; height: 22px; border-radius: 999px;
+    background: var(--border); border: none; cursor: pointer; flex: 0 0 auto;
+  }
+  .switch::after {
+    content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
+    border-radius: 50%; background: var(--surface); box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    transition: transform 0.15s ease;
+  }
+  .switch.on { background: var(--accent); }
+  .switch.on::after { transform: translateX(18px); }
+
+  .segmented {
+    display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+  }
+  .segmented button {
+    font: inherit; font-size: 0.86rem; background: var(--surface); color: var(--ink-muted);
+    border: none; padding: 8px 14px; cursor: pointer; border-right: 1px solid var(--border);
+  }
+  .segmented button:last-child { border-right: none; }
+  .segmented button.active { background: var(--accent); color: white; }
+
+  .divider { height: 1px; background: var(--border); margin: 4px 0; }
+
+  /* ---------- Stat tiles ---------- */
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+  .stat {
+    background: var(--surface-2); border-radius: 10px; padding: 13px 15px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .stat .label { font-size: 0.72rem; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.04em; }
+  .stat .value { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 1.18rem; color: var(--ink); }
+  .stat .sub { font-size: 0.76rem; color: var(--ink-muted); }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em;
+    padding: 3px 9px; border-radius: 999px;
+    background: var(--accent-wash); color: var(--accent-strong);
+  }
+  .pill.gold { background: var(--gold-wash); color: var(--gold); }
+  .pill.warn { background: var(--critical-wash); color: var(--critical); }
+
+  .person-card { display: flex; flex-direction: column; gap: 14px; }
+  .person-title { display: flex; align-items: center; justify-content: space-between; }
+  .person-title h2 { font-size: 1.05rem; }
+
+  /* ---------- Tables ---------- */
+  .table-scroll { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
+  table { border-collapse: collapse; width: 100%; min-width: 620px; font-size: 0.86rem; }
+  thead th {
+    position: sticky; top: 0; background: var(--surface-2); color: var(--ink-muted);
+    text-align: right; font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em;
+    padding: 9px 12px; border-bottom: 1px solid var(--border);
+  }
+  thead th:first-child, thead th:nth-child(2) { text-align: left; }
+  tbody td {
+    text-align: right; padding: 7px 12px; border-bottom: 1px solid var(--border);
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink);
+  }
+  tbody td:first-child, tbody td:nth-child(2) { text-align: left; font-family: var(--font-body); }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr.spa-row td { background: var(--accent-wash); }
+  tbody tr:hover td { background: var(--surface-2); }
+  tbody tr.spa-row:hover td { background: var(--accent-wash); }
+
+  .caption { font-size: 0.78rem; color: var(--ink-faint); margin-top: 8px; }
+
+  .notice {
+    display: flex; gap: 12px; align-items: flex-start;
+    background: var(--gold-wash); border: 1px solid var(--gold);
+    border-radius: 10px; padding: 13px 16px; font-size: 0.88rem; color: var(--ink);
+  }
+  .notice .icon { color: var(--gold); font-size: 1.1rem; line-height: 1; }
+  .notice.info { background: var(--accent-wash); border-color: var(--accent); }
+  .notice.info .icon { color: var(--accent-strong); }
+  .notice.empty { background: var(--surface-2); border-color: var(--border); color: var(--ink-muted); }
+  .notice.empty .icon { color: var(--ink-faint); }
+
+  .transition-note {
+    font-size: 0.78rem; color: var(--warn); display: flex; gap: 6px; align-items: baseline;
+  }
+
+  /* ---------- Modal ---------- */
+  .modal-backdrop {
+    display: none; position: fixed; inset: 0; background: rgba(10, 16, 14, 0.45);
+    align-items: center; justify-content: center; z-index: 20; padding: 20px;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border);
+    box-shadow: var(--shadow); padding: 24px; width: 100%; max-width: 460px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .modal-head { display: flex; align-items: center; justify-content: space-between; }
+  .modal-head h2 { font-size: 1.05rem; }
+  .icon-btn {
+    background: none; border: none; color: var(--ink-muted); cursor: pointer; font-size: 1.1rem;
+    padding: 4px; line-height: 1;
+  }
+  .icon-btn:hover { color: var(--ink); }
+  .modal-actions { display: flex; justify-content: flex-end; }
+  .btn-primary {
+    background: var(--accent); color: white; border: none; font: inherit; font-size: 0.88rem;
+    padding: 9px 16px; border-radius: 9px; cursor: pointer;
+  }
+  .btn-primary:hover { background: var(--accent-strong); }
+
+  /* ---------- Mobile ---------- */
+  @media (max-width: 860px) {
+    .app { flex-direction: column; }
+    .rail {
+      position: sticky; top: 0; height: auto; width: 100%; flex-direction: row;
+      align-items: center; overflow-x: auto; border-right: none; border-bottom: 1px solid var(--border);
+      padding: 12px 14px; gap: 14px; z-index: 10;
+    }
+    .brand { flex: 0 0 auto; }
+    .tabs { flex-direction: row; }
+    .rail-footer { margin-top: 0; flex-direction: row; }
+    .content { padding: 22px 18px 48px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+
+<div class="app">
+  <aside class="rail">
+    <div class="brand">
+      <span class="mark">Ledger &amp; Later</span>
+      <span class="sub">UK Pension Planner</span>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button class="tab-btn active" data-tab="people"><span class="icon">&#9679;</span>People</button>
+      <button class="tab-btn" data-tab="age"><span class="icon">&#9203;</span>Pension Age</button>
+      <button class="tab-btn" data-tab="salary"><span class="icon">&#163;</span>Salary &amp; Pot</button>
+      <button class="tab-btn" data-tab="projection"><span class="icon">&#8599;</span>Projection</button>
+      <button class="tab-btn" data-tab="household"><span class="icon">&#8962;</span>Household</button>
+    </nav>
+    <div class="rail-footer">
+      <button class="settings-btn" id="openSettings"><span>&#9881;</span> Assumptions</button>
+    </div>
+  </aside>
+
+  <main class="content">
+
+    <!-- PEOPLE -->
+    <section class="panel active" id="tab-people">
+      <div class="panel-head">
+        <h1>Who's this for?</h1>
+        <p>Enter your date of birth, and add a spouse or partner if you want a combined household view.</p>
+      </div>
+
+      <div class="card">
+        <h2>You</h2>
+        <div class="field-row">
+          <div class="field">
+            <label for="dob">Date of birth</label>
+            <input type="date" id="dob" value="1973-03-01">
+          </div>
+          <div class="field">
+            <label for="sex">Sex recorded at birth</label>
+            <select id="sex">
+              <option value="M" selected>Male</option>
+              <option value="F">Female</option>
+            </select>
+            <span class="hint">Only affects results if born before 6 Apr 1955</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="switch-row" style="margin-bottom: 4px;">
+          <button class="switch on" id="spouseSwitch" role="switch" aria-checked="true"></button>
+          <label for="spouseSwitch">Include a spouse or partner</label>
+        </div>
+        <div id="spouseFields">
+          <div class="divider" style="margin: 14px 0;"></div>
+          <h2>Your spouse</h2>
+          <div class="field-row">
+            <div class="field">
+              <label for="spouseDob">Date of birth</label>
+              <input type="date" id="spouseDob" value="1976-04-01">
+            </div>
+            <div class="field">
+              <label for="spouseSex">Sex recorded at birth</label>
+              <select id="spouseSex">
+                <option value="M">Male</option>
+                <option value="F" selected>Female</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PENSION AGE -->
+    <section class="panel" id="tab-age">
+      <div class="panel-head">
+        <h1>Pension age &amp; life expectancy</h1>
+        <p>When each of you can draw the State Pension, when a private pension becomes accessible, and average UK life expectancy.</p>
+      </div>
+      <div id="ageCards"></div>
+    </section>
+
+    <!-- SALARY & POT -->
+    <section class="panel" id="tab-salary">
+      <div class="panel-head">
+        <h1>Salary &amp; pension pot</h1>
+        <p>Model your private pension as either a flat income or a drawdown pot &mdash; and for you, how salary and employer contributions grow that pot before you retire.</p>
+      </div>
+
+      <div class="card person-card">
+        <div class="person-title"><h2>You</h2></div>
+        <div class="segmented" id="yourModeSeg">
+          <button data-mode="pot" class="active">DC pension pot</button>
+          <button data-mode="income">Flat income</button>
+        </div>
+
+        <div id="yourPotFields">
+          <div class="field-row">
+            <div class="field">
+              <label for="yourPot">Pension pot today (&pound;)</label>
+              <input type="number" id="yourPot" value="1000000" min="0" step="1000">
+            </div>
+            <div class="field">
+              <label for="yourDrawdown">Annual drawdown (%)</label>
+              <input type="number" id="yourDrawdown" value="4" min="0" step="0.1">
+            </div>
+            <div class="field">
+              <label for="yourPotGrowth">Assumed pot growth (%)</label>
+              <input type="number" id="yourPotGrowth" value="6" min="-20" step="0.1">
+            </div>
+          </div>
+          <div class="divider" style="margin: 14px 0;"></div>
+          <h3>Employer contributions (until you can access this pot)</h3>
+          <div class="field-row">
+            <div class="field">
+              <label for="yourSalary">Gross annual salary (&pound;)</label>
+              <input type="number" id="yourSalary" value="60000" min="0" max="1000000" step="500">
+              <span class="hint">&pound;0 &ndash; &pound;1,000,000</span>
+            </div>
+            <div class="field">
+              <label for="yourEmployerRate">Employer contribution (%)</label>
+              <input type="number" id="yourEmployerRate" value="15" min="0" max="100" step="0.5">
+            </div>
+            <div class="field">
+              <label>Contribution amount</label>
+              <div class="num" id="yourContributionAmount" style="padding: 9px 0; font-size: 0.94rem;">&pound;0.00 / year</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="yourIncomeFields" style="display: none;">
+          <div class="field-row">
+            <div class="field">
+              <label for="yourIncome">Starting annual income (&pound;)</label>
+              <input type="number" id="yourIncome" value="24000" min="0" step="500">
+            </div>
+            <div class="field">
+              <label for="yourIncomeGrowth">Annual growth (%)</label>
+              <input type="number" id="yourIncomeGrowth" value="2" min="-20" step="0.1">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card person-card" id="spousePotCard">
+        <div class="person-title"><h2>Your spouse</h2></div>
+        <div class="segmented" id="spouseModeSeg">
+          <button data-mode="pot">DC pension pot</button>
+          <button data-mode="income" class="active">Flat income</button>
+        </div>
+
+        <div id="spousePotFields" style="display: none;">
+          <div class="field-row">
+            <div class="field">
+              <label for="spousePot">Pension pot today (&pound;)</label>
+              <input type="number" id="spousePot" value="500000" min="0" step="1000">
+            </div>
+            <div class="field">
+              <label for="spouseDrawdown">Annual drawdown (%)</label>
+              <input type="number" id="spouseDrawdown" value="4" min="0" step="0.1">
+            </div>
+            <div class="field">
+              <label for="spousePotGrowth">Assumed pot growth (%)</label>
+              <input type="number" id="spousePotGrowth" value="6" min="-20" step="0.1">
+            </div>
+          </div>
+        </div>
+
+        <div id="spouseIncomeFields">
+          <div class="field-row">
+            <div class="field">
+              <label for="spouseIncome">Starting annual income (&pound;)</label>
+              <input type="number" id="spouseIncome" value="18000" min="0" step="500">
+            </div>
+            <div class="field">
+              <label for="spouseIncomeGrowth">Annual growth (%)</label>
+              <input type="number" id="spouseIncomeGrowth" value="2" min="-20" step="0.1">
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROJECTION -->
+    <section class="panel" id="tab-projection">
+      <div class="panel-head">
+        <h1>Income projection</h1>
+        <p>Year by year, from private pension access age to average life expectancy. FV = nominal future value; PV = today's purchasing power.</p>
+      </div>
+      <div id="projectionCards"></div>
+    </section>
+
+    <!-- HOUSEHOLD -->
+    <section class="panel" id="tab-household">
+      <div class="panel-head">
+        <h1>Household combined</h1>
+        <p>Both incomes summed by calendar year, including any pension pot that transfers between you on death.</p>
+      </div>
+      <div id="householdCards"></div>
+    </section>
+
+  </main>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-backdrop" id="settingsModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Shared assumptions</h2>
+      <button class="icon-btn" id="closeSettings" aria-label="Close">&#10005;</button>
+    </div>
+    <div class="field">
+      <label for="statePensionWeekly">Full new State Pension (&pound;/week)</label>
+      <input type="number" id="statePensionWeekly" value="230.25" min="0" step="0.01">
+      <span class="hint">2025/26 rate &mdash; override if a newer rate applies</span>
+    </div>
+    <div class="field">
+      <label for="statePensionGrowth">State Pension growth (%/yr)</label>
+      <input type="number" id="statePensionGrowth" value="2.5" step="0.1">
+      <span class="hint">Assumed "triple lock" &mdash; its legislated minimum</span>
+    </div>
+    <div class="field">
+      <label for="discountRate">Inflation / discount rate (%/yr)</label>
+      <input type="number" id="discountRate" value="2.5" step="0.1">
+      <span class="hint">Used to convert future income into today's money (PV)</span>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary" id="applySettings">Done</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* =========================================================================
+   CALENDAR MATH  (mirrors pension_year.py exactly, using {y,m,d} objects
+   instead of JS Date to avoid timezone/DST pitfalls)
+   ========================================================================= */
+
+function isLeap(y) { return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0; }
+function daysInMonth(y, m) {
+  const dim = [31, isLeap(y) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return dim[m - 1];
+}
+function parseD(s) { // "YYYY-MM-DD" -> {y,m,d}
+  const [y, m, d] = s.split("-").map(Number);
+  return { y, m, d };
+}
+function cmp(a, b) {
+  if (!a || !b) return 0;
+  if (a.y !== b.y) return a.y - b.y;
+  if (a.m !== b.m) return a.m - b.m;
+  return a.d - b.d;
+}
+function addYearsMonths(d, years, months) {
+  const totalMonths = (d.m - 1) + months + years * 12;
+  const newYear = d.y + Math.floor(totalMonths / 12);
+  const newMonth = ((totalMonths % 12) + 12) % 12 + 1;
+  let day = d.d;
+  while (day > daysInMonth(newYear, newMonth)) day--;
+  return { y: newYear, m: newMonth, d: day };
+}
+function toOrdinal(d) { // Fliegel & Van Flandern JDN, proleptic Gregorian
+  const a = Math.floor((14 - d.m) / 12);
+  const y = d.y + 4800 - a;
+  const m = d.m + 12 * a - 3;
+  return d.d + Math.floor((153 * m + 2) / 5) + 365 * y + Math.floor(y / 4) - Math.floor(y / 100) + Math.floor(y / 400) - 32045;
+}
+function daysBetween(a, b) { return toOrdinal(b) - toOrdinal(a); }
+function fmtDate(d) { return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`; }
+
+function interpolateMonths(dob, start, end, startY, startM, endY, endM) {
+  const totalSpanMonths = (end.y - start.y) * 12 + (end.m - start.m);
+  let dobOffsetMonths = (dob.y - start.y) * 12 + (dob.m - start.m);
+  if (dob.d < start.d) dobOffsetMonths -= 1;
+  dobOffsetMonths = Math.max(0, Math.min(dobOffsetMonths, totalSpanMonths));
+  const startTotal = startY * 12 + startM;
+  const endTotal = endY * 12 + endM;
+  const spanAgeMonths = endTotal - startTotal;
+  const ageMonths = startTotal + Math.round(spanAgeMonths * dobOffsetMonths / totalSpanMonths);
+  return [Math.floor(ageMonths / 12), ageMonths % 12];
+}
+
+const TRANSITION_WINDOWS = [
+  [{ y: 1950, m: 4, d: 6 }, { y: 1960, m: 4, d: 5 }],
+  [{ y: 1960, m: 4, d: 6 }, { y: 1961, m: 3, d: 5 }],
+];
+function inTransitionWindow(dob) {
+  return TRANSITION_WINDOWS.some(([s, e]) => cmp(dob, s) >= 0 && cmp(dob, e) <= 0);
+}
+
+function calculateSpaAge(dob, sex) {
+  sex = sex.toUpperCase();
+  if (sex === "F" && cmp(dob, { y: 1950, m: 4, d: 6 }) < 0) return [60, 0];
+  if (sex === "F" && cmp(dob, { y: 1950, m: 4, d: 6 }) >= 0 && cmp(dob, { y: 1953, m: 4, d: 5 }) <= 0) {
+    return interpolateMonths(dob, { y: 1950, m: 4, d: 6 }, { y: 1953, m: 4, d: 6 }, 60, 0, 63, 0);
+  }
+  if (sex === "M" && cmp(dob, { y: 1953, m: 12, d: 6 }) < 0) return [65, 0];
+  if (sex === "F" && cmp(dob, { y: 1953, m: 4, d: 6 }) >= 0 && cmp(dob, { y: 1954, m: 10, d: 5 }) <= 0) {
+    return interpolateMonths(dob, { y: 1953, m: 4, d: 6 }, { y: 1954, m: 10, d: 6 }, 63, 0, 66, 0);
+  }
+  if (sex === "M" && cmp(dob, { y: 1953, m: 12, d: 6 }) >= 0 && cmp(dob, { y: 1954, m: 10, d: 5 }) <= 0) {
+    return interpolateMonths(dob, { y: 1953, m: 12, d: 6 }, { y: 1954, m: 10, d: 6 }, 65, 0, 66, 0);
+  }
+  if (cmp(dob, { y: 1954, m: 10, d: 6 }) >= 0 && cmp(dob, { y: 1960, m: 4, d: 5 }) <= 0) return [66, 0];
+  if (cmp(dob, { y: 1960, m: 4, d: 6 }) >= 0 && cmp(dob, { y: 1961, m: 3, d: 5 }) <= 0) {
+    return interpolateMonths(dob, { y: 1960, m: 4, d: 6 }, { y: 1961, m: 3, d: 6 }, 66, 0, 67, 0);
+  }
+  if (cmp(dob, { y: 1961, m: 3, d: 6 }) >= 0 && cmp(dob, { y: 1977, m: 4, d: 5 }) <= 0) return [67, 0];
+  if (cmp(dob, { y: 1977, m: 4, d: 6 }) >= 0) return [68, 0];
+  throw new Error("Could not determine State Pension age for this date of birth.");
+}
+
+const NMPA_RISE_DATE = { y: 2028, m: 4, d: 6 };
+function calculateNmpaAccess(dob) {
+  const age55 = addYearsMonths(dob, 55, 0);
+  if (cmp(age55, NMPA_RISE_DATE) < 0) return [55, age55];
+  return [57, addYearsMonths(dob, 57, 0)];
+}
+
+const LIFE_EXPECTANCY_AT_BIRTH = { M: 78.6, F: 82.6 };
+function calculateLifeExpectancy(sex) {
+  const total = LIFE_EXPECTANCY_AT_BIRTH[sex.toUpperCase()];
+  let years = Math.floor(total);
+  let months = Math.round((total - years) * 12);
+  if (months === 12) { years += 1; months = 0; }
+  return [years, months];
+}
+
+function formatAge(years, months) {
+  const parts = [];
+  if (years) parts.push(`${years} year${years !== 1 ? "s" : ""}`);
+  if (months || !parts.length) parts.push(`${months} month${months !== 1 ? "s" : ""}`);
+  return parts.join(" ");
+}
+
+function calendarDiff(earlier, later) {
+  let years = later.y - earlier.y;
+  let months = later.m - earlier.m;
+  let days = later.d - earlier.d;
+  if (days < 0) {
+    months -= 1;
+    const prevMonth = later.m - 1 || 12;
+    const prevYear = later.m > 1 ? later.y : later.y - 1;
+    days += daysInMonth(prevYear, prevMonth);
+  }
+  if (months < 0) { years -= 1; months += 12; }
+  return [years, months, days];
+}
+
+function discountToPresent(nominal, futureDate, today, ratePct) {
+  if (!today || cmp(futureDate, today) <= 0) return nominal;
+  const years = daysBetween(today, futureDate) / 365.25;
+  return nominal / Math.pow(1 + ratePct / 100, years);
+}
+
+/* =========================================================================
+   INCOME SERIES / TABLES
+   ========================================================================= */
+
+function generateFlatGrowthSeries(startAge, startDate, endAge, startIncome, growthPct) {
+  const rate = growthPct / 100;
+  const series = [];
+  for (let age = startAge, offset = 0; age <= endAge; age++, offset++) {
+    const rowDate = addYearsMonths(startDate, offset, 0);
+    series.push({ age, date: rowDate, private: startIncome * Math.pow(1 + rate, offset) });
+  }
+  return series;
+}
+
+function generateDcDrawdownSeries(startAge, startDate, endAge, potValue, drawdownPct, growthPct, injectionDate, injectionAmount) {
+  const drawdownRate = drawdownPct / 100;
+  const growthRate = growthPct / 100;
+  let pot = potValue;
+  let injected = false;
+  const series = [];
+  for (let age = startAge, offset = 0; age <= endAge; age++, offset++) {
+    const rowDate = addYearsMonths(startDate, offset, 0);
+    if (injectionDate && !injected && cmp(rowDate, injectionDate) >= 0) {
+      pot += injectionAmount;
+      injected = true;
+    }
+    const withdrawal = pot * drawdownRate;
+    series.push({ age, date: rowDate, private: withdrawal, potStart: pot });
+    pot = (pot - withdrawal) * (1 + growthRate);
+  }
+  return series;
+}
+
+function remainingDcPotAtEnd(startAge, endAge, potValue, drawdownPct, growthPct) {
+  const drawdownRate = drawdownPct / 100;
+  const growthRate = growthPct / 100;
+  let pot = potValue;
+  for (let age = startAge; age <= endAge; age++) {
+    const withdrawal = pot * drawdownRate;
+    pot = (pot - withdrawal) * (1 + growthRate);
+  }
+  return pot;
+}
+
+function accumulatePensionPot(potValue, today, nmpaDate, annualContribution, growthPct) {
+  const growthRate = growthPct / 100;
+  let pot = potValue;
+  let offset = 1;
+  while (true) {
+    const yearEnd = addYearsMonths(today, offset, 0);
+    if (cmp(yearEnd, nmpaDate) > 0) break;
+    pot = (pot + annualContribution) * (1 + growthRate);
+    offset++;
+  }
+  return pot;
+}
+
+function buildIncomeRows(series, spaDate, statePensionWeekly, spGrowthPct, today, discountPct) {
+  const spRate = spGrowthPct / 100;
+  let spStartOffset = null;
+  return series.map((entry, offset) => {
+    let stateAnnual = 0;
+    if (spaDate && cmp(entry.date, spaDate) >= 0) {
+      if (spStartOffset === null) spStartOffset = offset;
+      stateAnnual = (statePensionWeekly * 52) * Math.pow(1 + spRate, offset - spStartOffset);
+    }
+    const totalAnnual = entry.private + stateAnnual;
+    const row = {
+      age: entry.age, date: entry.date,
+      private: entry.private, state: stateAnnual, annual: totalAnnual,
+      monthly: totalAnnual / 12, weekly: totalAnnual / 52,
+      present: discountToPresent(totalAnnual, entry.date, today, discountPct),
+    };
+    if (entry.potStart !== undefined) row.potStart = entry.potStart;
+    return row;
+  });
+}
+
+function generateIncomeTable(startAge, startDate, endAge, startIncome, growthPct, spaDate, spWeekly, spGrowthPct, today, discountPct) {
+  if (startAge > endAge) return [];
+  const series = generateFlatGrowthSeries(startAge, startDate, endAge, startIncome, growthPct);
+  return buildIncomeRows(series, spaDate, spWeekly, spGrowthPct, today, discountPct);
+}
+
+function generateDcDrawdownTable(startAge, startDate, endAge, potValue, drawdownPct, growthPct, spaDate, spWeekly, spGrowthPct, today, discountPct, injectionDate, injectionAmount) {
+  if (startAge > endAge) return [];
+  const series = generateDcDrawdownSeries(startAge, startDate, endAge, potValue, drawdownPct, growthPct, injectionDate, injectionAmount);
+  return buildIncomeRows(series, spaDate, spWeekly, spGrowthPct, today, discountPct);
+}
+
+function applyInheritedPot(rows, inheritedSeries, today, discountPct) {
+  const byYear = {};
+  inheritedSeries.forEach(e => { if (e.private > 0) byYear[e.date.y] = e.private; });
+  if (!Object.keys(byYear).length) return rows;
+  return rows.map(row => {
+    const extra = byYear[row.date.y] || 0;
+    if (!extra) return row;
+    const private_ = row.private + extra;
+    const annual = private_ + row.state;
+    return {
+      ...row, private: private_, annual,
+      monthly: annual / 12, weekly: annual / 52,
+      present: discountToPresent(annual, row.date, today, discountPct),
+    };
+  });
+}
+
+function applyPensionTransfer(you, spouse, yourRows, spouseRows, cfg) {
+  if (!yourRows.length || !spouseRows.length) return { yourRows, spouseRows, note: null };
+  if (cmp(you.lifeExpDate, spouse.lifeExpDate) === 0) return { yourRows, spouseRows, note: null };
+
+  const youFirst = cmp(you.lifeExpDate, spouse.lifeExpDate) < 0;
+  const deceased = youFirst ? you : spouse;
+  const survivor = youFirst ? spouse : you;
+  const deceasedLabel = youFirst ? "You" : "Your spouse";
+  const survivorLabel = youFirst ? "your spouse" : "you";
+  const deceasedPot = youFirst ? cfg.yourPot : cfg.spousePot;
+  const deceasedDrawdown = youFirst ? cfg.yourDrawdown : cfg.spouseDrawdown;
+  const deceasedGrowth = youFirst ? cfg.yourPotGrowth : cfg.spousePotGrowth;
+  const survivorPot = youFirst ? cfg.spousePot : cfg.yourPot;
+  const survivorDrawdown = youFirst ? cfg.spouseDrawdown : cfg.yourDrawdown;
+  const survivorGrowth = youFirst ? cfg.spousePotGrowth : cfg.yourPotGrowth;
+
+  if (deceasedPot === null) return { yourRows, spouseRows, note: null };
+
+  const remaining = remainingDcPotAtEnd(deceased.nmpaAge, deceased.lifeExpAge, deceasedPot, deceasedDrawdown, deceasedGrowth);
+  if (remaining <= 0) return { yourRows, spouseRows, note: null };
+
+  const transferDate = addYearsMonths(deceased.lifeExpDate, 0, 1);
+  let survivorUpdated, usedDrawdown, usedGrowth;
+
+  if (survivorPot !== null) {
+    usedDrawdown = survivorDrawdown; usedGrowth = survivorGrowth;
+    survivorUpdated = generateDcDrawdownTable(
+      survivor.nmpaAge, survivor.nmpaDate, survivor.lifeExpAge,
+      survivorPot, survivorDrawdown, survivorGrowth,
+      survivor.spaDate, cfg.spWeekly, cfg.spGrowth, cfg.today, cfg.discount,
+      transferDate, remaining
+    );
+  } else {
+    usedDrawdown = deceasedDrawdown; usedGrowth = deceasedGrowth;
+    const inheritedSeries = generateDcDrawdownSeries(
+      survivor.nmpaAge, survivor.nmpaDate, survivor.lifeExpAge,
+      0, deceasedDrawdown, deceasedGrowth, transferDate, remaining
+    );
+    const currentSurvivorRows = youFirst ? spouseRows : yourRows;
+    survivorUpdated = applyInheritedPot(currentSurvivorRows, inheritedSeries, cfg.today, cfg.discount);
+  }
+
+  const note = `${deceasedLabel} reach${deceasedLabel === "Your spouse" ? "es" : ""} average life ` +
+    `expectancy first (around ${fmtDate(deceased.lifeExpDate)}). Their remaining DC pension pot ` +
+    `(approx £${remaining.toLocaleString("en-GB", { maximumFractionDigits: 0 })}) is assumed to ` +
+    `transfer to ${survivorLabel} from ${fmtDate(transferDate)}, drawn down at ${usedDrawdown.toFixed(1)}%/year, ` +
+    `pot growing at ${usedGrowth.toFixed(1)}%/year.`;
+
+  return youFirst
+    ? { yourRows, spouseRows: survivorUpdated, note }
+    : { yourRows: survivorUpdated, spouseRows, note };
+}
+
+function combineIncomeTables(rowsA, rowsB) {
+  const byYearA = {}; rowsA.forEach(r => byYearA[r.date.y] = r);
+  const byYearB = {}; rowsB.forEach(r => byYearB[r.date.y] = r);
+  const years = Array.from(new Set([...Object.keys(byYearA), ...Object.keys(byYearB)])).map(Number).sort((a, b) => a - b);
+  return years.map(year => {
+    const ra = byYearA[year], rb = byYearB[year];
+    const yourAnnual = ra ? ra.annual : 0, spouseAnnual = rb ? rb.annual : 0;
+    const yourPresent = ra ? ra.present : 0, spousePresent = rb ? rb.present : 0;
+    const total = yourAnnual + spouseAnnual;
+    return {
+      year, yourAnnual, spouseAnnual, annual: total,
+      monthly: total / 12, weekly: total / 52, present: yourPresent + spousePresent,
+    };
+  });
+}
+
+/* =========================================================================
+   PERSON SUMMARY
+   ========================================================================= */
+
+function buildPersonSummary(dob, sex) {
+  const [spaY, spaM] = calculateSpaAge(dob, sex);
+  const spaDate = addYearsMonths(dob, spaY, spaM);
+  const [nmpaAge, nmpaDate] = calculateNmpaAccess(dob);
+  const [leY, leM] = calculateLifeExpectancy(sex);
+  const lifeExpDate = addYearsMonths(dob, leY, leM);
+  return {
+    dob, sex, spaYears: spaY, spaMonths: spaM, spaDate,
+    nmpaAge, nmpaDate, lifeExpAge: leY, lifeExpMonths: leM, lifeExpDate,
+    transition: inTransitionWindow(dob),
+  };
+}
+
+/* =========================================================================
+   FORMATTING HELPERS
+   ========================================================================= */
+
+const gbp0 = n => "£" + Math.round(n).toLocaleString("en-GB");
+const gbp2 = n => "£" + n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/* =========================================================================
+   STATE + RENDERING
+   ========================================================================= */
+
+const els = id => document.getElementById(id);
+let yourMode = "pot";
+let spouseMode = "income";
+
+function todayObj() {
+  const now = new Date();
+  return { y: now.getFullYear(), m: now.getMonth() + 1, d: now.getDate() };
+}
+
+function readInputs() {
+  const spouseOn = els("spouseSwitch").classList.contains("on");
+  return {
+    dob: parseD(els("dob").value),
+    sex: els("sex").value,
+    spouseOn,
+    spouseDob: spouseOn ? parseD(els("spouseDob").value) : null,
+    spouseSex: els("spouseSex").value,
+    yourMode, spouseMode,
+    yourPot: parseFloat(els("yourPot").value) || 0,
+    yourDrawdown: parseFloat(els("yourDrawdown").value) || 0,
+    yourPotGrowth: parseFloat(els("yourPotGrowth").value) || 0,
+    yourSalary: Math.min(1000000, Math.max(0, parseFloat(els("yourSalary").value) || 0)),
+    yourEmployerRate: parseFloat(els("yourEmployerRate").value) || 0,
+    yourIncome: parseFloat(els("yourIncome").value) || 0,
+    yourIncomeGrowth: parseFloat(els("yourIncomeGrowth").value) || 0,
+    spousePot: parseFloat(els("spousePot").value) || 0,
+    spouseDrawdown: parseFloat(els("spouseDrawdown").value) || 0,
+    spousePotGrowth: parseFloat(els("spousePotGrowth").value) || 0,
+    spouseIncome: parseFloat(els("spouseIncome").value) || 0,
+    spouseIncomeGrowth: parseFloat(els("spouseIncomeGrowth").value) || 0,
+    spWeekly: parseFloat(els("statePensionWeekly").value) || 0,
+    spGrowth: parseFloat(els("statePensionGrowth").value) || 0,
+    discount: parseFloat(els("discountRate").value) || 0,
+  };
+}
+
+function computeAll() {
+  const inp = readInputs();
+  const today = todayObj();
+  const you = buildPersonSummary(inp.dob, inp.sex);
+  const spouse = inp.spouseOn ? buildPersonSummary(inp.spouseDob, inp.spouseSex) : null;
+
+  // --- your rows ---
+  let yourEffectivePot = null;
+  let yourRows = [];
+  let yourContribution = 0;
+  if (inp.yourMode === "pot") {
+    yourContribution = inp.yourSalary * inp.yourEmployerRate / 100;
+    yourEffectivePot = accumulatePensionPot(inp.yourPot, today, you.nmpaDate, yourContribution, inp.yourPotGrowth);
+    yourRows = generateDcDrawdownTable(
+      you.nmpaAge, you.nmpaDate, you.lifeExpAge, yourEffectivePot,
+      inp.yourDrawdown, inp.yourPotGrowth, you.spaDate, inp.spWeekly, inp.spGrowth, today, inp.discount
+    );
+  } else {
+    yourRows = generateIncomeTable(
+      you.nmpaAge, you.nmpaDate, you.lifeExpAge, inp.yourIncome, inp.yourIncomeGrowth,
+      you.spaDate, inp.spWeekly, inp.spGrowth, today, inp.discount
+    );
+  }
+
+  let spouseRows = [], spouseEffectivePot = null;
+  let transferNote = null;
+  if (spouse) {
+    if (inp.spouseMode === "pot") {
+      spouseEffectivePot = inp.spousePot;
+      spouseRows = generateDcDrawdownTable(
+        spouse.nmpaAge, spouse.nmpaDate, spouse.lifeExpAge, spouseEffectivePot,
+        inp.spouseDrawdown, inp.spousePotGrowth, spouse.spaDate, inp.spWeekly, inp.spGrowth, today, inp.discount
+      );
+    } else {
+      spouseRows = generateIncomeTable(
+        spouse.nmpaAge, spouse.nmpaDate, spouse.lifeExpAge, inp.spouseIncome, inp.spouseIncomeGrowth,
+        spouse.spaDate, inp.spWeekly, inp.spGrowth, today, inp.discount
+      );
+    }
+
+    const transferResult = applyPensionTransfer(you, spouse, yourRows, spouseRows, {
+      yourPot: yourEffectivePot, yourDrawdown: inp.yourDrawdown, yourPotGrowth: inp.yourPotGrowth,
+      spousePot: spouseEffectivePot, spouseDrawdown: inp.spouseDrawdown, spousePotGrowth: inp.spousePotGrowth,
+      spWeekly: inp.spWeekly, spGrowth: inp.spGrowth, discount: inp.discount, today,
+    });
+    yourRows = transferResult.yourRows;
+    spouseRows = transferResult.spouseRows;
+    transferNote = transferResult.note;
+  }
+
+  return { inp, today, you, spouse, yourRows, spouseRows, yourEffectivePot, yourContribution, transferNote };
+}
+
+/* ---------- render: People tab reacts via inputs directly, no render needed ---------- */
+
+function renderAge(model) {
+  const { you, spouse } = model;
+  const card = (label, p) => {
+    const spaDelta = daysBetween(model.today, p.spaDate);
+    const spaStatus = spaDelta > 0
+      ? `<span class="pill">in ${formatAge(...calendarDiff(model.today, p.spaDate).slice(0, 2))}</span>`
+      : `<span class="pill gold">reached ${Math.abs(spaDelta)} days ago</span>`;
+    const gap = calendarDiff(p.nmpaDate, p.spaDate);
+    return `
+      <div class="card person-card">
+        <div class="person-title"><h2>${label}</h2>${spaStatus}</div>
+        <div class="stat-row">
+          <div class="stat">
+            <span class="label">State Pension age</span>
+            <span class="value">${formatAge(p.spaYears, p.spaMonths)}</span>
+            <span class="sub">${fmtDate(p.spaDate)}</span>
+          </div>
+          <div class="stat">
+            <span class="label">Private pension (SIPP/NMPA)</span>
+            <span class="value">age ${p.nmpaAge}</span>
+            <span class="sub">${fmtDate(p.nmpaDate)}</span>
+          </div>
+          <div class="stat">
+            <span class="label">Gap: pension &rarr; SPA</span>
+            <span class="value">${gap[0]}y ${gap[1]}m</span>
+            <span class="sub">${daysBetween(p.nmpaDate, p.spaDate).toLocaleString("en-GB")} days</span>
+          </div>
+          <div class="stat">
+            <span class="label">UK life expectancy (ONS)</span>
+            <span class="value">${formatAge(p.lifeExpAge, p.lifeExpMonths)}</span>
+            <span class="sub">around ${fmtDate(p.lifeExpDate)}</span>
+          </div>
+        </div>
+        ${p.transition ? `<div class="transition-note">&#9888; Born in a transitional SPA window &mdash; treat as a close estimate; confirm at gov.uk/state-pension-age.</div>` : ""}
+      </div>`;
+  };
+  els("ageCards").innerHTML = card("You", you) + (spouse ? card("Your spouse", spouse) : "");
+}
+
+function renderSalary(model) {
+  els("yourContributionAmount").textContent = `${gbp2(model.yourContribution)} / year`;
+}
+
+function tableHtml(rows, hasPot) {
+  if (!rows.length) {
+    return `<div class="notice empty"><span class="icon">&#9432;</span>Private pension access age is already at or beyond average life expectancy &mdash; no projection to show.</div>`;
+  }
+  const head = hasPot
+    ? `<tr><th>Age</th><th>Year</th><th>Pot</th><th>Draw</th><th>State</th><th>Weekly</th><th>Month</th><th>FV</th><th>PV</th></tr>`
+    : `<tr><th>Age</th><th>Year</th><th>Private</th><th>State</th><th>Weekly</th><th>Month</th><th>FV</th><th>PV</th></tr>`;
+  const body = rows.map(r => {
+    const spaRow = r.state > 0 && (rows[rows.indexOf(r) - 1] ? rows[rows.indexOf(r) - 1].state === 0 : true) ? " spa-row" : "";
+    return hasPot
+      ? `<tr class="${spaRow.trim()}"><td>${r.age}</td><td>${r.date.y}</td><td>${gbp0(r.potStart)}</td><td>${gbp0(r.private)}</td><td>${gbp0(r.state)}</td><td>${gbp0(r.weekly)}</td><td>${gbp0(r.monthly)}</td><td>${gbp0(r.annual)}</td><td>${gbp0(r.present)}</td></tr>`
+      : `<tr class="${spaRow.trim()}"><td>${r.age}</td><td>${r.date.y}</td><td>${gbp0(r.private)}</td><td>${gbp0(r.state)}</td><td>${gbp0(r.weekly)}</td><td>${gbp0(r.monthly)}</td><td>${gbp0(r.annual)}</td><td>${gbp0(r.present)}</td></tr>`;
+  }).join("");
+  return `<div class="table-scroll"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>
+    <p class="caption">Highlighted row = year State Pension begins. FV = nominal future value. PV = present-day value, discounted at ${model.inp.discount.toFixed(1)}%/yr. Figures rounded to the nearest &pound;.</p>`;
+}
+
+function renderProjection(model) {
+  const { you, spouse, yourRows, spouseRows, inp } = model;
+  let html = `
+    <div class="card">
+      <h2>You</h2>
+      ${inp.yourMode === "pot"
+        ? `<p class="caption" style="margin-top:-6px;">DC pot, ${inp.yourDrawdown}% drawdown, ${inp.yourPotGrowth}% growth${inp.yourSalary > 100 ? `, employer contributions until age ${you.nmpaAge}` : ""}.</p>`
+        : `<p class="caption" style="margin-top:-6px;">Flat income growing ${inp.yourIncomeGrowth}%/yr.</p>`}
+      ${tableHtml(yourRows, inp.yourMode === "pot")}
+    </div>`;
+  if (spouse) {
+    html += `
+    <div class="card">
+      <h2>Your spouse</h2>
+      ${inp.spouseMode === "pot"
+        ? `<p class="caption" style="margin-top:-6px;">DC pot, ${inp.spouseDrawdown}% drawdown, ${inp.spousePotGrowth}% growth.</p>`
+        : `<p class="caption" style="margin-top:-6px;">Flat income growing ${inp.spouseIncomeGrowth}%/yr.</p>`}
+      ${tableHtml(spouseRows, inp.spouseMode === "pot")}
+    </div>`;
+  }
+  els("projectionCards").innerHTML = html;
+}
+
+function renderHousehold(model) {
+  const { spouse, yourRows, spouseRows, transferNote, you, inp } = model;
+  if (!spouse) {
+    els("householdCards").innerHTML = `<div class="notice empty"><span class="icon">&#9432;</span>Add a spouse or partner on the People tab to see a combined household view.</div>`;
+    return;
+  }
+  if (!yourRows.length || !spouseRows.length) {
+    els("householdCards").innerHTML = `<div class="notice empty"><span class="icon">&#9432;</span>Both of you need an income projection (People &amp; Salary tabs) to see a combined total.</div>`;
+    return;
+  }
+  const combined = combineIncomeTables(yourRows, spouseRows);
+  const head = `<tr><th>Year</th><th>You</th><th>Spouse</th><th>Weekly</th><th>Month</th><th>FV</th><th>PV</th></tr>`;
+  const body = combined.map(r =>
+    `<tr><td>${r.year}</td><td>${gbp0(r.yourAnnual)}</td><td>${gbp0(r.spouseAnnual)}</td><td>${gbp0(r.weekly)}</td><td>${gbp0(r.monthly)}</td><td>${gbp0(r.annual)}</td><td>${gbp0(r.present)}</td></tr>`
+  ).join("");
+
+  let html = "";
+  if (transferNote) {
+    html += `<div class="notice"><span class="icon">&#9888;</span><span>${transferNote}</span></div>`;
+  }
+  const spaCompare = cmp(you.spaDate, spouse.spaDate);
+  const compareLine = spaCompare === 0
+    ? "You both reach State Pension age on the same date."
+    : spaCompare > 0
+      ? `You reach State Pension age later, by ${daysBetween(spouse.spaDate, you.spaDate).toLocaleString("en-GB")} days.`
+      : `Your spouse reaches State Pension age later, by ${daysBetween(you.spaDate, spouse.spaDate).toLocaleString("en-GB")} days.`;
+  html += `<div class="notice info"><span class="icon">&#8962;</span><span>${compareLine}</span></div>`;
+  html += `<div class="card">
+      <h2>Combined household income</h2>
+      <div class="table-scroll"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>
+      <p class="caption">Summed by calendar year. A year covered by only one of you shows &pound;0 for the other. FV = nominal future value; PV = present-day value at ${inp.discount.toFixed(1)}%/yr.</p>
+    </div>`;
+  els("householdCards").innerHTML = html;
+}
+
+function renderAll() {
+  let model;
+  try {
+    model = computeAll();
+  } catch (e) {
+    els("ageCards").innerHTML = `<div class="notice"><span class="icon">&#9888;</span>${e.message}</div>`;
+    return;
+  }
+  renderAge(model);
+  renderSalary(model);
+  renderProjection(model);
+  renderHousehold(model);
+}
+
+/* =========================================================================
+   UI WIRING
+   ========================================================================= */
+
+document.getElementById("tabs").addEventListener("click", e => {
+  const btn = e.target.closest(".tab-btn");
+  if (!btn) return;
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+  btn.classList.add("active");
+  els(`tab-${btn.dataset.tab}`).classList.add("active");
+});
+
+els("spouseSwitch").addEventListener("click", () => {
+  const on = els("spouseSwitch").classList.toggle("on");
+  els("spouseSwitch").setAttribute("aria-checked", String(on));
+  els("spouseFields").style.display = on ? "" : "none";
+  els("spousePotCard").style.display = on ? "" : "none";
+  renderAll();
+});
+
+function wireSegmented(segId, potFieldsId, incomeFieldsId, setMode) {
+  els(segId).addEventListener("click", e => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    els(segId).querySelectorAll("button").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    const mode = btn.dataset.mode;
+    setMode(mode);
+    els(potFieldsId).style.display = mode === "pot" ? "" : "none";
+    els(incomeFieldsId).style.display = mode === "income" ? "" : "none";
+    renderAll();
+  });
+}
+wireSegmented("yourModeSeg", "yourPotFields", "yourIncomeFields", m => yourMode = m);
+wireSegmented("spouseModeSeg", "spousePotFields", "spouseIncomeFields", m => spouseMode = m);
+
+document.querySelectorAll("input, select").forEach(inp => {
+  inp.addEventListener("change", renderAll);
+});
+
+els("openSettings").addEventListener("click", () => els("settingsModal").classList.add("open"));
+els("closeSettings").addEventListener("click", () => els("settingsModal").classList.remove("open"));
+els("applySettings").addEventListener("click", () => { els("settingsModal").classList.remove("open"); renderAll(); });
+els("settingsModal").addEventListener("click", e => { if (e.target === els("settingsModal")) els("settingsModal").classList.remove("open"); });
+
+renderAll();
+</script>
