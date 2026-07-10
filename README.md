@@ -6,10 +6,16 @@ year-by-year projected pension income table.
 ## Web app
 
 `pension-planner.html` is a self-contained interactive version - open it directly in a browser
-(no server, no build step, no dependencies). It's split into five tabs (People, Pension Age,
-Salary & Pot, Projection, Household) instead of one dense wall of numbers, with live recalculation
-as you edit fields. The calculation logic mirrors `pension_year.py` exactly - see the `<script>` in
-the file for the JS port.
+(no server, no build step, no dependencies). It's split into six tabs (People, Pension Age,
+Salary & Pot, Projection, Household, Gifting) instead of one dense wall of numbers, with live
+recalculation as you edit fields. The calculation logic mirrors `pension_year.py` exactly - see the
+`<script>` in the file for the JS port.
+
+A "Profile" picker in the sidebar saves your inputs to the browser's local storage under a name you
+choose (e.g. "David & wife"), so you can switch between saved scenarios later. This is local-only,
+not a real login - there's no way to do genuine Google/Apple sign-in inside a static, dependency-free
+page without a hosted domain and registered OAuth credentials, so anyone with access to the browser
+can open any saved profile.
 
 ## Usage
 
