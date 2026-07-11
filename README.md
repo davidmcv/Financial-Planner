@@ -6,11 +6,41 @@ year-by-year projected pension income table.
 ## Web app
 
 `pension-planner.html` is a self-contained interactive version - open it directly in a browser
-(no server, no build step, no dependencies). It's split into six tabs (People, Pension Age,
-Salary & Pot, Projection, Household, Gifting) instead of one dense wall of numbers, with live
-recalculation as you edit fields. All money is shown in GBP with comma separators, in the input
-fields as well as the tables. The calculation logic mirrors `pension_year.py` exactly - see the
-`<script>` in the file for the JS port.
+(no server, no build step, no dependencies). It's split into five tabs (People, Paying In, Paying
+Out, Household, Gifting) with live recalculation as you edit fields. All money is shown in GBP with
+comma separators, in the input fields as well as the tables. The web app extends beyond the CLI
+(`pension_year.py`) with the features below; the shared State-Pension-age / NMPA / life-expectancy
+maths still mirrors the Python exactly.
+
+**People** holds each person's date of birth, sex, and **planned retirement date**, plus the
+resulting timeline (private pension access, State Pension, life expectancy) in chronological order.
+
+**Paying In** (accumulation) has your pension pot and contributions, plus incremental asset
+sections: **Cash savings** (current account + savings accounts, each with a type - Cash ISA, Easy
+Access, etc.), **Employer pensions** (each Defined Contribution or Defined Benefit), and **Shares &
+investments** (each with a type - S&S ISA, GIA, LISA, etc.), with an assets-today summary.
+
+**Paying Out** (decumulation) projects your income year by year from your retirement date to average
+life expectancy. Retiring before a pension starts is handled across all the numbers: the gap years
+are funded from **cash first, then shares** (shortfalls flagged in red), **Defined Contribution**
+employer pots fold into your drawdown pot, and **Defined Benefit** pensions add a fixed income from
+their own start age. (These are simplified planning assumptions - e.g. DB income is flat, DC pots
+grow at your pot's rate, and cash/shares are only drawn during an early-retirement gap.)
+
+The layout is mobile-first and app-like: on a phone the tabs sit in a fixed bottom navigation bar
+(no horizontal scrolling), the desktop sidebar collapses into a compact top bar, stat tiles reflow
+two-up, and safe-area insets keep content clear of the notch/home indicator. (A true installable
+React Native app isn't shippable as a single self-contained web file - RN compiles to a native
+iOS/Android binary requiring Xcode/Android Studio and app-store distribution - so this delivers the
+native *feel* as a mobile web app.)
+
+A **Plain English / Expert** toggle (top bar and sidebar) switches all jargon between novice-friendly
+phrasing and the accurate terms, so both a beginner and an expert can use it - e.g. "When you can
+take your private pension" vs "Normal Minimum Pension Age (NMPA)", "Today's £" vs "PV", "a gift
+that becomes tax-free once you survive 7 years" vs "Potentially Exempt Transfer (PET)". The Pension
+Age tab lists events chronologically (private pension access before the State Pension) and its
+heading adapts to singular when no spouse is included. The Salary & Pot and Projection tabs label
+the **accumulation** (paying in) and **decumulation** (drawing down) phases explicitly.
 
 The Gifting tab also tracks planned gifts year by year until your average life expectancy and
 estimates the Inheritance Tax due at death: each year's excess over the tax-free ceiling is a
@@ -19,7 +49,7 @@ band in date order, and the remainder is taxed at 40% with taper relief (3-4 yrs
 5-6 16%, 6-7 8%; 7+ years fully exempt). This is a simplified planning estimate - it ignores the
 estate itself sharing the nil-rate band, spousal transfers, and the residence nil-rate band.
 
-A "Profile" picker in the sidebar saves your inputs to the browser's local storage under a name you
+A "Profile" picker on the People tab saves your inputs to the browser's local storage under a name you
 choose (e.g. "David & wife"), so you can switch between saved scenarios later. This is local-only,
 not a real login - there's no way to do genuine Google/Apple sign-in inside a static, dependency-free
 page without a hosted domain and registered OAuth credentials, so anyone with access to the browser
