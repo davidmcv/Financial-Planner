@@ -199,6 +199,32 @@
   .field-row { display: flex; flex-wrap: wrap; gap: 14px; }
   .field-row .field { flex: 1 1 160px; }
 
+  /* ---------- Incremental asset lists ---------- */
+  .list-label { font-size: 0.78rem; color: var(--ink-muted); margin-bottom: 8px; }
+  .asset-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+  .asset-row {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 12px;
+  }
+  .asset-row .field { flex: 1 1 120px; gap: 4px; }
+  .asset-row .field label { font-size: 0.7rem; }
+  .asset-row .field input, .asset-row .field select {
+    background: var(--surface); font-size: 0.88rem; padding: 7px 9px;
+  }
+  .asset-row .remove-btn {
+    flex: 0 0 auto; align-self: center; background: none; border: 1px solid var(--border);
+    color: var(--ink-faint); border-radius: 8px; padding: 6px 9px; cursor: pointer; font-size: 0.95rem;
+  }
+  .asset-row .remove-btn:hover { border-color: var(--critical); color: var(--critical); }
+  .add-btn {
+    background: var(--accent-wash); color: var(--accent-strong); border: 1px dashed var(--accent);
+    border-radius: 9px; padding: 8px 14px; font: inherit; font-size: 0.85rem; font-weight: 600;
+    cursor: pointer;
+  }
+  .add-btn:hover { background: var(--accent); color: white; }
+  .asset-empty { font-size: 0.82rem; color: var(--ink-faint); margin-bottom: 10px; }
+
   .switch-row { display: flex; align-items: center; gap: 10px; }
   .switch-row label { font-size: 0.92rem; color: var(--ink); }
   .switch {
@@ -264,8 +290,11 @@
   tbody td:first-child, tbody td:nth-child(2) { text-align: left; font-family: var(--font-body); }
   tbody tr:last-child td { border-bottom: none; }
   tbody tr.spa-row td { background: var(--accent-wash); }
+  tbody tr.bridge-row td { background: var(--gold-wash); }
   tbody tr:hover td { background: var(--surface-2); }
   tbody tr.spa-row:hover td { background: var(--accent-wash); }
+  tbody tr.bridge-row:hover td { background: var(--gold-wash); }
+  td .short { color: var(--critical); font-size: 0.8em; }
 
   .caption { font-size: 0.78rem; color: var(--ink-faint); margin-top: 8px; }
 
@@ -418,10 +447,9 @@
       <span class="sub">UK Pension Planner</span>
     </div>
     <nav class="tabs" id="tabs">
-      <button class="tab-btn active" data-tab="people"><span class="icon">&#9679;</span>People</button>
-      <button class="tab-btn" data-tab="age"><span class="icon">&#9203;</span>Pension Age</button>
-      <button class="tab-btn" data-tab="salary"><span class="icon">&#163;</span>Salary &amp; Pot</button>
-      <button class="tab-btn" data-tab="projection"><span class="icon">&#8599;</span>Projection</button>
+      <button class="tab-btn active" data-tab="people"><span class="icon">&#128100;</span>People</button>
+      <button class="tab-btn" data-tab="salary"><span class="icon">&#8681;</span>Paying In</button>
+      <button class="tab-btn" data-tab="projection"><span class="icon">&#8679;</span>Paying Out</button>
       <button class="tab-btn" data-tab="household"><span class="icon">&#8962;</span>Household</button>
       <button class="tab-btn" data-tab="gifting"><span class="icon">&#127873;</span>Gifting</button>
     </nav>
@@ -450,11 +478,11 @@
 
   <main class="content">
 
-    <!-- PEOPLE -->
+    <!-- PEOPLE (now also holds the pension-age timeline) -->
     <section class="panel active" id="tab-people">
       <div class="panel-head">
-        <h1>Who's this for?</h1>
-        <p>Enter your date of birth, and add a spouse or partner if you want a combined household view.</p>
+        <h1 id="ageHeading">Your pension timeline</h1>
+        <p id="ageSubtitle">Your dates of birth and planned retirement, then when a private pension is available, when the State Pension starts, and average life expectancy.</p>
       </div>
 
       <div class="card">
@@ -482,6 +510,16 @@
             </select>
             <span class="hint">Only affects results if born before 6 Apr 1955</span>
           </div>
+          <div class="field">
+            <label for="retireDate">Planned retirement date</label>
+            <input type="date" id="retireDate" value="2028-03-01">
+            <span class="hint">When you stop earning. If before a pension starts, savings bridge the gap.</span>
+          </div>
+          <div class="field">
+            <label for="retireSpend">Income needed if you retire early (&pound;/yr)</label>
+            <input type="text" inputmode="decimal" data-money="0" id="retireSpend" value="0">
+            <span class="hint">Drawn from cash then shares in any years before a pension starts</span>
+          </div>
         </div>
       </div>
 
@@ -505,35 +543,33 @@
                 <option value="F" selected>Female</option>
               </select>
             </div>
+            <div class="field">
+              <label for="spouseRetireDate">Planned retirement date</label>
+              <input type="date" id="spouseRetireDate" value="2033-04-01">
+            </div>
           </div>
         </div>
       </div>
-    </section>
 
-    <!-- PENSION AGE -->
-    <section class="panel" id="tab-age">
-      <div class="panel-head">
-        <h1 id="ageHeading">Pension age &amp; life expectancy</h1>
-        <p id="ageSubtitle">When each of you can draw the State Pension, when a private pension becomes accessible, and average UK life expectancy.</p>
-      </div>
+      <h2 style="margin-top: 4px;">Key dates</h2>
       <div id="ageCards"></div>
     </section>
 
-    <!-- SALARY & POT -->
+    <!-- PAYING IN (was Salary & Pot) -->
     <section class="panel" id="tab-salary">
       <div class="panel-head">
-        <h1>Salary &amp; pension pot</h1>
-        <p>Model your private pension as either a flat income or a drawdown pot &mdash; and for you, how salary and employer contributions grow that pot before you retire.</p>
+        <h1>Paying In</h1>
+        <p>Everything building up before you retire: your pension pot and contributions, cash savings, employer pensions, and share accounts. This is the <b data-term="accumulationShort">accumulation</b> phase.</p>
       </div>
 
       <div class="phase-explainer">
         <div class="phase-item">
           <span class="phase-chip accum" data-term="accumulationShort">Paying in</span>
-          <span data-term-plain="While you're working, money goes <b>in</b> and the pot grows." data-term-expert="The <b>accumulation phase</b>: contributions plus investment growth build the pot up to your access age."></span>
+          <span data-term-plain="While you're working, money goes <b>in</b> and your savings and pots grow." data-term-expert="The <b>accumulation phase</b>: contributions plus investment growth build your assets up to retirement."></span>
         </div>
         <div class="phase-item">
           <span class="phase-chip decum" data-term="decumulationShort">Taking out</span>
-          <span data-term-plain="Once retired, you take money <b>out</b> each year to live on." data-term-expert="The <b>decumulation phase</b>: you draw down a % of the pot each year as income (see the Projection tab)."></span>
+          <span data-term-plain="Once retired, you take money <b>out</b> each year to live on (see Paying Out)." data-term-expert="The <b>decumulation phase</b>: you draw an income from these assets in retirement (see Paying Out)."></span>
         </div>
       </div>
 
@@ -631,13 +667,51 @@
           </div>
         </div>
       </div>
+
+      <p class="caption" style="margin: 2px 0 -8px;">The sections below are yours. Cash and shares bridge any early-retirement gap; defined-contribution
+        employer pots add to your drawdown pot; defined-benefit pensions pay a set income from their own start age.</p>
+
+      <!-- CASH SAVINGS -->
+      <div class="card">
+        <h3>&#128181; Cash savings</h3>
+        <div class="field-row">
+          <div class="field">
+            <label for="cashCurrent">Current account balance (&pound;)</label>
+            <input type="text" inputmode="decimal" data-money="0" id="cashCurrent" value="10,000">
+          </div>
+        </div>
+        <div class="divider" style="margin: 12px 0;"></div>
+        <div class="list-label">Savings accounts</div>
+        <div id="savingsList" class="asset-list"></div>
+        <button type="button" class="add-btn" data-add="savings">+ Add savings account</button>
+      </div>
+
+      <!-- EMPLOYER PENSIONS -->
+      <div class="card">
+        <h3>&#127963; Employer pensions</h3>
+        <div id="employerPensionList" class="asset-list"></div>
+        <button type="button" class="add-btn" data-add="employerPensions">+ Add employer pension</button>
+      </div>
+
+      <!-- SHARES -->
+      <div class="card">
+        <h3>&#128200; Shares &amp; investments</h3>
+        <div id="shareList" class="asset-list"></div>
+        <button type="button" class="add-btn" data-add="shares">+ Add share account</button>
+      </div>
+
+      <!-- ASSETS SUMMARY -->
+      <div class="card">
+        <h3>Your assets today</h3>
+        <div id="assetsSummary"></div>
+      </div>
     </section>
 
-    <!-- PROJECTION -->
+    <!-- PAYING OUT (was Projection) -->
     <section class="panel" id="tab-projection">
       <div class="panel-head">
-        <h1>Income projection</h1>
-        <p>Year by year, from private pension access age to average life expectancy. FV = nominal future value; PV = today's purchasing power.</p>
+        <h1>Paying Out</h1>
+        <p>Your income year by year in retirement &mdash; from your retirement date to average life expectancy. If you retire before a pension starts, cash then shares bridge the gap.</p>
       </div>
       <div id="projectionCards"></div>
     </section>
@@ -721,9 +795,8 @@
   <!-- Mobile bottom tab bar (all tabs, no horizontal scroll) -->
   <nav class="bottomnav" id="bottomnav">
     <button class="tab-btn active" data-tab="people"><span class="icon">&#128100;</span>People</button>
-    <button class="tab-btn" data-tab="age"><span class="icon">&#9203;</span>Age</button>
-    <button class="tab-btn" data-tab="salary"><span class="icon">&#163;</span>Pot</button>
-    <button class="tab-btn" data-tab="projection"><span class="icon">&#128200;</span>Income</button>
+    <button class="tab-btn" data-tab="salary"><span class="icon">&#8681;</span>Paying In</button>
+    <button class="tab-btn" data-tab="projection"><span class="icon">&#8679;</span>Paying Out</button>
     <button class="tab-btn" data-tab="household"><span class="icon">&#128106;</span>Home</button>
     <button class="tab-btn" data-tab="gifting"><span class="icon">&#127873;</span>Gifts</button>
   </nav>
@@ -1181,6 +1254,126 @@ function todayObj() {
 }
 
 /* =========================================================================
+   ASSETS (your cash savings, employer pensions, share accounts).
+   These are "yours": cash + shares bridge an early-retirement gap, DC
+   employer pots fold into your drawdown pot, DB pensions pay a fixed
+   income from their own start age.
+   ========================================================================= */
+
+const SAVINGS_TYPES = ["Easy Access", "Cash ISA", "Fixed-term Bond", "Premium Bonds", "Regular Saver", "Other"];
+const SHARE_TYPES = ["Stocks & Shares ISA", "General Investment Account", "Lifetime ISA", "Trading Account", "Other"];
+
+function defaultAssets() {
+  return {
+    savings: [
+      { type: "Cash ISA", balance: 20000 },
+      { type: "Easy Access", balance: 15000 },
+    ],
+    // DC value 0 by default so nothing folds into the pot until you fill it in.
+    employerPensions: [
+      { label: "Workplace pension", kind: "DC", value: 0, contribution: 0, income: 0, startAge: 65 },
+    ],
+    shares: [
+      { type: "Stocks & Shares ISA", value: 30000 },
+    ],
+  };
+}
+let assets = defaultAssets();
+
+const moneyAttr = 'inputmode="decimal"';
+function optionsHtml(types, selected) {
+  return types.map(t => `<option${t === selected ? " selected" : ""}>${t}</option>`).join("");
+}
+
+function renderAssetLists() {
+  // Savings
+  els("savingsList").innerHTML = assets.savings.length ? assets.savings.map((a, i) => `
+    <div class="asset-row" data-list="savings" data-idx="${i}">
+      <div class="field"><label>Type</label>
+        <select data-field="type">${optionsHtml(SAVINGS_TYPES, a.type)}</select></div>
+      <div class="field"><label>Balance (£)</label>
+        <input type="text" ${moneyAttr} data-field="balance" value="${fmtNum(a.balance)}"></div>
+      <button type="button" class="remove-btn" data-remove="savings" data-idx="${i}" aria-label="Remove">&times;</button>
+    </div>`).join("") : `<div class="asset-empty">No savings accounts yet.</div>`;
+
+  // Employer pensions
+  els("employerPensionList").innerHTML = assets.employerPensions.length ? assets.employerPensions.map((a, i) => {
+    const isDB = a.kind === "DB";
+    return `
+    <div class="asset-row" data-list="employerPensions" data-idx="${i}">
+      <div class="field" style="flex:1 1 140px;"><label>Name</label>
+        <input type="text" data-field="label" value="${(a.label || "").replace(/"/g, "&quot;")}"></div>
+      <div class="field" style="flex:0 0 150px;"><label>Type</label>
+        <select data-field="kind">
+          <option value="DC"${!isDB ? " selected" : ""}>Defined Contribution</option>
+          <option value="DB"${isDB ? " selected" : ""}>Defined Benefit</option>
+        </select></div>
+      ${isDB ? `
+      <div class="field"><label>Annual income (£)</label>
+        <input type="text" ${moneyAttr} data-field="income" value="${fmtNum(a.income)}"></div>
+      <div class="field" style="flex:0 0 90px;"><label>From age</label>
+        <input type="number" data-field="startAge" min="0" max="100" value="${a.startAge}"></div>
+      ` : `
+      <div class="field"><label>Value today (£)</label>
+        <input type="text" ${moneyAttr} data-field="value" value="${fmtNum(a.value)}"></div>
+      <div class="field"><label>Contribution (£/yr)</label>
+        <input type="text" ${moneyAttr} data-field="contribution" value="${fmtNum(a.contribution)}"></div>
+      `}
+      <button type="button" class="remove-btn" data-remove="employerPensions" data-idx="${i}" aria-label="Remove">&times;</button>
+    </div>`;
+  }).join("") : `<div class="asset-empty">No employer pensions yet.</div>`;
+
+  // Shares
+  els("shareList").innerHTML = assets.shares.length ? assets.shares.map((a, i) => `
+    <div class="asset-row" data-list="shares" data-idx="${i}">
+      <div class="field"><label>Type</label>
+        <select data-field="type">${optionsHtml(SHARE_TYPES, a.type)}</select></div>
+      <div class="field"><label>Value (£)</label>
+        <input type="text" ${moneyAttr} data-field="value" value="${fmtNum(a.value)}"></div>
+      <button type="button" class="remove-btn" data-remove="shares" data-idx="${i}" aria-label="Remove">&times;</button>
+    </div>`).join("") : `<div class="asset-empty">No share accounts yet.</div>`;
+}
+
+function fmtNum(n) { return (Number(n) || 0).toLocaleString("en-GB"); }
+
+// Read the editable asset rows back into the `assets` state.
+function syncAssetsFromDOM() {
+  ["savings", "employerPensions", "shares"].forEach(listName => {
+    document.querySelectorAll(`.asset-row[data-list="${listName}"]`).forEach(row => {
+      const idx = +row.dataset.idx;
+      const obj = assets[listName][idx];
+      if (!obj) return;
+      row.querySelectorAll("[data-field]").forEach(inp => {
+        const f = inp.dataset.field;
+        if (inp.tagName === "SELECT" || f === "label") obj[f] = inp.value;
+        else if (f === "startAge") obj[f] = parseInt(inp.value, 10) || 0;
+        else obj[f] = parseMoney(inp.value) || 0;
+      });
+    });
+  });
+}
+
+function newAssetRow(listName) {
+  if (listName === "savings") return { type: "Easy Access", balance: 0 };
+  if (listName === "shares") return { type: "Stocks & Shares ISA", value: 0 };
+  return { label: "Employer pension", kind: "DC", value: 0, contribution: 0, income: 0, startAge: 65 };
+}
+
+// Aggregate assets for the calculation engine.
+function assetTotals() {
+  const cash = (parseMoney(els("cashCurrent").value) || 0)
+    + assets.savings.reduce((s, a) => s + (Number(a.balance) || 0), 0);
+  const shares = assets.shares.reduce((s, a) => s + (Number(a.value) || 0), 0);
+  const dcValue = assets.employerPensions.filter(p => p.kind === "DC")
+    .reduce((s, a) => s + (Number(a.value) || 0), 0);
+  const dcContribution = assets.employerPensions.filter(p => p.kind === "DC")
+    .reduce((s, a) => s + (Number(a.contribution) || 0), 0);
+  const dbStreams = assets.employerPensions.filter(p => p.kind === "DB")
+    .map(a => ({ income: Number(a.income) || 0, startAge: Number(a.startAge) || 0 }));
+  return { cash, shares, dcValue, dcContribution, dbStreams };
+}
+
+/* =========================================================================
    PROFILES  (local, browser-only "save per person" - no real login;
    Google/Apple OAuth can't run in a sandboxed static page or without a
    hosted domain + registered developer credentials)
@@ -1188,9 +1381,9 @@ function todayObj() {
 
 const PROFILE_STORAGE_KEY = "pensionPlanner.profiles";
 const PROFILE_FIELD_IDS = [
-  "dob", "sex", "spouseDob", "spouseSex",
+  "dob", "sex", "retireDate", "retireSpend", "spouseDob", "spouseSex", "spouseRetireDate",
   "yourPot", "yourDrawdown", "yourPotGrowth", "yourSalary", "yourEmployerRate",
-  "yourIncome", "yourIncomeGrowth",
+  "yourIncome", "yourIncomeGrowth", "cashCurrent",
   "spousePot", "spouseDrawdown", "spousePotGrowth", "spouseIncome", "spouseIncomeGrowth",
   "statePensionWeekly", "statePensionGrowth", "discountRate",
   "numChildren", "numGrandchildren", "smallGiftAmount", "annualExemption",
@@ -1212,11 +1405,14 @@ function collectProfileData() {
   data.spouseOn = els("spouseSwitch").classList.contains("on");
   data.yourMode = yourMode;
   data.spouseMode = spouseMode;
+  syncAssetsFromDOM();
+  data.assets = JSON.parse(JSON.stringify(assets));
   return data;
 }
 
 function applyProfileData(data) {
   PROFILE_FIELD_IDS.forEach(id => { if (data[id] !== undefined) els(id).value = data[id]; });
+  if (data.assets) { assets = JSON.parse(JSON.stringify(data.assets)); renderAssetLists(); }
   formatAllMoneyInputs();
 
   const wantSpouseOn = !!data.spouseOn;
@@ -1280,6 +1476,9 @@ function readInputs() {
     spouseDob: spouseOn ? parseD(els("spouseDob").value) : null,
     spouseSex: els("spouseSex").value,
     yourMode, spouseMode,
+    retireDate: parseD(els("retireDate").value),
+    retireSpend: money("retireSpend"),
+    spouseRetireDate: spouseOn ? parseD(els("spouseRetireDate").value) : null,
     yourPot: money("yourPot"),
     yourDrawdown: parseFloat(els("yourDrawdown").value) || 0,
     yourPotGrowth: parseFloat(els("yourPotGrowth").value) || 0,
@@ -1389,54 +1588,143 @@ function buildGiftIhtSchedule(startYear, today, deathDate, plannedGift, taxFreeC
   };
 }
 
+function ageAtDate(dob, d) { return calendarDiff(dob, d)[0]; }
+
+// Unified projection for one person, incorporating retirement date (with a
+// cash-then-shares bridge for any years retired before a pension starts),
+// DC employer pots folded into the drawdown pot, and DB pensions paying a
+// fixed income from their own start age. Returns { rows, meta }.
+function buildPersonProjection(p, o) {
+  const accessDate = p.nmpaDate;
+  const decumStartDate = cmp(o.retireDate, accessDate) >= 0 ? o.retireDate : accessDate;
+  const decumStartAge = ageAtDate(p.dob, decumStartDate);
+  const retireAge = ageAtDate(p.dob, o.retireDate);
+  const startAge = retireAge, endAge = p.lifeExpAge;
+  const meta = { mode: o.mode, decumStartAge, decumStartDate, accumulatedPot: 0,
+                 drawdown: o.drawdown, growth: o.potGrowth };
+  if (startAge > endAge) return { rows: [], meta };
+
+  // Accumulation up to the decumulation start (pot grows; DC employer pots
+  // fold in, employer + DC contributions are added each year until then).
+  let decumSeries = null;
+  if (o.mode === "pot") {
+    const effToday = o.potToday + o.assets.dcValue;
+    const contrib = o.salary * o.employerRate / 100 + o.assets.dcContribution;
+    meta.accumulatedPot = accumulatePensionPot(effToday, o.today, decumStartDate, contrib, o.potGrowth);
+    const series = generateDcDrawdownSeries(
+      decumStartAge, decumStartDate, endAge, meta.accumulatedPot, o.drawdown, o.potGrowth,
+      o.injectionDate || null, o.injectionAmount || 0);
+    decumSeries = {}; series.forEach(s => { decumSeries[s.date.y] = s; });
+  }
+
+  let cashRem = o.assets.cash, sharesRem = o.assets.shares;
+  const rows = [];
+  let spaOffset = null;
+  for (let offset = 0; startAge + offset <= endAge; offset++) {
+    const rowDate = addYearsMonths(o.retireDate, offset, 0);
+    const age = startAge + offset;
+    let priv = 0, potStart, fromCash = 0, fromShares = 0, shortfall = 0, isBridge = false;
+
+    if (cmp(rowDate, decumStartDate) < 0) {
+      // Bridge year: retired but no pension yet - draw cash, then shares.
+      isBridge = true;
+      let need = o.retireSpend;
+      fromCash = Math.min(need, cashRem); cashRem -= fromCash; need -= fromCash;
+      fromShares = Math.min(need, sharesRem); sharesRem -= fromShares; need -= fromShares;
+      priv = fromCash + fromShares; shortfall = need;
+    } else if (o.mode === "pot") {
+      const s = decumSeries[rowDate.y];
+      if (s) { priv = s.private; potStart = s.potStart; }
+    } else {
+      const decOffset = age - decumStartAge;
+      priv = o.startIncome * Math.pow(1 + o.incomeGrowth / 100, Math.max(0, decOffset));
+    }
+
+    let state = 0;
+    if (cmp(rowDate, p.spaDate) >= 0) {
+      if (spaOffset === null) spaOffset = offset;
+      state = (o.spWeekly * 52) * Math.pow(1 + o.spGrowth / 100, offset - spaOffset);
+    }
+    let db = 0;
+    o.assets.dbStreams.forEach(st => {
+      if (cmp(rowDate, addYearsMonths(p.dob, st.startAge, 0)) >= 0) db += st.income;
+    });
+
+    const annual = priv + state + db;
+    const row = {
+      age, date: rowDate, private: priv, state, db, annual,
+      monthly: annual / 12, weekly: annual / 52,
+      present: discountToPresent(annual, rowDate, o.today, o.discount),
+      isBridge, fromCash, fromShares, shortfall,
+    };
+    if (potStart !== undefined) row.potStart = potStart;
+    rows.push(row);
+  }
+  return { rows, meta };
+}
+
+// Pension transfer on first death, using each person's accumulated pot and
+// decumulation start age; the survivor inherits the remaining pot as extra
+// drawdown income from the transfer date (via applyInheritedPot).
+function applyTransferV2(you, spouse, youMeta, spouseMeta, yourRows, spouseRows, cfg) {
+  if (!yourRows.length || !spouseRows.length) return { yourRows, spouseRows, note: null };
+  if (cmp(you.lifeExpDate, spouse.lifeExpDate) === 0) return { yourRows, spouseRows, note: null };
+  const youFirst = cmp(you.lifeExpDate, spouse.lifeExpDate) < 0;
+  const dead = youFirst ? you : spouse, deadMeta = youFirst ? youMeta : spouseMeta;
+  const surv = youFirst ? spouse : you, survMeta = youFirst ? spouseMeta : youMeta;
+  const deadLabel = youFirst ? "You" : "Your spouse", survLabel = youFirst ? "your spouse" : "you";
+  if (deadMeta.mode !== "pot" || deadMeta.accumulatedPot <= 0) return { yourRows, spouseRows, note: null };
+
+  const remaining = remainingDcPotAtEnd(deadMeta.decumStartAge, dead.lifeExpAge,
+    deadMeta.accumulatedPot, deadMeta.drawdown, deadMeta.growth);
+  if (remaining <= 0) return { yourRows, spouseRows, note: null };
+
+  const transferDate = addYearsMonths(dead.lifeExpDate, 0, 1);
+  const inherited = generateDcDrawdownSeries(
+    survMeta.decumStartAge, survMeta.decumStartDate, surv.lifeExpAge,
+    0, deadMeta.drawdown, deadMeta.growth, transferDate, remaining);
+  const survUpdated = applyInheritedPot(youFirst ? spouseRows : yourRows, inherited, cfg.today, cfg.discount);
+  const note = `${deadLabel} reach${deadLabel === "Your spouse" ? "es" : ""} average life expectancy first `
+    + `(around ${fmtDate(dead.lifeExpDate)}). The remaining pension pot (approx £${remaining.toLocaleString("en-GB", { maximumFractionDigits: 0 })}) `
+    + `is assumed to pass to ${survLabel} from ${fmtDate(transferDate)}, drawn at ${deadMeta.drawdown.toFixed(1)}%/yr.`;
+  return youFirst ? { yourRows, spouseRows: survUpdated, note } : { yourRows: survUpdated, spouseRows, note };
+}
+
 function computeAll() {
   const inp = readInputs();
+  syncAssetsFromDOM();
   const today = todayObj();
   const you = buildPersonSummary(inp.dob, inp.sex);
   const spouse = inp.spouseOn ? buildPersonSummary(inp.spouseDob, inp.spouseSex) : null;
+  const at = assetTotals();
+  const noAssets = { cash: 0, shares: 0, dcValue: 0, dcContribution: 0, dbStreams: [] };
 
-  // --- your rows ---
-  let yourEffectivePot = null;
-  let yourRows = [];
-  let yourContribution = 0;
-  if (inp.yourMode === "pot") {
-    yourContribution = inp.yourSalary * inp.yourEmployerRate / 100;
-    yourEffectivePot = accumulatePensionPot(inp.yourPot, today, you.nmpaDate, yourContribution, inp.yourPotGrowth);
-    yourRows = generateDcDrawdownTable(
-      you.nmpaAge, you.nmpaDate, you.lifeExpAge, yourEffectivePot,
-      inp.yourDrawdown, inp.yourPotGrowth, you.spaDate, inp.spWeekly, inp.spGrowth, today, inp.discount
-    );
-  } else {
-    yourRows = generateIncomeTable(
-      you.nmpaAge, you.nmpaDate, you.lifeExpAge, inp.yourIncome, inp.yourIncomeGrowth,
-      you.spaDate, inp.spWeekly, inp.spGrowth, today, inp.discount
-    );
-  }
+  const yourContribution = inp.yourMode === "pot" ? inp.yourSalary * inp.yourEmployerRate / 100 : 0;
+  const yourBuilt = buildPersonProjection(you, {
+    mode: inp.yourMode, potToday: inp.yourPot, drawdown: inp.yourDrawdown, potGrowth: inp.yourPotGrowth,
+    salary: inp.yourSalary, employerRate: inp.yourEmployerRate,
+    startIncome: inp.yourIncome, incomeGrowth: inp.yourIncomeGrowth,
+    retireDate: inp.retireDate, retireSpend: inp.retireSpend, assets: at,
+    spWeekly: inp.spWeekly, spGrowth: inp.spGrowth, discount: inp.discount, today,
+  });
+  let yourRows = yourBuilt.rows;
+  const yourEffectivePot = yourBuilt.meta.accumulatedPot;
 
-  let spouseRows = [], spouseEffectivePot = null;
+  let spouseRows = [], spouseBuilt = { meta: { mode: inp.spouseMode, accumulatedPot: 0 } };
   let transferNote = null;
   if (spouse) {
-    if (inp.spouseMode === "pot") {
-      spouseEffectivePot = inp.spousePot;
-      spouseRows = generateDcDrawdownTable(
-        spouse.nmpaAge, spouse.nmpaDate, spouse.lifeExpAge, spouseEffectivePot,
-        inp.spouseDrawdown, inp.spousePotGrowth, spouse.spaDate, inp.spWeekly, inp.spGrowth, today, inp.discount
-      );
-    } else {
-      spouseRows = generateIncomeTable(
-        spouse.nmpaAge, spouse.nmpaDate, spouse.lifeExpAge, inp.spouseIncome, inp.spouseIncomeGrowth,
-        spouse.spaDate, inp.spWeekly, inp.spGrowth, today, inp.discount
-      );
-    }
-
-    const transferResult = applyPensionTransfer(you, spouse, yourRows, spouseRows, {
-      yourPot: yourEffectivePot, yourDrawdown: inp.yourDrawdown, yourPotGrowth: inp.yourPotGrowth,
-      spousePot: spouseEffectivePot, spouseDrawdown: inp.spouseDrawdown, spousePotGrowth: inp.spousePotGrowth,
+    spouseBuilt = buildPersonProjection(spouse, {
+      mode: inp.spouseMode, potToday: inp.spousePot, drawdown: inp.spouseDrawdown, potGrowth: inp.spousePotGrowth,
+      salary: 0, employerRate: 0,
+      startIncome: inp.spouseIncome, incomeGrowth: inp.spouseIncomeGrowth,
+      retireDate: inp.spouseRetireDate, retireSpend: 0, assets: noAssets,
       spWeekly: inp.spWeekly, spGrowth: inp.spGrowth, discount: inp.discount, today,
     });
-    yourRows = transferResult.yourRows;
-    spouseRows = transferResult.spouseRows;
-    transferNote = transferResult.note;
+    spouseRows = spouseBuilt.rows;
+
+    const tr = applyTransferV2(you, spouse, yourBuilt.meta, spouseBuilt.meta, yourRows, spouseRows,
+      { today, discount: inp.discount });
+    yourRows = tr.yourRows; spouseRows = tr.spouseRows; transferNote = tr.note;
   }
 
   const gifting = calculateGiftingSummary(
@@ -1453,7 +1741,8 @@ function computeAll() {
     );
   }
 
-  return { inp, today, you, spouse, yourRows, spouseRows, yourEffectivePot, yourContribution, transferNote, gifting, giftSchedule };
+  return { inp, today, you, spouse, yourRows, spouseRows, yourEffectivePot, yourContribution,
+           transferNote, gifting, giftSchedule, assetTotals: at };
 }
 
 /* ---------- render: People tab reacts via inputs directly, no render needed ---------- */
@@ -1508,32 +1797,50 @@ function renderSalary(model) {
 
 function tableHtml(rows, hasPot, discountRate) {
   if (!rows.length) {
-    return `<div class="notice empty"><span class="icon">&#9432;</span>Private pension access age is already at or beyond average life expectancy &mdash; no projection to show.</div>`;
+    return `<div class="notice empty"><span class="icon">&#9432;</span>Retirement date is at or beyond average life expectancy &mdash; no projection to show.</div>`;
   }
   const fv = term("fv"), pv = term("pv");
-  const head = hasPot
-    ? `<tr><th>Age</th><th>Year</th><th>Pot</th><th>${term("drawdown") === "drawdown" ? "Draw" : "Take"}</th><th>State</th><th>Weekly</th><th>Month</th><th>${fv}</th><th>${pv}</th></tr>`
-    : `<tr><th>Age</th><th>Year</th><th>Private</th><th>State</th><th>Weekly</th><th>Month</th><th>${fv}</th><th>${pv}</th></tr>`;
-  const body = rows.map(r => {
-    const spaRow = r.state > 0 && (rows[rows.indexOf(r) - 1] ? rows[rows.indexOf(r) - 1].state === 0 : true) ? " spa-row" : "";
-    return hasPot
-      ? `<tr class="${spaRow.trim()}"><td>${r.age}</td><td>${r.date.y}</td><td>${gbp0(r.potStart)}</td><td>${gbp0(r.private)}</td><td>${gbp0(r.state)}</td><td>${gbp0(r.weekly)}</td><td>${gbp0(r.monthly)}</td><td>${gbp0(r.annual)}</td><td>${gbp0(r.present)}</td></tr>`
-      : `<tr class="${spaRow.trim()}"><td>${r.age}</td><td>${r.date.y}</td><td>${gbp0(r.private)}</td><td>${gbp0(r.state)}</td><td>${gbp0(r.weekly)}</td><td>${gbp0(r.monthly)}</td><td>${gbp0(r.annual)}</td><td>${gbp0(r.present)}</td></tr>`;
+  const showDb = rows.some(r => r.db > 0);
+  const showBridge = rows.some(r => r.isBridge);
+  const privLabel = hasPot ? (term("drawdown") === "drawdown" ? "Draw" : "Take") : "Private";
+  const cols = ["Age", "Year"];
+  if (hasPot) cols.push("Pot");
+  cols.push(privLabel, "State");
+  if (showDb) cols.push("DB");
+  cols.push("Weekly", "Month", fv, pv);
+  const head = "<tr>" + cols.map(c => `<th>${c}</th>`).join("") + "</tr>";
+  const body = rows.map((r, i) => {
+    const spaRow = r.state > 0 && (i > 0 ? rows[i - 1].state === 0 : true) ? " spa-row" : "";
+    const bridgeRow = r.isBridge ? " bridge-row" : "";
+    const cells = [r.age, r.date.y];
+    if (hasPot) cells.push(r.isBridge ? "&mdash;" : gbp0(r.potStart));
+    const privCell = r.isBridge
+      ? `${gbp0(r.private)}${r.shortfall > 0 ? ` <span class="short">-${gbp0(r.shortfall)}</span>` : ""}`
+      : gbp0(r.private);
+    cells.push(privCell, gbp0(r.state));
+    if (showDb) cells.push(gbp0(r.db));
+    cells.push(gbp0(r.weekly), gbp0(r.monthly), gbp0(r.annual), gbp0(r.present));
+    return `<tr class="${(spaRow + bridgeRow).trim()}">` + cells.map(c => `<td>${c}</td>`).join("") + "</tr>";
   }).join("");
+  const notes = [`Highlighted row = year the ${term("spaShort")} begins.`];
+  if (showBridge) notes.push(`Amber rows are funded from cash then shares before a pension starts` +
+    (rows.some(r => r.shortfall > 0) ? ` (red = shortfall your savings can't cover)` : "") + `.`);
+  if (showDb) notes.push(`DB = defined-benefit pension income.`);
+  notes.push(`<b>${fv}</b> = ${term("fvLong")}. <b>${pv}</b> = ${term("pvLong")}, discounted at ${discountRate.toFixed(1)}%/yr.`);
   return `<div class="table-scroll"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>
-    <p class="caption">Highlighted row = year the ${term("spaShort")} begins. <b>${fv}</b> = ${term("fvLong")}. <b>${pv}</b> = ${term("pvLong")}, discounted at ${discountRate.toFixed(1)}%/yr. Figures rounded to the nearest &pound;.</p>`;
+    <p class="caption">${notes.join(" ")} Figures rounded to the nearest &pound;.</p>`;
 }
 
 function renderProjection(model) {
   const { you, spouse, yourRows, spouseRows, inp } = model;
   const phaseBanner = `<div class="phase-banner"><span class="phase-chip decum">${term("decumulationShort")}</span>
-      <span>This is the <b>${term("decumulation").toLowerCase()}</b> &mdash; income you draw once you start taking your pension, from access age to average life expectancy.</span></div>`;
+      <span>This is the <b>${term("decumulation").toLowerCase()}</b> &mdash; your income each year from your retirement date to average life expectancy.</span></div>`;
   let html = phaseBanner + `
     <div class="card">
       <h2>You</h2>
       ${inp.yourMode === "pot"
-        ? `<p class="caption" style="margin-top:-6px;">${term("potGrowth")} ${inp.yourPotGrowth}%/yr, ${term("drawdown")} ${inp.yourDrawdown}%/yr${inp.yourSalary > 100 ? `, paid into until age ${you.nmpaAge}` : ""}.</p>`
-        : `<p class="caption" style="margin-top:-6px;">Flat income growing ${inp.yourIncomeGrowth}%/yr.</p>`}
+        ? `<p class="caption" style="margin-top:-6px;">${term("potGrowth")} ${inp.yourPotGrowth}%/yr, ${term("drawdown")} ${inp.yourDrawdown}%/yr; retiring ${fmtDate(inp.retireDate)}.</p>`
+        : `<p class="caption" style="margin-top:-6px;">Flat income growing ${inp.yourIncomeGrowth}%/yr; retiring ${fmtDate(inp.retireDate)}.</p>`}
       ${tableHtml(yourRows, inp.yourMode === "pot", inp.discount)}
     </div>`;
   if (spouse) {
@@ -1738,20 +2045,35 @@ function renderAll() {
   }
   renderAge(model);
   renderSalary(model);
+  renderAssetsSummary(model);
   renderProjection(model);
   renderHousehold(model);
   renderGifting(model);
   updateAgeHeading(model);
 }
 
+function renderAssetsSummary(model) {
+  const a = model.assetTotals;
+  const dbTotal = a.dbStreams.reduce((s, st) => s + st.income, 0);
+  const liquid = a.cash + a.shares;
+  const rows = [
+    ["Cash (current + savings)", gbp0(a.cash)],
+    ["Shares & investments", gbp0(a.shares)],
+    ["Liquid total (bridges early retirement)", gbp0(liquid)],
+    ["Employer DC pots (added to your pot)", gbp0(a.dcValue)],
+    ["Employer DB income (from their start age)", dbTotal > 0 ? gbp0(dbTotal) + "/yr" : "—"],
+  ];
+  els("assetsSummary").innerHTML = `<div class="stat-row">` + rows.map(([l, v]) =>
+    `<div class="stat"><span class="label">${l}</span><span class="value">${v}</span></div>`).join("") + `</div>
+    <p class="caption">Cash and shares are drawn (cash first) only in years you retire before a pension starts. DC pots fold into your drawdown pot; DB pensions add a fixed income from their start age.</p>`;
+}
+
 function updateAgeHeading(model) {
   const single = !model.spouse;
-  els("ageHeading").textContent = single
-    ? (wordingMode === "plain" ? "Your pension timeline" : "Your pension age & life expectancy")
-    : (wordingMode === "plain" ? "Your pension timelines" : "Pension age & life expectancy");
+  els("ageHeading").textContent = single ? "Your pension timeline" : "Your pension timelines";
   els("ageSubtitle").textContent = single
-    ? "When you can take a private pension, when your State Pension starts, and average life expectancy."
-    : "For each of you: when a private pension is available, when the State Pension starts, and average life expectancy.";
+    ? "Your date of birth and planned retirement, then when you can take a private pension, when the State Pension starts, and average life expectancy."
+    : "For each of you: dates of birth and planned retirement, then private pension access, State Pension, and average life expectancy.";
 }
 
 /* =========================================================================
@@ -1812,6 +2134,34 @@ document.querySelectorAll("input:not(#profileNameInput), select:not(#profileSele
     if (inp.dataset.money !== undefined) formatMoneyInput(inp);
     onUserChange();
   });
+});
+
+// Dynamic asset rows: edits, add, remove (delegated - rows are re-rendered).
+document.addEventListener("change", e => {
+  const row = e.target.closest(".asset-row");
+  if (!row) return;
+  const wasKind = e.target.dataset.field === "kind"; // DB/DC switch changes fields
+  if (e.target.dataset.money !== undefined) formatMoneyInput(e.target);
+  syncAssetsFromDOM();
+  if (wasKind) renderAssetLists();
+  onUserChange();
+});
+document.addEventListener("click", e => {
+  const add = e.target.closest("[data-add]");
+  if (add) {
+    syncAssetsFromDOM();
+    assets[add.dataset.add].push(newAssetRow(add.dataset.add));
+    renderAssetLists();
+    onUserChange();
+    return;
+  }
+  const rm = e.target.closest("[data-remove]");
+  if (rm) {
+    syncAssetsFromDOM();
+    assets[rm.dataset.remove].splice(+rm.dataset.idx, 1);
+    renderAssetLists();
+    onUserChange();
+  }
 });
 
 els("openSettings").addEventListener("click", () => els("settingsModal").classList.add("open"));
@@ -1895,6 +2245,7 @@ els("profileNameInput").addEventListener("keydown", e => {
 refreshProfileSelect();
 
 els("giftStartYear").value = todayObj().y;
+renderAssetLists();
 formatAllMoneyInputs();
 renderAll();
 </script>

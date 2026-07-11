@@ -6,11 +6,26 @@ year-by-year projected pension income table.
 ## Web app
 
 `pension-planner.html` is a self-contained interactive version - open it directly in a browser
-(no server, no build step, no dependencies). It's split into six tabs (People, Pension Age,
-Salary & Pot, Projection, Household, Gifting) instead of one dense wall of numbers, with live
-recalculation as you edit fields. All money is shown in GBP with comma separators, in the input
-fields as well as the tables. The calculation logic mirrors `pension_year.py` exactly - see the
-`<script>` in the file for the JS port.
+(no server, no build step, no dependencies). It's split into five tabs (People, Paying In, Paying
+Out, Household, Gifting) with live recalculation as you edit fields. All money is shown in GBP with
+comma separators, in the input fields as well as the tables. The web app extends beyond the CLI
+(`pension_year.py`) with the features below; the shared State-Pension-age / NMPA / life-expectancy
+maths still mirrors the Python exactly.
+
+**People** holds each person's date of birth, sex, and **planned retirement date**, plus the
+resulting timeline (private pension access, State Pension, life expectancy) in chronological order.
+
+**Paying In** (accumulation) has your pension pot and contributions, plus incremental asset
+sections: **Cash savings** (current account + savings accounts, each with a type - Cash ISA, Easy
+Access, etc.), **Employer pensions** (each Defined Contribution or Defined Benefit), and **Shares &
+investments** (each with a type - S&S ISA, GIA, LISA, etc.), with an assets-today summary.
+
+**Paying Out** (decumulation) projects your income year by year from your retirement date to average
+life expectancy. Retiring before a pension starts is handled across all the numbers: the gap years
+are funded from **cash first, then shares** (shortfalls flagged in red), **Defined Contribution**
+employer pots fold into your drawdown pot, and **Defined Benefit** pensions add a fixed income from
+their own start age. (These are simplified planning assumptions - e.g. DB income is flat, DC pots
+grow at your pot's rate, and cash/shares are only drawn during an early-retirement gap.)
 
 The layout is mobile-first and app-like: on a phone the tabs sit in a fixed bottom navigation bar
 (no horizontal scrolling), the desktop sidebar collapses into a compact top bar, stat tiles reflow
