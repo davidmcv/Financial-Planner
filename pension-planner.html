@@ -284,6 +284,103 @@
     font-size: 0.78rem; color: var(--warn); display: flex; gap: 6px; align-items: baseline;
   }
 
+  /* ---------- Phase (accumulation / decumulation) styling ---------- */
+  .phase-explainer {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 18px; box-shadow: var(--shadow);
+  }
+  .phase-item { display: flex; flex-direction: column; gap: 6px; font-size: 0.86rem; color: var(--ink-muted); }
+  .phase-banner {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--accent-wash); border-radius: 10px; padding: 10px 14px;
+    font-size: 0.85rem; color: var(--ink);
+  }
+  .phase-chip {
+    display: inline-flex; align-items: center; font-size: 0.68rem; font-weight: 700;
+    letter-spacing: 0.03em; text-transform: uppercase; padding: 3px 8px; border-radius: 6px;
+    white-space: nowrap;
+  }
+  .phase-chip.tiny { font-size: 0.6rem; padding: 2px 6px; }
+  .phase-chip.accum { background: var(--accent-wash); color: var(--accent-strong); }
+  .phase-chip.decum { background: var(--gold-wash); color: var(--gold); }
+  .card h3 .phase-chip { margin-right: 6px; vertical-align: middle; }
+
+  /* ---------- Wording toggle ---------- */
+  .wording-seg {
+    display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden;
+    background: var(--surface);
+  }
+  .wording-seg button {
+    font: inherit; font-size: 0.78rem; background: transparent; color: var(--ink-muted);
+    border: none; padding: 6px 12px; cursor: pointer;
+  }
+  .wording-seg button.active { background: var(--accent); color: white; font-weight: 600; }
+
+  /* ---------- Mobile top bar + bottom nav (hidden on desktop) ---------- */
+  .mobilebar, .bottomnav { display: none; }
+
+  /* ---------- Mobile ---------- */
+  @media (max-width: 860px) {
+    .app { flex-direction: column; }
+    .rail { display: none; }                 /* desktop sidebar hidden on mobile */
+
+    .mobilebar {
+      display: flex; align-items: center; gap: 10px;
+      position: sticky; top: 0; z-index: 15;
+      padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 10px;
+      background: color-mix(in srgb, var(--surface) 88%, transparent);
+      -webkit-backdrop-filter: saturate(1.4) blur(12px);
+      backdrop-filter: saturate(1.4) blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .mobilebar .mark { font-family: var(--font-display); font-size: 1.05rem; font-weight: 600; flex: 0 0 auto; }
+    .mobilebar .spacer { flex: 1; }
+    .mobilebar .wording-seg button { padding: 5px 10px; font-size: 0.72rem; }
+    .mobilebar .icon-btn { font-size: 1.15rem; }
+
+    .content {
+      padding: 16px 16px calc(env(safe-area-inset-bottom, 0px) + 84px);
+      max-width: 100%;
+    }
+    .panel { gap: 16px; }
+    .panel-head h1 { font-size: 1.3rem; }
+    .panel-head p { font-size: 0.88rem; }
+    .card { padding: 16px; border-radius: var(--radius); }
+
+    /* two-up stat tiles so a person's key numbers fit one screen */
+    .stat-row { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat { padding: 11px 12px; }
+    .stat .value { font-size: 1.05rem; }
+    .phase-explainer { grid-template-columns: 1fr; gap: 10px; padding: 14px; }
+    .field-row .field { flex: 1 1 140px; }
+
+    .bottomnav {
+      display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+      padding: 6px 4px calc(env(safe-area-inset-bottom, 0px) + 6px);
+      background: color-mix(in srgb, var(--surface) 92%, transparent);
+      -webkit-backdrop-filter: saturate(1.4) blur(14px);
+      backdrop-filter: saturate(1.4) blur(14px);
+      border-top: 1px solid var(--border);
+    }
+    .bottomnav .tab-btn {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 2px; background: none; border: none; cursor: pointer;
+      color: var(--ink-faint); font: inherit; font-size: 0.62rem; letter-spacing: 0.01em;
+      padding: 4px 2px; border-radius: 10px; min-height: 48px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .bottomnav .tab-btn .icon { font-size: 1.15rem; line-height: 1; opacity: 0.9; }
+    .bottomnav .tab-btn.active { color: var(--accent-strong); }
+    .bottomnav .tab-btn.active .icon { opacity: 1; transform: translateY(-1px); }
+  }
+
+  @media (max-width: 400px) {
+    .bottomnav .tab-btn { font-size: 0.56rem; }
+    .stat-row { gap: 8px; }
+  }
+
   /* ---------- Modal ---------- */
   .modal-backdrop {
     display: none; position: fixed; inset: 0; background: rgba(10, 16, 14, 0.45);
@@ -309,20 +406,6 @@
   }
   .btn-primary:hover { background: var(--accent-strong); }
 
-  /* ---------- Mobile ---------- */
-  @media (max-width: 860px) {
-    .app { flex-direction: column; }
-    .rail {
-      position: sticky; top: 0; height: auto; width: 100%; flex-direction: row;
-      align-items: center; overflow-x: auto; border-right: none; border-bottom: 1px solid var(--border);
-      padding: 12px 14px; gap: 14px; z-index: 10;
-    }
-    .brand { flex: 0 0 auto; }
-    .tabs { flex-direction: row; }
-    .rail-footer { margin-top: 0; flex-direction: row; }
-    .content { padding: 22px 18px 48px; }
-  }
-
   @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; }
   }
@@ -334,13 +417,6 @@
       <span class="mark">Ledger &amp; Later</span>
       <span class="sub">UK Pension Planner</span>
     </div>
-    <div class="profile-box">
-      <label for="profileSelect" class="profile-label">Profile</label>
-      <div class="profile-row">
-        <select id="profileSelect"></select>
-        <button class="icon-btn" id="deleteProfile" title="Delete this profile" aria-label="Delete profile">&#128465;</button>
-      </div>
-    </div>
     <nav class="tabs" id="tabs">
       <button class="tab-btn active" data-tab="people"><span class="icon">&#9679;</span>People</button>
       <button class="tab-btn" data-tab="age"><span class="icon">&#9203;</span>Pension Age</button>
@@ -350,9 +426,27 @@
       <button class="tab-btn" data-tab="gifting"><span class="icon">&#127873;</span>Gifting</button>
     </nav>
     <div class="rail-footer">
+      <div class="profile-box" style="padding: 0;">
+        <span class="profile-label">Wording</span>
+        <div class="wording-seg" style="width: 100%;">
+          <button data-wording="plain" style="flex:1;">Plain English</button>
+          <button data-wording="expert" style="flex:1;">Expert</button>
+        </div>
+      </div>
       <button class="settings-btn" id="openSettings"><span>&#9881;</span> Assumptions</button>
     </div>
   </aside>
+
+  <!-- Mobile top bar -->
+  <header class="mobilebar">
+    <span class="mark">Ledger &amp; Later</span>
+    <span class="spacer"></span>
+    <div class="wording-seg">
+      <button data-wording="plain">Plain</button>
+      <button data-wording="expert">Expert</button>
+    </div>
+    <button class="icon-btn" id="openSettingsMobile" aria-label="Assumptions">&#9881;</button>
+  </header>
 
   <main class="content">
 
@@ -361,6 +455,16 @@
       <div class="panel-head">
         <h1>Who's this for?</h1>
         <p>Enter your date of birth, and add a spouse or partner if you want a combined household view.</p>
+      </div>
+
+      <div class="card">
+        <div class="profile-box" style="padding: 0;">
+          <label for="profileSelect" class="profile-label">Saved profile</label>
+          <div class="profile-row">
+            <select id="profileSelect"></select>
+            <button class="icon-btn" id="deleteProfile" title="Delete this profile" aria-label="Delete profile">&#128465;</button>
+          </div>
+        </div>
       </div>
 
       <div class="card">
@@ -409,8 +513,8 @@
     <!-- PENSION AGE -->
     <section class="panel" id="tab-age">
       <div class="panel-head">
-        <h1>Pension age &amp; life expectancy</h1>
-        <p>When each of you can draw the State Pension, when a private pension becomes accessible, and average UK life expectancy.</p>
+        <h1 id="ageHeading">Pension age &amp; life expectancy</h1>
+        <p id="ageSubtitle">When each of you can draw the State Pension, when a private pension becomes accessible, and average UK life expectancy.</p>
       </div>
       <div id="ageCards"></div>
     </section>
@@ -422,6 +526,17 @@
         <p>Model your private pension as either a flat income or a drawdown pot &mdash; and for you, how salary and employer contributions grow that pot before you retire.</p>
       </div>
 
+      <div class="phase-explainer">
+        <div class="phase-item">
+          <span class="phase-chip accum" data-term="accumulationShort">Paying in</span>
+          <span data-term-plain="While you're working, money goes <b>in</b> and the pot grows." data-term-expert="The <b>accumulation phase</b>: contributions plus investment growth build the pot up to your access age."></span>
+        </div>
+        <div class="phase-item">
+          <span class="phase-chip decum" data-term="decumulationShort">Taking out</span>
+          <span data-term-plain="Once retired, you take money <b>out</b> each year to live on." data-term-expert="The <b>decumulation phase</b>: you draw down a % of the pot each year as income (see the Projection tab)."></span>
+        </div>
+      </div>
+
       <div class="card person-card">
         <div class="person-title"><h2>You</h2></div>
         <div class="segmented" id="yourModeSeg">
@@ -430,22 +545,24 @@
         </div>
 
         <div id="yourPotFields">
+          <h3><span class="phase-chip accum" data-term="accumulationShort">Paying in</span> Your pot &amp; how it grows</h3>
           <div class="field-row">
             <div class="field">
               <label for="yourPot">Pension pot today (&pound;)</label>
               <input type="text" inputmode="decimal" data-money="0" id="yourPot" value="1,000,000">
             </div>
             <div class="field">
-              <label for="yourDrawdown">Annual drawdown (%)</label>
-              <input type="number" id="yourDrawdown" value="4" min="0" step="0.1">
-            </div>
-            <div class="field">
               <label for="yourPotGrowth">Assumed pot growth (%)</label>
               <input type="number" id="yourPotGrowth" value="6" min="-20" step="0.1">
             </div>
+            <div class="field">
+              <label for="yourDrawdown"><span class="phase-chip decum tiny" data-term="decumulationShort">Taking out</span> Annual drawdown (%)</label>
+              <input type="number" id="yourDrawdown" value="4" min="0" step="0.1">
+              <span class="hint">% you take out each year in retirement</span>
+            </div>
           </div>
           <div class="divider" style="margin: 14px 0;"></div>
-          <h3>Employer contributions (until you can access this pot)</h3>
+          <h3><span class="phase-chip accum" data-term="accumulationShort">Paying in</span> Employer contributions (until you can access this pot)</h3>
           <div class="field-row">
             <div class="field">
               <label for="yourSalary">Gross annual salary (&pound;)</label>
@@ -600,6 +717,16 @@
     </section>
 
   </main>
+
+  <!-- Mobile bottom tab bar (all tabs, no horizontal scroll) -->
+  <nav class="bottomnav" id="bottomnav">
+    <button class="tab-btn active" data-tab="people"><span class="icon">&#128100;</span>People</button>
+    <button class="tab-btn" data-tab="age"><span class="icon">&#9203;</span>Age</button>
+    <button class="tab-btn" data-tab="salary"><span class="icon">&#163;</span>Pot</button>
+    <button class="tab-btn" data-tab="projection"><span class="icon">&#128200;</span>Income</button>
+    <button class="tab-btn" data-tab="household"><span class="icon">&#128106;</span>Home</button>
+    <button class="tab-btn" data-tab="gifting"><span class="icon">&#127873;</span>Gifts</button>
+  </nav>
 </div>
 
 <!-- SETTINGS MODAL -->
@@ -1000,6 +1127,54 @@ const els = id => document.getElementById(id);
 let yourMode = "pot";
 let spouseMode = "income";
 
+/* =========================================================================
+   WORDING: plain English (novice) vs accurate terms (expert)
+   term(key) returns the right phrasing for the current mode. Static text
+   in the HTML carries data-term / data-term-plain / data-term-expert and
+   is filled in by applyStaticTerms().
+   ========================================================================= */
+
+const WORDING_STORAGE_KEY = "pensionPlanner.wording";
+let wordingMode = localStorage.getItem(WORDING_STORAGE_KEY) || "plain"; // novice default
+
+const TERMS = {
+  spaAge:        { plain: "State Pension age",                  expert: "State Pension Age (SPA)" },
+  spaShort:      { plain: "State Pension",                      expert: "SPA" },
+  privateAccess: { plain: "When you can take your private pension", expert: "Private pension access (NMPA)" },
+  privateShort:  { plain: "Private pension",                    expert: "SIPP / NMPA" },
+  sipp:          { plain: "personal pension",                   expert: "Self-Invested Personal Pension (SIPP)" },
+  lifeExp:       { plain: "Average life expectancy",            expert: "Life expectancy (ONS)" },
+  accumulation:  { plain: "Saving up (before you retire)",      expert: "Accumulation phase" },
+  decumulation:  { plain: "Drawing down (once retired)",        expert: "Decumulation phase" },
+  accumulationShort: { plain: "Paying in",                      expert: "Accumulation" },
+  decumulationShort: { plain: "Taking out",                     expert: "Decumulation" },
+  fv:            { plain: "Future £",                           expert: "FV" },
+  pv:            { plain: "Today's £",                          expert: "PV" },
+  fvLong:        { plain: "the actual pounds you'd get that year", expert: "nominal future value (FV)" },
+  pvLong:        { plain: "what it's worth in today's money",   expert: "present value (PV)" },
+  pet:           { plain: "a gift that becomes tax-free once you survive 7 years", expert: "Potentially Exempt Transfer (PET)" },
+  nrb:           { plain: "tax-free amount on death",           expert: "nil-rate band" },
+  drawdown:      { plain: "yearly withdrawal",                  expert: "drawdown" },
+  potGrowth:     { plain: "investment growth",                  expert: "pot growth" },
+};
+
+function term(key) {
+  const t = TERMS[key];
+  return t ? t[wordingMode] : key;
+}
+
+function applyStaticTerms() {
+  document.querySelectorAll("[data-term]").forEach(el => {
+    el.textContent = term(el.dataset.term);
+  });
+  document.querySelectorAll("[data-term-plain]").forEach(el => {
+    el.innerHTML = wordingMode === "plain" ? el.dataset.termPlain : el.dataset.termExpert;
+  });
+  document.querySelectorAll(".wording-seg button").forEach(b => {
+    b.classList.toggle("active", b.dataset.wording === wordingMode);
+  });
+}
+
 function todayObj() {
   const now = new Date();
   return { y: now.getFullYear(), m: now.getMonth() + 1, d: now.getDate() };
@@ -1285,38 +1460,42 @@ function computeAll() {
 
 function renderAge(model) {
   const { you, spouse } = model;
+  // Tiles are ordered chronologically: private pension access comes first
+  // (age 55/57), then the State Pension (66-68), then the gap between them,
+  // then average life expectancy - so on a phone they read top-to-bottom in
+  // the order the events actually happen.
   const card = (label, p) => {
     const spaDelta = daysBetween(model.today, p.spaDate);
     const spaStatus = spaDelta > 0
-      ? `<span class="pill">in ${formatAge(...calendarDiff(model.today, p.spaDate).slice(0, 2))}</span>`
-      : `<span class="pill gold">reached ${Math.abs(spaDelta)} days ago</span>`;
+      ? `<span class="pill">${term("spaShort")} in ${formatAge(...calendarDiff(model.today, p.spaDate).slice(0, 2))}</span>`
+      : `<span class="pill gold">${term("spaShort")} reached</span>`;
     const gap = calendarDiff(p.nmpaDate, p.spaDate);
     return `
       <div class="card person-card">
         <div class="person-title"><h2>${label}</h2>${spaStatus}</div>
         <div class="stat-row">
           <div class="stat">
-            <span class="label">State Pension age</span>
-            <span class="value">${formatAge(p.spaYears, p.spaMonths)}</span>
-            <span class="sub">${fmtDate(p.spaDate)}</span>
-          </div>
-          <div class="stat">
-            <span class="label">Private pension (SIPP/NMPA)</span>
+            <span class="label">1 &middot; ${term("privateShort")}</span>
             <span class="value">age ${p.nmpaAge}</span>
             <span class="sub">${fmtDate(p.nmpaDate)}</span>
           </div>
           <div class="stat">
-            <span class="label">Gap: pension &rarr; SPA</span>
-            <span class="value">${gap[0]}y ${gap[1]}m</span>
-            <span class="sub">${daysBetween(p.nmpaDate, p.spaDate).toLocaleString("en-GB")} days</span>
+            <span class="label">2 &middot; ${term("spaAge")}</span>
+            <span class="value">${formatAge(p.spaYears, p.spaMonths)}</span>
+            <span class="sub">${fmtDate(p.spaDate)}</span>
           </div>
           <div class="stat">
-            <span class="label">UK life expectancy (ONS)</span>
+            <span class="label">Gap between the two</span>
+            <span class="value">${gap[0]}y ${gap[1]}m</span>
+            <span class="sub">${daysBetween(p.nmpaDate, p.spaDate).toLocaleString("en-GB")} days on private pension alone</span>
+          </div>
+          <div class="stat">
+            <span class="label">${term("lifeExp")}</span>
             <span class="value">${formatAge(p.lifeExpAge, p.lifeExpMonths)}</span>
             <span class="sub">around ${fmtDate(p.lifeExpDate)}</span>
           </div>
         </div>
-        ${p.transition ? `<div class="transition-note">&#9888; Born in a transitional SPA window &mdash; treat as a close estimate; confirm at gov.uk/state-pension-age.</div>` : ""}
+        ${p.transition ? `<div class="transition-note">&#9888; Born in a transitional ${term("spaShort")} window &mdash; treat as a close estimate; confirm at gov.uk/state-pension-age.</div>` : ""}
       </div>`;
   };
   els("ageCards").innerHTML = card("You", you) + (spouse ? card("Your spouse", spouse) : "");
@@ -1331,9 +1510,10 @@ function tableHtml(rows, hasPot, discountRate) {
   if (!rows.length) {
     return `<div class="notice empty"><span class="icon">&#9432;</span>Private pension access age is already at or beyond average life expectancy &mdash; no projection to show.</div>`;
   }
+  const fv = term("fv"), pv = term("pv");
   const head = hasPot
-    ? `<tr><th>Age</th><th>Year</th><th>Pot</th><th>Draw</th><th>State</th><th>Weekly</th><th>Month</th><th>FV</th><th>PV</th></tr>`
-    : `<tr><th>Age</th><th>Year</th><th>Private</th><th>State</th><th>Weekly</th><th>Month</th><th>FV</th><th>PV</th></tr>`;
+    ? `<tr><th>Age</th><th>Year</th><th>Pot</th><th>${term("drawdown") === "drawdown" ? "Draw" : "Take"}</th><th>State</th><th>Weekly</th><th>Month</th><th>${fv}</th><th>${pv}</th></tr>`
+    : `<tr><th>Age</th><th>Year</th><th>Private</th><th>State</th><th>Weekly</th><th>Month</th><th>${fv}</th><th>${pv}</th></tr>`;
   const body = rows.map(r => {
     const spaRow = r.state > 0 && (rows[rows.indexOf(r) - 1] ? rows[rows.indexOf(r) - 1].state === 0 : true) ? " spa-row" : "";
     return hasPot
@@ -1341,16 +1521,18 @@ function tableHtml(rows, hasPot, discountRate) {
       : `<tr class="${spaRow.trim()}"><td>${r.age}</td><td>${r.date.y}</td><td>${gbp0(r.private)}</td><td>${gbp0(r.state)}</td><td>${gbp0(r.weekly)}</td><td>${gbp0(r.monthly)}</td><td>${gbp0(r.annual)}</td><td>${gbp0(r.present)}</td></tr>`;
   }).join("");
   return `<div class="table-scroll"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>
-    <p class="caption">Highlighted row = year State Pension begins. FV = nominal future value. PV = present-day value, discounted at ${discountRate.toFixed(1)}%/yr. Figures rounded to the nearest &pound;.</p>`;
+    <p class="caption">Highlighted row = year the ${term("spaShort")} begins. <b>${fv}</b> = ${term("fvLong")}. <b>${pv}</b> = ${term("pvLong")}, discounted at ${discountRate.toFixed(1)}%/yr. Figures rounded to the nearest &pound;.</p>`;
 }
 
 function renderProjection(model) {
   const { you, spouse, yourRows, spouseRows, inp } = model;
-  let html = `
+  const phaseBanner = `<div class="phase-banner"><span class="phase-chip decum">${term("decumulationShort")}</span>
+      <span>This is the <b>${term("decumulation").toLowerCase()}</b> &mdash; income you draw once you start taking your pension, from access age to average life expectancy.</span></div>`;
+  let html = phaseBanner + `
     <div class="card">
       <h2>You</h2>
       ${inp.yourMode === "pot"
-        ? `<p class="caption" style="margin-top:-6px;">DC pot, ${inp.yourDrawdown}% drawdown, ${inp.yourPotGrowth}% growth${inp.yourSalary > 100 ? `, employer contributions until age ${you.nmpaAge}` : ""}.</p>`
+        ? `<p class="caption" style="margin-top:-6px;">${term("potGrowth")} ${inp.yourPotGrowth}%/yr, ${term("drawdown")} ${inp.yourDrawdown}%/yr${inp.yourSalary > 100 ? `, paid into until age ${you.nmpaAge}` : ""}.</p>`
         : `<p class="caption" style="margin-top:-6px;">Flat income growing ${inp.yourIncomeGrowth}%/yr.</p>`}
       ${tableHtml(yourRows, inp.yourMode === "pot", inp.discount)}
     </div>`;
@@ -1359,7 +1541,7 @@ function renderProjection(model) {
     <div class="card">
       <h2>Your spouse</h2>
       ${inp.spouseMode === "pot"
-        ? `<p class="caption" style="margin-top:-6px;">DC pot, ${inp.spouseDrawdown}% drawdown, ${inp.spousePotGrowth}% growth.</p>`
+        ? `<p class="caption" style="margin-top:-6px;">${term("potGrowth")} ${inp.spousePotGrowth}%/yr, ${term("drawdown")} ${inp.spouseDrawdown}%/yr.</p>`
         : `<p class="caption" style="margin-top:-6px;">Flat income growing ${inp.spouseIncomeGrowth}%/yr.</p>`}
       ${tableHtml(spouseRows, inp.spouseMode === "pot", inp.discount)}
     </div>`;
@@ -1546,6 +1728,7 @@ function renderGiftIhtSchedule(model) {
 }
 
 function renderAll() {
+  applyStaticTerms();
   let model;
   try {
     model = computeAll();
@@ -1558,20 +1741,47 @@ function renderAll() {
   renderProjection(model);
   renderHousehold(model);
   renderGifting(model);
+  updateAgeHeading(model);
+}
+
+function updateAgeHeading(model) {
+  const single = !model.spouse;
+  els("ageHeading").textContent = single
+    ? (wordingMode === "plain" ? "Your pension timeline" : "Your pension age & life expectancy")
+    : (wordingMode === "plain" ? "Your pension timelines" : "Pension age & life expectancy");
+  els("ageSubtitle").textContent = single
+    ? "When you can take a private pension, when your State Pension starts, and average life expectancy."
+    : "For each of you: when a private pension is available, when the State Pension starts, and average life expectancy.";
 }
 
 /* =========================================================================
    UI WIRING
    ========================================================================= */
 
-document.getElementById("tabs").addEventListener("click", e => {
-  const btn = e.target.closest(".tab-btn");
-  if (!btn) return;
-  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+function activateTab(tabName) {
+  document.querySelectorAll(".tab-btn").forEach(
+    b => b.classList.toggle("active", b.dataset.tab === tabName));
   document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
-  btn.classList.add("active");
-  els(`tab-${btn.dataset.tab}`).classList.add("active");
+  els(`tab-${tabName}`).classList.add("active");
+  const c = document.querySelector(".content");
+  if (c) c.scrollTop = 0;
+}
+// Delegated so both the desktop rail and the mobile bottom nav work.
+document.addEventListener("click", e => {
+  const btn = e.target.closest(".tab-btn");
+  if (btn) activateTab(btn.dataset.tab);
 });
+
+// Wording toggle (plain English vs expert terms), delegated across both bars.
+document.addEventListener("click", e => {
+  const btn = e.target.closest(".wording-seg button");
+  if (!btn) return;
+  wordingMode = btn.dataset.wording;
+  localStorage.setItem(WORDING_STORAGE_KEY, wordingMode);
+  renderAll();
+});
+
+els("openSettingsMobile").addEventListener("click", () => els("settingsModal").classList.add("open"));
 
 els("spouseSwitch").addEventListener("click", () => {
   const on = els("spouseSwitch").classList.toggle("on");

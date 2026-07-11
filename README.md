@@ -12,6 +12,21 @@ recalculation as you edit fields. All money is shown in GBP with comma separator
 fields as well as the tables. The calculation logic mirrors `pension_year.py` exactly - see the
 `<script>` in the file for the JS port.
 
+The layout is mobile-first and app-like: on a phone the tabs sit in a fixed bottom navigation bar
+(no horizontal scrolling), the desktop sidebar collapses into a compact top bar, stat tiles reflow
+two-up, and safe-area insets keep content clear of the notch/home indicator. (A true installable
+React Native app isn't shippable as a single self-contained web file - RN compiles to a native
+iOS/Android binary requiring Xcode/Android Studio and app-store distribution - so this delivers the
+native *feel* as a mobile web app.)
+
+A **Plain English / Expert** toggle (top bar and sidebar) switches all jargon between novice-friendly
+phrasing and the accurate terms, so both a beginner and an expert can use it - e.g. "When you can
+take your private pension" vs "Normal Minimum Pension Age (NMPA)", "Today's £" vs "PV", "a gift
+that becomes tax-free once you survive 7 years" vs "Potentially Exempt Transfer (PET)". The Pension
+Age tab lists events chronologically (private pension access before the State Pension) and its
+heading adapts to singular when no spouse is included. The Salary & Pot and Projection tabs label
+the **accumulation** (paying in) and **decumulation** (drawing down) phases explicitly.
+
 The Gifting tab also tracks planned gifts year by year until your average life expectancy and
 estimates the Inheritance Tax due at death: each year's excess over the tax-free ceiling is a
 Potentially Exempt Transfer (PET); PETs made within 7 years of death use the £325,000 nil-rate
@@ -19,7 +34,7 @@ band in date order, and the remainder is taxed at 40% with taper relief (3-4 yrs
 5-6 16%, 6-7 8%; 7+ years fully exempt). This is a simplified planning estimate - it ignores the
 estate itself sharing the nil-rate band, spousal transfers, and the residence nil-rate band.
 
-A "Profile" picker in the sidebar saves your inputs to the browser's local storage under a name you
+A "Profile" picker on the People tab saves your inputs to the browser's local storage under a name you
 choose (e.g. "David & wife"), so you can switch between saved scenarios later. This is local-only,
 not a real login - there's no way to do genuine Google/Apple sign-in inside a static, dependency-free
 page without a hosted domain and registered OAuth credentials, so anyone with access to the browser
