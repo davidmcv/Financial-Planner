@@ -13,9 +13,12 @@ the shared UK State-Pension-age / NMPA / life-expectancy maths still mirrors the
 Everything is a simplified planning model - not financial or tax advice.
 
 **Planner** is the Voyant/Nova-style centrepiece:
-- a **major-events cash-flow chart**: stacked household income per year (savings bridge, private
-  drawdown, DB pensions, State Pension), with vertical flags for retirements, pension start dates
-  and your own custom one-off events (an inheritance in, a wedding or house purchase out);
+- a large **major-events cash-flow chart**: stacked household income per year (savings bridge,
+  private drawdown, DB pensions, State Pension), with flags carrying an icon per event -
+  retirements (🏖️), State Pension start (🏛️) and your own custom one-off events (💰 in, 🏡 out,
+  e.g. an inheritance in or a house purchase out);
+- a Voyant Go-style **year-by-year breakdown**: a stacked bar chart underneath, one bar per year
+  split by income source, with your spending target drawn across so short years are obvious;
 - **living-standard targets** from the PLSA / Loughborough University Retirement Living Standards
   (Low = Minimum, Medium = Moderate, High = Comfortable; single and couple amounts), with a
   years-below-target verdict;
@@ -42,9 +45,12 @@ retirement income (a Net column also appears in Paying Out):
 - **Australia**: 2024-25 resident rates + Medicare levy, with superannuation income tax-free from
   age 60.
 
-**Internationalisation**: a country picker (UK / US / France / Australia) switches currency,
-state-pension defaults and ages (Social Security 67, France 64, Age Pension 67; private access
-59½ / 64 / 60), and the tax engine. UK keeps the full SPA legislation including transitional bands.
+**Internationalisation**: a country picker (UK / US / France / Australia) switches the currency
+symbol **everywhere** (every field label, hint and table header, not just the output figures),
+the state-pension defaults and ages (Social Security 67, France 64, Age Pension 67; private access
+59½ / 64 / 60), and the whole tax engine. UK keeps the full SPA legislation including transitional
+bands. (UK-specific statutory figures - the £325,000 nil-rate band, the annual-allowance taper -
+stay in pounds, as they are UK amounts.)
 
 **Usability**: a **Plain English / Expert** wording toggle and a separate **Simple / Adviser**
 detail-level toggle (Simple hides advanced fields like growth rates and the Monte Carlo panel), so
