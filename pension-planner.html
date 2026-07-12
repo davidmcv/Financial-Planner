@@ -741,23 +741,97 @@
           <h3><span class="phase-chip accum" data-term="accumulationShort">Paying in</span> Bonus &amp; equity (optional)</h3>
           <p class="caption" style="margin: -4px 0 10px;">Not guaranteed, so each is optional. Anything included is added &mdash; net of tax at your marginal rate &mdash;
             to your investments each working year and grows at your assumed rate until you retire.</p>
-          <label class="check-inline"><input type="checkbox" id="bonusOn"> Include a cash bonus</label>
-          <div class="field-row" id="bonusFields" style="display: none;">
-            <div class="field">
-              <label for="bonusAmount">Annual cash bonus (&pound;, gross)</label>
-              <input type="text" inputmode="decimal" data-money="0" id="bonusAmount" value="0">
+          <!-- Annual bonus, split into immediate cash / deferred cash / RSUs -->
+          <label class="check-inline"><input type="checkbox" id="bonusOn"> Annual bonus</label>
+          <div id="bonusFields" style="display: none;">
+            <div class="field-row">
+              <div class="field">
+                <label for="bonusAmount">Total annual bonus (&pound;, gross)</label>
+                <input type="text" inputmode="decimal" data-money="0" id="bonusAmount" value="0">
+              </div>
+              <div class="field">
+                <label for="bonusDeferYears">Deferral / vesting (years)</label>
+                <input type="number" id="bonusDeferYears" value="2" min="0" max="10" step="1">
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="bonusCashPct">Immediate cash (%)</label>
+                <input type="number" id="bonusCashPct" value="0" min="0" max="100" step="1">
+              </div>
+              <div class="field">
+                <label for="bonusDeferredPct">Deferred cash (%)</label>
+                <input type="number" id="bonusDeferredPct" value="50" min="0" max="100" step="1">
+              </div>
+              <div class="field">
+                <label for="bonusRsuPct">RSUs (%)</label>
+                <input type="number" id="bonusRsuPct" value="50" min="0" max="100" step="1">
+              </div>
+            </div>
+            <span class="hint" id="bonusSplitHint"></span>
+          </div>
+
+          <!-- RSUs already held, plus any ongoing grants -->
+          <label class="check-inline"><input type="checkbox" id="rsuOn"> RSUs (holdings &amp; grants)</label>
+          <div id="rsuFields" style="display: none;">
+            <div class="field-row">
+              <div class="field">
+                <label for="rsuHeld">RSUs already held, unvested (&pound;, gross)</label>
+                <input type="text" inputmode="decimal" data-money="0" id="rsuHeld" value="0">
+              </div>
+              <div class="field">
+                <label for="rsuHeldYears">Vest over (years)</label>
+                <input type="number" id="rsuHeldYears" value="2" min="1" max="10" step="1">
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="rsuAmount">New RSU grants (&pound; / year, gross)</label>
+                <input type="text" inputmode="decimal" data-money="0" id="rsuAmount" value="0">
+              </div>
+              <div class="field">
+                <label for="rsuVestYears">Each grant vests over (years)</label>
+                <input type="number" id="rsuVestYears" value="2" min="1" max="10" step="1">
+              </div>
             </div>
           </div>
-          <label class="check-inline"><input type="checkbox" id="rsuOn"> Include RSUs</label>
-          <div class="field-row" id="rsuFields" style="display: none;">
-            <div class="field">
-              <label for="rsuAmount">RSU value vesting (&pound; / year, gross)</label>
-              <input type="text" inputmode="decimal" data-money="0" id="rsuAmount" value="0">
+
+          <!-- Sharesave / SAYE -->
+          <label class="check-inline"><input type="checkbox" id="sayeOn"> Sharesave / SAYE scheme</label>
+          <div id="sayeFields" style="display: none;">
+            <div class="field-row">
+              <div class="field">
+                <label for="sayeMonthly">Monthly saving (&pound;)</label>
+                <input type="text" inputmode="decimal" data-money="0" id="sayeMonthly" value="0">
+              </div>
+              <div class="field">
+                <label for="sayeTermYears">Term (years)</label>
+                <input type="number" id="sayeTermYears" value="3" min="1" max="5" step="1">
+              </div>
+              <div class="field">
+                <label for="sayeDiscount">Discount (%)</label>
+                <input type="number" id="sayeDiscount" value="20" min="0" max="20" step="1">
+              </div>
             </div>
-            <div class="field">
-              <label for="rsuVestYears">Vesting period (years)</label>
-              <input type="number" id="rsuVestYears" value="2" min="1" max="10" step="1">
-              <span class="hint">RSUs add value for this many years, then stop</span>
+            <span class="hint">Saved from take-home pay; at maturity you buy shares at the discount. Contributions plus the discount uplift are added to your investments.</span>
+          </div>
+
+          <!-- One-off cash + extra regular saving -->
+          <label class="check-inline"><input type="checkbox" id="extraSaveOn"> Other cash &amp; regular savings</label>
+          <div id="extraSaveFields" style="display: none;">
+            <div class="field-row">
+              <div class="field">
+                <label for="oneOffCash">One-off cash coming (&pound;, net)</label>
+                <input type="text" inputmode="decimal" data-money="0" id="oneOffCash" value="0">
+              </div>
+              <div class="field">
+                <label for="oneOffYear">In year</label>
+                <input type="number" id="oneOffYear" value="2027" min="2020" max="2100" step="1">
+              </div>
+              <div class="field">
+                <label for="extraSave">Extra regular saving (&pound; / year, net)</label>
+                <input type="text" inputmode="decimal" data-money="0" id="extraSave" value="0">
+              </div>
             </div>
           </div>
           <p class="caption" id="equityNote" style="margin: 6px 0 0;"></p>
@@ -1551,16 +1625,46 @@ function marginalNetRate(baseGross, extra) {
   return Math.max(0, 1 - extraTax / extra);
 }
 
-// Accumulate net bonus (every working year) and net RSUs (only while vesting)
-// into investable assets, compounding at the assumed growth rate to retirement.
-function accumulateExtra(bonusNet, rsuNet, rsuVestYears, growthPct, years) {
+const clampPct = v => Math.max(0, Math.min(100, parseFloat(v) || 0));
+
+// Accrue all optional compensation extras - bonus (cash + deferred + RSU),
+// RSUs already held plus ongoing grants, Sharesave/SAYE, one-off cash and
+// extra regular saving - into investable assets, net of tax and compounding
+// at the assumed growth rate to retirement. A steady-state planning model:
+// deferral/vesting timing is approximated, and a single growth rate applies
+// to cash and shares alike. Returns the total plus a breakdown for display.
+function accrueComp(inp, salary, growthPct, years, today) {
   const g = growthPct / 100;
+  const net = extra => extra * marginalNetRate(salary, extra); // taxable comp -> net
+
+  // Bonus: taxed as income; under one growth rate the cash/deferred/RSU split
+  // doesn't change the accrual, so the full net bonus is invested each year.
+  const bonusNet = inp.bonusOn ? net(inp.bonusAmount) : 0;
+  // RSUs already held: net value spread over its remaining vesting years.
+  const rsuHeldNetAnnual = inp.rsuOn && inp.rsuHeld > 0 ? net(inp.rsuHeld) / inp.rsuHeldYears : 0;
+  // Ongoing RSU grants: steady state vests ~one grant's worth each year.
+  const rsuGrantNet = inp.rsuOn ? net(inp.rsuAmount) : 0;
+  // Sharesave: saved from take-home pay (already net), during the term only.
+  const sayeAnnual = inp.sayeOn ? inp.sayeMonthly * 12 : 0;
+  const sayeUplift = inp.sayeOn && inp.sayeDiscount < 100
+    ? sayeAnnual * inp.sayeTermYears * (inp.sayeDiscount / 100) / (1 - inp.sayeDiscount / 100) : 0;
+  const extraAnnual = inp.extraSaveOn ? inp.extraSave : 0; // already net
+
   let bal = 0;
   for (let y = 0; y < years; y++) {
-    const add = bonusNet + (y < rsuVestYears ? rsuNet : 0);
+    let add = bonusNet + rsuGrantNet + extraAnnual;
+    if (y < inp.rsuHeldYears) add += rsuHeldNetAnnual;
+    if (y < inp.sayeTermYears) add += sayeAnnual;
     bal = (bal + add) * (1 + g);
+    if (inp.sayeOn && y === inp.sayeTermYears - 1) bal += sayeUplift; // maturity discount gain
   }
-  return bal;
+  // One-off cash (net) received in a specific calendar year, grown to retirement.
+  if (inp.extraSaveOn && inp.oneOffCash > 0) {
+    const yr = inp.oneOffYear - today.y;
+    if (yr < 0) bal += inp.oneOffCash * Math.pow(1 + g, years);
+    else if (yr < years) bal += inp.oneOffCash * Math.pow(1 + g, years - 1 - yr);
+  }
+  return { total: bal, bonusNet, rsuHeldNetAnnual, rsuGrantNet, sayeAnnual, sayeUplift, extraAnnual };
 }
 
 /* =========================================================================
@@ -2009,7 +2113,10 @@ const PROFILE_STORAGE_KEY = "pensionPlanner.profiles";
 const PROFILE_FIELD_IDS = [
   "dob", "sex", "retireDate", "retireSpend", "spouseDob", "spouseSex", "spouseRetireDate",
   "yourPot", "yourDrawdown", "yourPotGrowth", "yourSalary", "yourEmployerRate",
-  "yourEmployerMonthly", "annualAllowance", "bonusAmount", "rsuAmount", "rsuVestYears",
+  "yourEmployerMonthly", "annualAllowance",
+  "bonusAmount", "bonusDeferYears", "bonusCashPct", "bonusDeferredPct", "bonusRsuPct",
+  "rsuHeld", "rsuHeldYears", "rsuAmount", "rsuVestYears",
+  "sayeMonthly", "sayeTermYears", "sayeDiscount", "oneOffCash", "oneOffYear", "extraSave",
   "yourIncome", "yourIncomeGrowth", "cashCurrent",
   "spousePot", "spouseDrawdown", "spousePotGrowth", "spouseIncome", "spouseIncomeGrowth",
   "statePensionWeekly", "statePensionGrowth", "discountRate",
@@ -2037,6 +2144,8 @@ function collectProfileData() {
   data.yourEmployerMode = yourEmployerMode;
   data.bonusOn = els("bonusOn").checked;
   data.rsuOn = els("rsuOn").checked;
+  data.sayeOn = els("sayeOn").checked;
+  data.extraSaveOn = els("extraSaveOn").checked;
   syncAssetsFromDOM();
   syncPlanListsFromDOM();
   data.assets = JSON.parse(JSON.stringify(assets));
@@ -2082,8 +2191,12 @@ function applyProfileData(data) {
   els("yourEmployerMonthlyField").style.display = yourEmployerMode === "fixed" ? "" : "none";
   els("bonusOn").checked = !!data.bonusOn;
   els("rsuOn").checked = !!data.rsuOn;
+  els("sayeOn").checked = !!data.sayeOn;
+  els("extraSaveOn").checked = !!data.extraSaveOn;
   els("bonusFields").style.display = data.bonusOn ? "" : "none";
   els("rsuFields").style.display = data.rsuOn ? "" : "none";
+  els("sayeFields").style.display = data.sayeOn ? "" : "none";
+  els("extraSaveFields").style.display = data.extraSaveOn ? "" : "none";
 
   renderAll();
 }
@@ -2164,9 +2277,23 @@ function readInputs() {
     annualAllowance: money("annualAllowance") || Infinity,
     bonusOn: els("bonusOn").checked,
     bonusAmount: money("bonusAmount"),
+    bonusDeferYears: Math.max(0, parseInt(els("bonusDeferYears").value, 10) || 0),
+    bonusCashPct: clampPct(els("bonusCashPct").value),
+    bonusDeferredPct: clampPct(els("bonusDeferredPct").value),
+    bonusRsuPct: clampPct(els("bonusRsuPct").value),
     rsuOn: els("rsuOn").checked,
+    rsuHeld: money("rsuHeld"),
+    rsuHeldYears: Math.max(1, parseInt(els("rsuHeldYears").value, 10) || 1),
     rsuAmount: money("rsuAmount"),
     rsuVestYears: Math.max(1, parseInt(els("rsuVestYears").value, 10) || 1),
+    sayeOn: els("sayeOn").checked,
+    sayeMonthly: money("sayeMonthly"),
+    sayeTermYears: Math.max(1, parseInt(els("sayeTermYears").value, 10) || 1),
+    sayeDiscount: clampPct(els("sayeDiscount").value),
+    extraSaveOn: els("extraSaveOn").checked,
+    oneOffCash: money("oneOffCash"),
+    oneOffYear: parseInt(els("oneOffYear").value, 10) || todayObj().y,
+    extraSave: money("extraSave"),
     yourIncome: money("yourIncome"),
     yourIncomeGrowth: parseFloat(els("yourIncomeGrowth").value) || 0,
     spousePot: money("spousePot"),
@@ -2411,14 +2538,13 @@ function computeAll(overrides = {}) {
   const uncappedContribution = employerContribution + at.dcContribution;
   const yourContribution = Math.min(uncappedContribution, inp.annualAllowance);
 
-  // Bonus & RSUs: net-of-tax additions to investable assets each working year,
-  // grown at the assumed rate to retirement. RSUs contribute only while vesting.
+  // Bonus, equity & other savings: net-of-tax additions to investable assets
+  // over the working years, grown at the assumed rate to retirement.
   const workYears = Math.max(0, Math.round(daysBetween(today, inp.retireDate) / 365.25));
-  const bonusGross = inp.bonusOn ? inp.bonusAmount : 0;
-  const rsuGross = inp.rsuOn ? inp.rsuAmount : 0;
-  const bonusNet = bonusGross * marginalNetRate(inp.yourSalary, bonusGross);
-  const rsuNet = rsuGross * marginalNetRate(inp.yourSalary + bonusGross, rsuGross);
-  const equityAccrued = accumulateExtra(bonusNet, rsuNet, inp.rsuVestYears, inp.yourPotGrowth, workYears);
+  const comp = inp.yourMode === "pot"
+    ? accrueComp(inp, inp.yourSalary, inp.yourPotGrowth, workYears, today)
+    : { total: 0 };
+  const equityAccrued = comp.total;
   const atYou = Object.assign({}, at, { shares: at.shares + equityAccrued });
 
   const yourBuilt = buildPersonProjection(you, {
@@ -2470,7 +2596,7 @@ function computeAll(overrides = {}) {
   const rlsTarget = rlsChoice === "none" ? null : RLS[rlsChoice][spouse ? "couple" : "single"];
 
   return { inp, today, you, spouse, yourRows, spouseRows, yourEffectivePot, yourContribution,
-           employerContribution, uncappedContribution, equityAccrued, bonusNet, rsuNet, workYears,
+           employerContribution, uncappedContribution, equityAccrued, comp, workYears,
            transferNote, gifting, giftSchedule, assetTotals: at,
            yourMeta: yourBuilt.meta, spouseMeta: spouseBuilt.meta, rlsTarget };
 }
@@ -2540,15 +2666,46 @@ function renderSalary(model) {
   cn.innerHTML = notes.join(" ");
   cn.style.display = notes.length ? "" : "none";
 
-  // Equity note: what bonus/RSUs add to investments by retirement.
+  // Bonus split hint (should sum to 100%).
+  const bh = els("bonusSplitHint");
+  if (bh) {
+    const sum = inp.bonusCashPct + inp.bonusDeferredPct + inp.bonusRsuPct;
+    if (inp.bonusOn && Math.abs(sum - 100) > 0.5) {
+      bh.innerHTML = `Split adds up to ${sum}% &mdash; it should total 100%.`;
+      bh.style.color = "var(--critical)";
+    } else if (inp.bonusOn) {
+      const rsuShare = inp.bonusAmount * inp.bonusRsuPct / 100;
+      const defShare = inp.bonusAmount * inp.bonusDeferredPct / 100;
+      bh.innerHTML = `Of ${gbp0(inp.bonusAmount)}: ${gbp0(inp.bonusAmount * inp.bonusCashPct / 100)} cash now, ` +
+        `${gbp0(defShare)} deferred cash and ${gbp0(rsuShare)} RSUs over ${inp.bonusDeferYears} yr.`;
+      bh.style.color = "";
+    }
+  }
+
+  // Extras note: what bonus/equity/other savings add to investments by retirement.
   const en = els("equityNote");
-  if ((inp.bonusOn && inp.bonusAmount > 0) || (inp.rsuOn && inp.rsuAmount > 0)) {
+  const c = model.comp || {};
+  const active = inp.yourMode === "pot" && model.equityAccrued > 0 &&
+    (inp.bonusOn || inp.rsuOn || inp.sayeOn || inp.extraSaveOn);
+  if (active) {
     const parts = [];
     if (inp.bonusOn && inp.bonusAmount > 0)
-      parts.push(`bonus ${gbp0(inp.bonusAmount)}/yr (&asymp;${gbp0(model.bonusNet)} after tax)`);
-    if (inp.rsuOn && inp.rsuAmount > 0)
-      parts.push(`RSUs ${gbp0(inp.rsuAmount)}/yr for ${inp.rsuVestYears} yr (&asymp;${gbp0(model.rsuNet)}/yr after tax)`);
-    en.innerHTML = `Including ${parts.join(" and ")}: about <b>${gbp0(model.equityAccrued)}</b> added to your investments ` +
+      parts.push(`bonus ${gbp0(inp.bonusAmount)}/yr (&asymp;${gbp0(c.bonusNet)} after tax)`);
+    if (inp.rsuOn && (inp.rsuHeld > 0 || inp.rsuAmount > 0)) {
+      const bits = [];
+      if (inp.rsuHeld > 0) bits.push(`${gbp0(inp.rsuHeld)} held over ${inp.rsuHeldYears} yr`);
+      if (inp.rsuAmount > 0) bits.push(`${gbp0(inp.rsuAmount)}/yr granted`);
+      parts.push(`RSUs (${bits.join(", ")})`);
+    }
+    if (inp.sayeOn && inp.sayeMonthly > 0)
+      parts.push(`Sharesave ${gbp0(inp.sayeMonthly)}/mo for ${inp.sayeTermYears} yr`);
+    if (inp.extraSaveOn && (inp.extraSave > 0 || inp.oneOffCash > 0)) {
+      const bits = [];
+      if (inp.extraSave > 0) bits.push(`${gbp0(inp.extraSave)}/yr extra`);
+      if (inp.oneOffCash > 0) bits.push(`${gbp0(inp.oneOffCash)} one-off in ${inp.oneOffYear}`);
+      parts.push(bits.join(", "));
+    }
+    en.innerHTML = `Including ${parts.join("; ")}: about <b>${gbp0(model.equityAccrued)}</b> added to your investments ` +
       `over ~${model.workYears} working year${model.workYears === 1 ? "" : "s"} to retirement (grown at your assumed rate). ` +
       `Shown in the assets summary and available to bridge early retirement.`;
     en.style.display = "";
@@ -3350,6 +3507,14 @@ els("rsuOn").addEventListener("change", e => {
   els("rsuFields").style.display = e.target.checked ? "" : "none";
   onUserChange();
 });
+els("sayeOn").addEventListener("change", e => {
+  els("sayeFields").style.display = e.target.checked ? "" : "none";
+  onUserChange();
+});
+els("extraSaveOn").addEventListener("change", e => {
+  els("extraSaveFields").style.display = e.target.checked ? "" : "none";
+  onUserChange();
+});
 
 document.querySelectorAll(
   "input:not(#profileNameInput):not(#accountEmail):not(#accountPassword), " +
@@ -3515,7 +3680,10 @@ function seedDemoProfiles() {
     dob: "1973-03-01", sex: "M", retireDate: "2028-03-01", retireSpend: "0",
     spouseDob: "1976-04-01", spouseSex: "F", spouseRetireDate: "2033-04-01",
     yourPot: "0", yourDrawdown: "4", yourPotGrowth: "6", yourSalary: "0", yourEmployerRate: "15",
-    yourEmployerMonthly: "2,500", annualAllowance: "60,000", bonusAmount: "0", rsuAmount: "0", rsuVestYears: "2",
+    yourEmployerMonthly: "2,500", annualAllowance: "60,000",
+    bonusAmount: "0", bonusDeferYears: "2", bonusCashPct: "0", bonusDeferredPct: "50", bonusRsuPct: "50",
+    rsuHeld: "0", rsuHeldYears: "2", rsuAmount: "0", rsuVestYears: "2",
+    sayeMonthly: "0", sayeTermYears: "3", sayeDiscount: "20", oneOffCash: "0", oneOffYear: String(todayObj().y + 1), extraSave: "0",
     yourIncome: "0", yourIncomeGrowth: "2", cashCurrent: "0",
     spousePot: "0", spouseDrawdown: "4", spousePotGrowth: "6", spouseIncome: "0", spouseIncomeGrowth: "2",
     statePensionWeekly: "230.25", statePensionGrowth: "2.5", discountRate: "2.5",
@@ -3551,7 +3719,9 @@ function seedDemoProfiles() {
       assets: { savings: [], employerPensions: [], shares: [{ type: "General Investment Account", value: 150000 }] } }),
     "09 · High earner (bonus + RSUs)": mk({ yourPot: "2,000,000", yourSalary: "300,000",
       yourEmployerMode: "fixed", yourEmployerMonthly: "2,500", annualAllowance: "60,000",
-      bonusOn: true, bonusAmount: "120,000", rsuOn: true, rsuAmount: "150,000", rsuVestYears: "2",
+      bonusOn: true, bonusAmount: "120,000", bonusDeferYears: "2", bonusCashPct: "0", bonusDeferredPct: "50", bonusRsuPct: "50",
+      rsuOn: true, rsuHeld: "200,000", rsuHeldYears: "2", rsuAmount: "150,000", rsuVestYears: "2",
+      sayeOn: true, sayeMonthly: "500", sayeTermYears: "3", sayeDiscount: "20",
       spousePot: "600,000", spouseMode: "pot",
       cashCurrent: "50,000", numChildren: "2", numGrandchildren: "3", plannedAnnualGift: "20,000", essentialSpending: "60,000",
       assets: { savings: [{ type: "Cash ISA", balance: 80000 }, { type: "Premium Bonds", balance: 50000 }], employerPensions: [], shares: [{ type: "Stocks & Shares ISA", value: 300000 }, { type: "General Investment Account", value: 200000 }] }, rlsChoice: "comf" }),
