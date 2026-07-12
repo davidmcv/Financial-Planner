@@ -31,8 +31,8 @@
     --critical-wash: #FBEAEA;
     --shadow: 0 1px 2px rgba(15, 29, 25, 0.06), 0 8px 24px -12px rgba(15, 29, 25, 0.18);
     --radius: 14px;
-    --font-display: ui-serif, "Iowan Old Style", "Palatino Linotype", "Georgia", serif;
-    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --font-display: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", "Helvetica Neue", Arial, sans-serif;
+    --font-body: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", "Helvetica Neue", Arial, sans-serif;
     --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
   }
 
@@ -81,9 +81,12 @@
     color: var(--ink);
     font-family: var(--font-body);
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
     line-height: 1.45;
+    letter-spacing: -0.006em;
   }
-  h1, h2, h3 { font-family: var(--font-display); font-weight: 600; text-wrap: balance; margin: 0; }
+  h1, h2, h3 { font-family: var(--font-display); font-weight: 650; text-wrap: balance; margin: 0; letter-spacing: -0.018em; }
   .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
   a { color: var(--accent); }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -1016,6 +1019,19 @@
         <p class="caption" id="mcCaption"></p>
       </div>
 
+      <div class="card adv">
+        <div class="person-title">
+          <h2>Longevity chart <span class="hint-inline">(will the money outlast you?)</span></h2>
+          <span class="pill" id="longevityVerdict">&mdash;</span>
+        </div>
+        <p class="caption" style="margin-top:-4px;">Plots, across age to the maximum modelled age: your <b>chance of still being alive</b>,
+          the Monte Carlo <b>portfolio success rate</b> (money still lasts to that age), and a <b>longevity-adjusted</b> rate that
+          weights success by the chance you're alive to need it.</p>
+        <div class="chart-wrap"><canvas id="longevityChart" height="320"></canvas></div>
+        <div class="chart-legend" id="longevityLegend"></div>
+        <p class="caption" id="longevityCaption"></p>
+      </div>
+
       <div class="card">
         <h3>What-if scenarios</h3>
         <p class="caption" style="margin-top:-4px;">Compare tweaks against your base plan &mdash; retire earlier or later, weaker or stronger markets, spend more or less. The chart above overlays each scenario's household income.</p>
@@ -1560,6 +1576,30 @@ const COUNTRIES = {
 };
 let currentCountry = "UK";
 const CUR = () => COUNTRIES[currentCountry].currency;
+const SANS = 'system-ui, -apple-system, "Segoe UI", "Inter", "Helvetica Neue", Arial, sans-serif';
+
+// Maximum modelled age per country (a low-probability upper bound the plan is
+// stress-tested against, not an expectation).
+const MAX_AGE = { UK: 105, US: 105, FR: 105, AU: 105 };
+const maxAgeFor = () => MAX_AGE[currentCountry] || 105;
+
+// Approximate probability of surviving from `fromAge` to `age`, given a median
+// life expectancy (50% survival age). Gompertz hazard h(x)=h0·e^(θx) calibrated
+// so S(median)=0.5; θ sets how fast mortality rises. A planning approximation.
+function survivalProb(fromAge, medianAge, age) {
+  if (age <= fromAge) return 1;
+  const theta = 0.1;
+  const denom = Math.exp(theta * (medianAge - fromAge)) - 1;
+  if (denom <= 0) return age >= medianAge ? 0.5 : 1;
+  const h0 = Math.LN2 * theta / denom;
+  const H = (h0 / theta) * (Math.exp(theta * (age - fromAge)) - 1);
+  return Math.max(0, Math.min(1, Math.exp(-H)));
+}
+// Age at which survival from `fromAge` (median `medianAge`) falls to `p`.
+function ageAtSurvival(fromAge, medianAge, p) {
+  for (let a = fromAge; a <= 120; a++) if (survivalProb(fromAge, medianAge, a) <= p) return a;
+  return 120;
+}
 
 const gbp0 = n => CUR() + Math.round(n).toLocaleString("en-GB");
 const gbp2 = n => CUR() + n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1776,21 +1816,25 @@ function sampleReturnPath(years, blockLen = 5) {
 function mcSimulate({ startPot, years, guaranteed, targetSpend, runs }) {
   const endBalances = [];
   const paths = []; // retained subset for the fan chart
+  const solventCount = new Array(years + 1).fill(0); // runs still solvent at each year
   let successes = 0;
   for (let r = 0; r < runs; r++) {
     const rets = sampleReturnPath(years);
     let pot = startPot, failed = false;
     const path = [pot];
+    solventCount[0]++;
     for (let y = 0; y < years; y++) {
       const need = Math.max(0, targetSpend - (guaranteed[y] || 0));
       pot = (pot - need) * (1 + rets[y]);
       if (pot < 0) { failed = true; pot = 0; }
+      if (!failed) solventCount[y + 1]++;
       path.push(pot);
     }
     if (!failed) successes++;
     endBalances.push(pot);
     if (r < 120) paths.push(path);
   }
+  const solventByYear = solventCount.map(c => c / runs); // fraction lasting to each year
   const bands = [];
   for (let y = 0; y <= years; y++) {
     const vals = paths.map(p => p[y]).sort((a, b) => a - b);
@@ -1799,7 +1843,7 @@ function mcSimulate({ startPot, years, guaranteed, targetSpend, runs }) {
   }
   endBalances.sort((a, b) => a - b);
   const pickEnd = q => endBalances[Math.min(endBalances.length - 1, Math.floor(q * endBalances.length))];
-  return { successPct: successes / runs * 100, bands,
+  return { successPct: successes / runs * 100, bands, solventByYear,
            endLow: pickEnd(0.10), endMed: pickEnd(0.50), endHigh: pickEnd(0.90) };
 }
 
@@ -2820,7 +2864,12 @@ function renderAge(model) {
           <div class="stat">
             <span class="label">${term("lifeExp")}</span>
             <span class="value">${formatAge(p.lifeExpAge, p.lifeExpMonths)}</span>
-            <span class="sub">around ${fmtDate(p.lifeExpDate)}</span>
+            <span class="sub">50% chance of reaching this age</span>
+          </div>
+          <div class="stat">
+            <span class="label">Maximum modelled age</span>
+            <span class="value">age ${maxAgeFor()}</span>
+            <span class="sub">${(() => { const cur = ageAtDate(p.dob, model.today); const mx = maxAgeFor(); const pMax = survivalProb(cur, p.lifeExpAge, mx) * 100; return `10% chance of reaching ${ageAtSurvival(cur, p.lifeExpAge, 0.1)}; ${pMax < 1 ? "under 1" : Math.round(pMax)}% of reaching ${mx}`; })()}</span>
           </div>
         </div>
         ${p.transition ? `<div class="transition-note">&#9888; Born in a transitional ${term("spaShort")} window &mdash; treat as a close estimate; confirm at gov.uk/state-pension-age.</div>` : ""}
@@ -2953,6 +3002,19 @@ function renderProjection(model) {
         ? `<p class="caption" style="margin-top:-6px;">${term("potGrowth")} ${inp.spousePotGrowth}%/yr, ${term("drawdown")} ${inp.spouseDrawdown}%/yr.</p>`
         : `<p class="caption" style="margin-top:-6px;">Flat income growing ${inp.spouseIncomeGrowth}%/yr.</p>`}
       ${tableHtml(spouseRows, inp.spouseMode === "pot", inp.discount)}
+    </div>`;
+  }
+  // Combined household table underneath the per-person tables.
+  if (spouse && yourRows.length && spouseRows.length) {
+    const combined = combineIncomeTables(yourRows, spouseRows);
+    const head = `<tr><th>Year</th><th>You</th><th>Spouse</th><th>Weekly</th><th>Monthly</th><th>${term("fv").replace("£", CUR())}</th><th>${term("pv").replace("£", CUR())}</th></tr>`;
+    const rows = combined.map(r =>
+      `<tr><td>${r.year}</td><td>${gbp0(r.yourAnnual)}</td><td>${gbp0(r.spouseAnnual)}</td><td>${gbp0(r.weekly)}</td><td>${gbp0(r.monthly)}</td><td>${gbp0(r.annual)}</td><td>${gbp0(r.present)}</td></tr>`
+    ).join("");
+    html += `<div class="card">
+      <h2>Combined household</h2>
+      <p class="caption" style="margin-top:-6px;">Both incomes summed by calendar year; a year covered by only one of you shows ${CUR()}0 for the other.</p>
+      <div class="table-scroll"><table><thead>${head}</thead><tbody>${rows}</tbody></table></div>
     </div>`;
   }
   els("projectionCards").innerHTML = html;
@@ -3254,7 +3316,7 @@ function drawPhaseDecor(ctx, xf, retYear, domainEnd, padL, padR, padT, plotH, W)
   ctx.setLineDash([4, 3]); ctx.strokeStyle = themeColor("--ink-muted", "#5b6a63"); ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.moveTo(xRet, padT); ctx.lineTo(xRet, padT + plotH); ctx.stroke();
   ctx.setLineDash([]);
-  ctx.font = "600 11px sans-serif"; ctx.textAlign = "center";
+  ctx.font = "600 11px " + SANS; ctx.textAlign = "center";
   ctx.fillStyle = themeColor("--ink-muted", "#5b6a63");
   const labelY = 12;
   if (xRet - padL > 70) ctx.fillText("◀ Accumulation (paying in)", (padL + xRet) / 2, labelY);
@@ -3304,7 +3366,7 @@ function drawPlannerChart(model) {
 
   // gridlines + y labels
   ctx.strokeStyle = themeColor("--border", "#ddd"); ctx.fillStyle = themeColor("--ink-faint", "#999");
-  ctx.lineWidth = 1; ctx.font = "13px sans-serif"; ctx.textAlign = "right";
+  ctx.lineWidth = 1; ctx.font = "13px " + SANS; ctx.textAlign = "right";
   for (let g = 0; g <= 4; g++) {
     const v = maxV / 4 * g, py = yPix(v);
     ctx.beginPath(); ctx.moveTo(padL, py); ctx.lineTo(W - padR, py); ctx.stroke();
@@ -3382,15 +3444,15 @@ function drawPlannerChart(model) {
     while (lanes[lane] !== undefined && px - lanes[lane] < 90) lane++;
     lanes[lane] = px;
     const iconY = padT - 40 + lane * rowH;
-    ctx.font = "16px sans-serif"; ctx.textAlign = "center";
+    ctx.font = "16px " + SANS; ctx.textAlign = "center";
     ctx.fillText(f.icon || "📌", px, iconY + 13);
-    ctx.font = "11px sans-serif"; ctx.textAlign = "left";
+    ctx.font = "11px " + SANS; ctx.textAlign = "left";
     ctx.fillStyle = f.custom ? themeColor("--gold", "#A8762E") : themeColor("--ink-muted", "#5b6a63");
     ctx.fillText(f.label, px + 11, iconY + 12);
   });
 
   // x labels across the full (accumulation + decumulation) span
-  ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center"; ctx.font = "12px sans-serif";
+  ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center"; ctx.font = "12px " + SANS;
   const span = domainEnd - domainStart;
   const xstep = Math.max(1, Math.ceil(span / 9));
   for (let yy = domainStart; yy <= domainEnd; yy += xstep) ctx.fillText(yy, x(yy), H - 14);
@@ -3465,7 +3527,7 @@ function drawBreakdownChart(model) {
 
   // gridlines + y labels
   ctx.strokeStyle = themeColor("--border", "#ddd"); ctx.fillStyle = themeColor("--ink-faint", "#999");
-  ctx.lineWidth = 1; ctx.font = "13px sans-serif"; ctx.textAlign = "right";
+  ctx.lineWidth = 1; ctx.font = "13px " + SANS; ctx.textAlign = "right";
   for (let g = 0; g <= 4; g++) {
     const v = maxV / 4 * g, py = yPix(v);
     ctx.beginPath(); ctx.moveTo(padL, py); ctx.lineTo(W - padR, py); ctx.stroke();
@@ -3509,7 +3571,7 @@ function drawBreakdownChart(model) {
   }
 
   // x labels
-  ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center"; ctx.font = "12px sans-serif";
+  ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center"; ctx.font = "12px " + SANS;
   const step = Math.max(1, Math.ceil(allYears.length / 9));
   allYears.forEach((y, i) => { if (i % step === 0) ctx.fillText(y, padL + slot * (i + 0.5), H - 12); });
 
@@ -3577,7 +3639,7 @@ function drawMcChart() {
   const yPix = v => padT + plotH - v / maxV * plotH;
 
   ctx.strokeStyle = themeColor("--border", "#ddd"); ctx.fillStyle = themeColor("--ink-faint", "#999");
-  ctx.font = "10px sans-serif"; ctx.textAlign = "right";
+  ctx.font = "10px " + SANS; ctx.textAlign = "right";
   for (let g = 0; g <= 4; g++) {
     const v = maxV / 4 * g, py = yPix(v);
     ctx.beginPath(); ctx.moveTo(padL, py); ctx.lineTo(W - padR, py); ctx.stroke();
@@ -3607,6 +3669,136 @@ function drawMcChart() {
     `starting pot ${gbp0(lastMc.startPot)}. Shaded = 10th&ndash;90th and 25th&ndash;75th percentile pot balance; line = median. ` +
     `Ending pot: low ${gbp0(lastMc.endLow)}, median ${gbp0(lastMc.endMed)}, high ${gbp0(lastMc.endHigh)}. ` +
     `Returns resampled in 5-year blocks from an <b>approximate</b> 1925&ndash;2024 UK/global equity real-return history.`;
+}
+
+/* =========================================================================
+   LONGEVITY: survival probability vs portfolio success, by age (Nova/Voyant-
+   style). All approximate planning estimates.
+   ========================================================================= */
+function longevityData(model) {
+  const inp = model.inp, today = todayObj();
+  const startYear = Math.max(today.y, model.yourMeta.decumStartDate ? model.yourMeta.decumStartDate.y : today.y);
+  const maxAge = maxAgeFor();
+  const endYear = Math.max(model.you.dob.y + maxAge, model.spouse ? model.spouse.dob.y + maxAge : 0);
+  const years = Math.max(1, endYear - startYear);
+
+  let startPot = model.yourMeta.accumulatedPot || 0;
+  if (model.spouse && model.spouseMeta.mode === "pot") startPot += model.spouseMeta.accumulatedPot || 0;
+  const guaranteed = [];
+  for (let i = 0; i < years; i++) {
+    const y = startYear + i; let g = 0;
+    if (y >= model.you.spaDate.y) g += inp.spWeekly * 52;
+    if (model.spouse && y >= model.spouse.spaDate.y) g += inp.spWeekly * 52;
+    model.assetTotals.dbStreams.forEach(st => { if (y >= addYearsMonths(model.you.dob, st.startAge, 0).y) g += st.income; });
+    if (model.spouse) model.assetTotalsSpouse.dbStreams.forEach(st => { if (y >= addYearsMonths(model.spouse.dob, st.startAge, 0).y) g += st.income; });
+    guaranteed.push(g);
+  }
+  const custom = parseMoney(els("mcSpend").value);
+  const targetSpend = (custom && custom > 0) ? custom : (model.rlsTarget || RLS.mod[model.spouse ? "couple" : "single"]);
+  const runs = parseInt(els("mcRuns").value, 10) || 500;
+  const sim = mcSimulate({ startPot, years, guaranteed, targetSpend, runs });
+  const solvent = sim.solventByYear;
+
+  const curYou = ageAtDate(model.you.dob, today), medYou = model.you.lifeExpAge;
+  const curSp = model.spouse ? ageAtDate(model.spouse.dob, today) : null;
+  const medSp = model.spouse ? model.spouse.lifeExpAge : null;
+
+  const points = [];
+  for (let i = 0; i <= years; i++) {
+    const y = startYear + i;
+    const ageYou = y - model.you.dob.y;
+    const ageSp = model.spouse ? y - model.spouse.dob.y : null;
+    const sYou = survivalProb(curYou, medYou, ageYou);
+    const sSp = model.spouse ? survivalProb(curSp, medSp, ageSp) : null;
+    const survival = model.spouse ? 1 - (1 - sYou) * (1 - sSp) : sYou; // either alive
+    const portfolio = solvent[i] !== undefined ? solvent[i] : solvent[solvent.length - 1];
+    const adjusted = 1 - (1 - portfolio) * survival; // fails only if pot fails AND you're alive
+    points.push({ year: y, ageYou, ageSp, survival, portfolio, adjusted });
+  }
+  const findAge = p => { for (const pt of points) if (pt.survival <= p) return pt.ageYou; return points[points.length - 1].ageYou; };
+  const atMedian = points.find(pt => pt.ageYou >= medYou) || points[points.length - 1];
+  return { points, age50: findAge(0.5), age10: findAge(0.1), maxAge, headline: atMedian, hasSpouse: !!model.spouse };
+}
+
+function drawLongevityChart(model) {
+  const canvas = els("longevityChart"), wrap = canvas.parentElement;
+  const W = Math.max(320, wrap.clientWidth), H = 320;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = W * dpr; canvas.height = H * dpr; canvas.style.height = H + "px";
+  const ctx = canvas.getContext("2d"); ctx.scale(dpr, dpr); ctx.clearRect(0, 0, W, H);
+
+  const data = longevityData(model);
+  const pts = data.points;
+  if (!pts.length) return;
+  const padL = 46, padR = 14, padT = 20, padB = data.hasSpouse ? 48 : 34;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const a0 = pts[0].ageYou, a1 = pts[pts.length - 1].ageYou;
+  const x = a => padL + (a - a0) / Math.max(1, a1 - a0) * plotW;
+  const yPix = p => padT + plotH - p * plotH; // p in 0..1
+
+  // gridlines + % labels
+  ctx.strokeStyle = themeColor("--border", "#ddd"); ctx.fillStyle = themeColor("--ink-faint", "#999");
+  ctx.lineWidth = 1; ctx.font = "12px " + SANS; ctx.textAlign = "right";
+  for (let g = 0; g <= 5; g++) {
+    const p = g / 5, py = yPix(p);
+    ctx.beginPath(); ctx.moveTo(padL, py); ctx.lineTo(W - padR, py); ctx.stroke();
+    ctx.fillText(Math.round(p * 100) + "%", padL - 6, py + 4);
+  }
+
+  // survival probability area (light) + line
+  const surv = themeColor("--ink-faint", "#8A968F");
+  ctx.beginPath();
+  ctx.moveTo(x(a0), yPix(0));
+  pts.forEach(pt => ctx.lineTo(x(pt.ageYou), yPix(pt.survival)));
+  ctx.lineTo(x(a1), yPix(0)); ctx.closePath();
+  ctx.fillStyle = "#8e7cc322"; ctx.fill();
+
+  const line = (key, color, width) => {
+    ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = width;
+    pts.forEach((pt, i) => { const px = x(pt.ageYou), py = yPix(pt[key]); i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py); });
+    ctx.stroke();
+  };
+  line("survival", surv, 2);           // grey survival
+  line("adjusted", "#3fb59a", 2.4);    // green longevity-adjusted
+  line("portfolio", "#5b6cc9", 2.4);   // blue portfolio success
+
+  // survival markers: 50% and 10% ages
+  [["50% chance of survival", data.age50, padT + 12], ["10% chance of survival", data.age10, padT + 28]].forEach(([label, age, ly]) => {
+    if (age < a0 || age > a1) return;
+    const px = x(age);
+    ctx.strokeStyle = themeColor("--ink-faint", "#9aa39f"); ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(px, padT); ctx.lineTo(px, padT + plotH); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = themeColor("--ink-muted", "#5b6a63"); ctx.font = "10px " + SANS;
+    ctx.textAlign = px > padL + plotW * 0.6 ? "right" : "left";
+    ctx.fillText(label, px + (ctx.textAlign === "right" ? -5 : 5), ly);
+  });
+
+  // x labels: your age (and spouse age below for a couple)
+  ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center"; ctx.font = "12px " + SANS;
+  const step = Math.max(1, Math.ceil((a1 - a0) / 9));
+  for (let a = a0; a <= a1; a += step) {
+    ctx.fillText(a, x(a), H - (data.hasSpouse ? 30 : 12));
+    if (data.hasSpouse) {
+      const pt = pts.find(p => p.ageYou === a);
+      if (pt) { ctx.fillStyle = themeColor("--ink-faint", "#bcc4bf"); ctx.fillText(pt.ageSp, x(a), H - 12); ctx.fillStyle = themeColor("--ink-faint", "#999"); }
+    }
+  }
+  ctx.textAlign = "left"; ctx.fillStyle = themeColor("--ink-muted", "#5b6a63"); ctx.font = "11px " + SANS;
+  ctx.fillText(data.hasSpouse ? "Your age / spouse age" : "Your age", padL, H - 1);
+
+  const h = data.headline;
+  els("longevityLegend").innerHTML = [
+    `<span class="key"><span class="swatch" style="background:${surv}"></span>Chance you're alive</span>`,
+    `<span class="key"><span class="swatch" style="background:#5b6cc9"></span>Portfolio success rate</span>`,
+    `<span class="key"><span class="swatch" style="background:#3fb59a"></span>Longevity-adjusted rate</span>`,
+  ].join("");
+  els("longevityVerdict").textContent = `${Math.round(h.adjusted * 100)}% longevity-adjusted at age ${h.ageYou}`;
+  els("longevityVerdict").className = "pill" + (h.adjusted >= 0.85 ? "" : h.adjusted >= 0.6 ? " gold" : " warn");
+  els("longevityCaption").innerHTML =
+    `At your average life expectancy (age ${h.ageYou}): ${Math.round(h.survival * 100)}% chance ${data.hasSpouse ? "at least one of you is" : "you're"} still alive, ` +
+    `<b>${Math.round(h.portfolio * 100)}%</b> chance the money still lasts, and a <b>${Math.round(h.adjusted * 100)}%</b> longevity-adjusted success rate ` +
+    `(it only "fails" if the pot runs out <i>and</i> you're alive to see it). Maximum modelled age ${data.maxAge}. ` +
+    `Survival uses a Gompertz curve anchored to average life expectancy; an approximation, not a forecast.`;
 }
 
 function renderScenarioCompare(model) {
@@ -3731,6 +3923,7 @@ function renderAll() {
     renderScenarioCompare(model);
     renderStrategies(model);
     drawMcChart();
+    drawLongevityChart(model);
   }
 }
 let lastModel = null;
@@ -3782,7 +3975,7 @@ function activateTab(tabName) {
   if (c) c.scrollTop = 0;
   if (tabName === "planner" && lastModel) {
     // Canvas has zero width while hidden - draw once visible.
-    requestAnimationFrame(() => { drawPlannerChart(lastModel); drawBreakdownChart(lastModel); renderScenarioCompare(lastModel); drawMcChart(); });
+    requestAnimationFrame(() => { drawPlannerChart(lastModel); drawBreakdownChart(lastModel); renderScenarioCompare(lastModel); drawMcChart(); drawLongevityChart(lastModel); });
   }
 }
 // Delegated so both the desktop rail and the mobile bottom nav work.
@@ -3870,7 +4063,7 @@ els("runMcBtn").addEventListener("click", () => {
 });
 window.addEventListener("resize", () => {
   if (els("tab-planner").classList.contains("active") && lastModel) {
-    drawPlannerChart(lastModel); drawBreakdownChart(lastModel); drawMcChart();
+    drawPlannerChart(lastModel); drawBreakdownChart(lastModel); drawMcChart(); drawLongevityChart(lastModel);
   }
 });
 
