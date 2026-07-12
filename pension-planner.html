@@ -1002,6 +1002,40 @@
         <div id="scenarioCompare" style="margin-top:12px;"></div>
       </div>
 
+      <div class="card">
+        <h3>Tax strategies <span class="hint-inline">(and their inheritance-tax impact)</span></h3>
+        <p class="caption" style="margin-top:-4px;">Model common decumulation moves and see the honest trade-off: income-tax efficiency now
+          versus Inheritance Tax later. Available for you and, where relevant, your spouse.</p>
+
+        <label class="check-inline"><input type="checkbox" id="stratSaveOn"> Save more each year</label>
+        <div class="field-row" id="stratSaveFields" style="display:none;">
+          <div class="field">
+            <label for="stratSaveAmt">Extra saved (&pound; / year)</label>
+            <input type="text" inputmode="decimal" data-money="0" id="stratSaveAmt" value="10,000">
+            <span class="hint">On top of your current plan, invested until you retire</span>
+          </div>
+        </div>
+
+        <label class="check-inline"><input type="checkbox" id="stratPclsOn"> Take 25% tax-free cash at access age, into spouse's GIA</label>
+        <div class="field-row" id="stratPclsFields" style="display:none;">
+          <div class="field" style="flex:1 1 100%;">
+            <span class="hint">Takes your tax-free lump sum (up to &pound;268,275) at your pension access age and invests it in a General Investment Account in your spouse's name, so future gains are taxed at their lower rate.</span>
+          </div>
+        </div>
+
+        <label class="check-inline"><input type="checkbox" id="stratIsaOn"> Move pension to ISA over time</label>
+        <div class="field-row" id="stratIsaFields" style="display:none;">
+          <div class="field">
+            <label for="stratIsaAmt">Withdraw per person (&pound; / year)</label>
+            <input type="text" inputmode="decimal" data-money="0" id="stratIsaAmt" value="20,000">
+            <span class="hint">From retirement, moved into a Stocks &amp; Shares ISA for tax-free growth (25% tax-free, 75% taxed as income)</span>
+          </div>
+        </div>
+
+        <div id="strategyCompare" style="margin-top:12px;"></div>
+        <p class="caption" id="strategyIhtNote" style="margin-top:10px;"></p>
+      </div>
+
       <div id="householdCards"></div>
     </section>
 
@@ -2117,6 +2151,7 @@ const PROFILE_FIELD_IDS = [
   "bonusAmount", "bonusDeferYears", "bonusCashPct", "bonusDeferredPct", "bonusRsuPct",
   "rsuHeld", "rsuHeldYears", "rsuAmount", "rsuVestYears",
   "sayeMonthly", "sayeTermYears", "sayeDiscount", "oneOffCash", "oneOffYear", "extraSave",
+  "stratSaveAmt", "stratIsaAmt",
   "yourIncome", "yourIncomeGrowth", "cashCurrent",
   "spousePot", "spouseDrawdown", "spousePotGrowth", "spouseIncome", "spouseIncomeGrowth",
   "statePensionWeekly", "statePensionGrowth", "discountRate",
@@ -2146,6 +2181,9 @@ function collectProfileData() {
   data.rsuOn = els("rsuOn").checked;
   data.sayeOn = els("sayeOn").checked;
   data.extraSaveOn = els("extraSaveOn").checked;
+  data.stratSaveOn = els("stratSaveOn").checked;
+  data.stratPclsOn = els("stratPclsOn").checked;
+  data.stratIsaOn = els("stratIsaOn").checked;
   syncAssetsFromDOM();
   syncPlanListsFromDOM();
   data.assets = JSON.parse(JSON.stringify(assets));
@@ -2197,6 +2235,12 @@ function applyProfileData(data) {
   els("rsuFields").style.display = data.rsuOn ? "" : "none";
   els("sayeFields").style.display = data.sayeOn ? "" : "none";
   els("extraSaveFields").style.display = data.extraSaveOn ? "" : "none";
+  els("stratSaveOn").checked = !!data.stratSaveOn;
+  els("stratPclsOn").checked = !!data.stratPclsOn;
+  els("stratIsaOn").checked = !!data.stratIsaOn;
+  els("stratSaveFields").style.display = data.stratSaveOn ? "" : "none";
+  els("stratPclsFields").style.display = data.stratPclsOn ? "" : "none";
+  els("stratIsaFields").style.display = data.stratIsaOn ? "" : "none";
 
   renderAll();
 }
@@ -2312,7 +2356,98 @@ function readInputs() {
     essentialSpending: money("essentialSpending"),
     plannedAnnualGift: moneyOpt("plannedAnnualGift"),
     giftStartYear: parseInt(els("giftStartYear").value, 10) || todayObj().y,
+    stratSaveOn: els("stratSaveOn").checked,
+    stratSaveAmt: money("stratSaveAmt"),
+    stratPclsOn: els("stratPclsOn").checked,
+    stratIsaOn: els("stratIsaOn").checked,
+    stratIsaAmt: money("stratIsaAmt"),
   };
+}
+
+// Marginal income-tax rate (no NI) on the next £1,000 at this gross, using the
+// current country's engine - for comparing whose hands income is taxed in.
+function marginalRate(gross) {
+  const scottish = els("scotland") && els("scotland").value === "scot";
+  const at = g => currentCountry === "UK" ? ukIncomeTax(g, scottish)
+    : currentCountry === "US" ? usIncomeTax(g)
+    : currentCountry === "FR" ? frIncomeTax(g) : auIncomeTax(g);
+  return (at(gross + 1000) - at(gross)) / 1000;
+}
+
+/* =========================================================================
+   TAX STRATEGIES (decumulation) - illustrative deltas vs the base plan, and
+   the honest Inheritance Tax trade-off. Simplified planning estimates using
+   current tax bands; not advice.
+   ========================================================================= */
+const LUMP_SUM_ALLOWANCE = 268275;   // UK 2025/26 tax-free lump sum allowance
+const IHT_RATE = 0.40;
+const PENSION_IN_ESTATE_FROM = { y: 2027, m: 4, d: 6 }; // unused pensions become IHT-liable
+
+function analyzeStrategies(model) {
+  const inp = model.inp;
+  const rows = [];
+  const g = (inp.yourPotGrowth || 0) / 100;
+  const yourPot = model.yourMeta.accumulatedPot || 0;
+  // Years from retirement to average life expectancy (horizon for growth).
+  const horizon = Math.max(1, (model.you.lifeExpAge || 90) - (model.yourMeta.decumStartAge || 65));
+
+  // Whose hands: your retirement marginal rate vs spouse's.
+  const yourRetireGross = (model.yourRows.find(r => !r.isBridge) || {}).annual || 0;
+  const spouseRetireGross = model.spouse ? ((model.spouseRows.find(r => !r.isBridge) || {}).annual || 0) : 0;
+  const yourMr = marginalRate(yourRetireGross);
+  const spouseMr = marginalRate(spouseRetireGross);
+
+  let estateAdded = 0; // £ moved from (IHT-free) pension into the taxable estate
+
+  // 1. Save more each year -> bigger pot/investments at retirement.
+  if (inp.stratSaveOn && inp.stratSaveAmt > 0) {
+    const acc = accrueComp({ extraSaveOn: true, extraSave: inp.stratSaveAmt,
+      bonusOn: false, rsuOn: false, sayeOn: false, oneOffCash: 0, oneOffYear: 0,
+      rsuHeldYears: 1, sayeTermYears: 1, sayeDiscount: 0 },
+      inp.yourSalary, inp.yourPotGrowth, model.workYears, model.today);
+    rows.push(["Save more", `+${gbp0(inp.stratSaveAmt)}/yr`,
+      `+${gbp0(acc.total)} invested by retirement`,
+      "In your estate (as it would be anyway)"]);
+  }
+
+  // 2. 25% tax-free lump sum into spouse's GIA at access age.
+  if (inp.stratPclsOn) {
+    const lump = Math.min(yourPot * 0.25, LUMP_SUM_ALLOWANCE);
+    const gains = lump * (Math.pow(1 + g, horizon) - 1);
+    // Illustrative income/CGT saving from taxing growth in the lower-rate spouse's hands.
+    const rateGap = Math.max(0, yourMr - spouseMr);
+    const taxSaved = gains * rateGap;
+    estateAdded += lump;
+    rows.push(["25% cash to spouse GIA", gbp0(lump) + " moved",
+      taxSaved > 0 ? `~${gbp0(taxSaved)} less tax on growth (spouse's lower rate)` : "Limited income-tax gain",
+      "Adds to the estate (see below)"]);
+  }
+
+  // 3. Pension -> ISA, £X/person/yr from retirement.
+  if (inp.stratIsaOn && inp.stratIsaAmt > 0) {
+    const people = model.spouse ? 2 : 1;
+    const years = Math.min(horizon, 15); // illustrative shifting window
+    const perYearTaxNow = inp.stratIsaAmt * 0.75 * yourMr; // UFPLS: 75% taxable
+    const movedTotal = inp.stratIsaAmt * people * years;
+    estateAdded += movedTotal;
+    rows.push([`Pension${people > 1 ? " -> ISA (x2)" : " -> ISA"}`,
+      `${gbp0(inp.stratIsaAmt)}/person/yr for ${years} yr`,
+      `Tax-free ISA growth; ~${gbp0(perYearTaxNow)}/yr income tax to move it`,
+      "Adds to the estate (see below)"]);
+  }
+
+  // Honest IHT verdict.
+  const retireDate = model.yourMeta.decumStartDate || inp.retireDate;
+  const preReform = cmp(retireDate, PENSION_IN_ESTATE_FROM) < 0;
+  let iht = null;
+  if (estateAdded > 0) {
+    iht = {
+      estateAdded,
+      cost: estateAdded * IHT_RATE,
+      preReform,
+    };
+  }
+  return { rows, iht, yourMr, spouseMr };
 }
 
 function calculateGiftingSummary(numChildren, numGrandchildren, smallGiftAmount, annualExemption,
@@ -3268,6 +3403,44 @@ function renderScenarioCompare(model) {
     `</tbody></table></div>`;
 }
 
+function renderStrategies(model) {
+  const compareEl = els("strategyCompare");
+  const noteEl = els("strategyIhtNote");
+  const inp = model.inp;
+  const any = inp.stratSaveOn || inp.stratPclsOn || inp.stratIsaOn;
+  if (!any) {
+    compareEl.innerHTML = "";
+    noteEl.innerHTML = `Tip: these strategies mostly improve <b>income-tax</b> efficiency. Whether they help ` +
+      `<b>Inheritance Tax</b> depends on timing &mdash; see the note that appears when you enable one.`;
+    return;
+  }
+  const a = analyzeStrategies(model);
+  compareEl.innerHTML = `<div class="table-scroll"><table class="compare-table"><thead>
+      <tr><th>Strategy</th><th>Amount</th><th>Income-tax effect</th><th>Estate / IHT</th></tr></thead><tbody>` +
+    a.rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join("") +
+    `</tbody></table></div>`;
+
+  // The honest IHT verdict - the key point the user asked about.
+  if (a.iht) {
+    const cost = gbp0(a.iht.cost);
+    const added = gbp0(a.iht.estateAdded);
+    if (a.iht.preReform) {
+      noteEl.innerHTML = `<b>Inheritance-tax reality:</b> moving money out of your pension does <b>not</b> save IHT under ` +
+        `today's rules &mdash; it usually costs. An unused pension is currently <b>outside</b> your estate, while ISAs and GIAs ` +
+        `are <b>inside</b> it. These strategies shift about ${added} into your estate, so if it exceeds the &pound;325,000 ` +
+        `nil-rate band that is up to <b>${cost}</b> more IHT (40%). They still help income tax and control &mdash; just weigh that ` +
+        `against the IHT cost. (Spousal transfers themselves are IHT-exempt; the cost is the money later sitting in the survivor's estate.)`;
+    } else {
+      noteEl.innerHTML = `<b>Inheritance-tax reality:</b> from 6 April 2027 unused pensions count as part of your estate for IHT, ` +
+        `so moving a pension into an ISA or GIA is broadly <b>IHT-neutral</b> for a retirement on your dates &mdash; the money is in ` +
+        `the estate either way. The gain from these moves is <b>income-tax</b> efficiency (lower bands, tax-free ISA withdrawals, ` +
+        `a spouse's lower rate), not IHT saving. Around ${added} is affected.`;
+    }
+  } else {
+    noteEl.innerHTML = `Saving more keeps the money in your estate as it would be anyway &mdash; no special IHT effect.`;
+  }
+}
+
 /* =========================================================================
    TAX TAB
    ========================================================================= */
@@ -3331,6 +3504,7 @@ function renderAll() {
   if (els("tab-planner").classList.contains("active")) {
     drawPlannerChart(model);
     renderScenarioCompare(model);
+    renderStrategies(model);
     drawMcChart();
   }
 }
@@ -3515,6 +3689,11 @@ els("extraSaveOn").addEventListener("change", e => {
   els("extraSaveFields").style.display = e.target.checked ? "" : "none";
   onUserChange();
 });
+[["stratSaveOn", "stratSaveFields"], ["stratPclsOn", "stratPclsFields"], ["stratIsaOn", "stratIsaFields"]]
+  .forEach(([cb, fields]) => els(cb).addEventListener("change", e => {
+    els(fields).style.display = e.target.checked ? "" : "none";
+    onUserChange();
+  }));
 
 document.querySelectorAll(
   "input:not(#profileNameInput):not(#accountEmail):not(#accountPassword), " +
@@ -3684,6 +3863,7 @@ function seedDemoProfiles() {
     bonusAmount: "0", bonusDeferYears: "2", bonusCashPct: "0", bonusDeferredPct: "50", bonusRsuPct: "50",
     rsuHeld: "0", rsuHeldYears: "2", rsuAmount: "0", rsuVestYears: "2",
     sayeMonthly: "0", sayeTermYears: "3", sayeDiscount: "20", oneOffCash: "0", oneOffYear: String(todayObj().y + 1), extraSave: "0",
+    stratSaveAmt: "10,000", stratIsaAmt: "20,000", stratSaveOn: false, stratPclsOn: false, stratIsaOn: false,
     yourIncome: "0", yourIncomeGrowth: "2", cashCurrent: "0",
     spousePot: "0", spouseDrawdown: "4", spousePotGrowth: "6", spouseIncome: "0", spouseIncomeGrowth: "2",
     statePensionWeekly: "230.25", statePensionGrowth: "2.5", discountRate: "2.5",
