@@ -13,9 +13,20 @@ the shared UK State-Pension-age / NMPA / life-expectancy maths still mirrors the
 Everything is a simplified planning model - not financial or tax advice.
 
 **Planner** is the Voyant/Nova-style centrepiece:
-- a **major-events cash-flow chart**: stacked household income per year (savings bridge, private
-  drawdown, DB pensions, State Pension), with vertical flags for retirements, pension start dates
-  and your own custom one-off events (an inheritance in, a wedding or house purchase out);
+- a large **major-events cash-flow chart**: stacked household income per year (savings bridge,
+  private drawdown, DB pensions, State Pension), with flags carrying an icon per event -
+  retirements (🏖️), State Pension start (🏛️) and your own custom one-off events (💰 in, 🏡 out,
+  e.g. an inheritance in or a house purchase out);
+- a Voyant Go-style **year-by-year breakdown**: a stacked bar chart underneath, one bar per year
+  split by income source, with your spending target drawn across so short years are obvious;
+- both charts span the whole life, splitting the **Accumulation** (what you pay in each year) and
+  **Decumulation** (household income by source) phases with a retirement divider and labels;
+- a **Longevity chart** (adviser mode): your chance of still being alive by age (either-alive for
+  a couple, from a Gompertz survival curve anchored to life expectancy), the Monte Carlo portfolio
+  success rate by age (money still lasts), and a **longevity-adjusted** success rate =
+  `1 − (1 − success) × survival` (it only "fails" if the pot runs out *and* you're alive to see
+  it), with 50%/10%-survival age markers. The People tab shows each person's **maximum modelled
+  age** for the country and the odds of reaching given ages;
 - **living-standard targets** from the PLSA / Loughborough University Retirement Living Standards
   (Low = Minimum, Medium = Moderate, High = Comfortable; single and couple amounts), with a
   years-below-target verdict;
@@ -24,6 +35,13 @@ Everything is a simplified planning model - not financial or tax advice.
   a "% of runs where the money lasts" score and a 10th-90th percentile fan chart;
 - **what-if scenarios** (retire earlier/later, markets better/worse, spend more/less) overlaid on
   the chart with a lifetime-income comparison table.
+- **tax strategies** with an honest Inheritance Tax verdict: save more each year; take the 25%
+  tax-free lump sum at pension access age into a GIA in the lower-tax spouse's name; or move a
+  pension into ISAs over time (default £20,000/person/year). Each shows its income-tax effect and
+  estate impact. The key caveat is made plain: under current rules an unused pension is *outside*
+  your estate while ISAs and GIAs are *inside* it, so these moves usually *increase* IHT rather
+  than reduce it - the gain is income-tax efficiency. From 6 April 2027 unused pensions fall into
+  the estate, so for later retirements the verdict flips to broadly IHT-neutral.
 
 **Tax** models each country's headline 2025/26-era income tax per person, on salary today and on
 retirement income (a Net column also appears in Paying Out):
@@ -35,9 +53,12 @@ retirement income (a Net column also appears in Paying Out):
 - **Australia**: 2024-25 resident rates + Medicare levy, with superannuation income tax-free from
   age 60.
 
-**Internationalisation**: a country picker (UK / US / France / Australia) switches currency,
-state-pension defaults and ages (Social Security 67, France 64, Age Pension 67; private access
-59½ / 64 / 60), and the tax engine. UK keeps the full SPA legislation including transitional bands.
+**Internationalisation**: a country picker (UK / US / France / Australia) switches the currency
+symbol **everywhere** (every field label, hint and table header, not just the output figures),
+the state-pension defaults and ages (Social Security 67, France 64, Age Pension 67; private access
+59½ / 64 / 60), and the whole tax engine. UK keeps the full SPA legislation including transitional
+bands. (UK-specific statutory figures - the £325,000 nil-rate band, the annual-allowance taper -
+stay in pounds, as they are UK amounts.)
 
 **Usability**: a **Plain English / Expert** wording toggle and a separate **Simple / Adviser**
 detail-level toggle (Simple hides advanced fields like growth rates and the Monte Carlo panel), so
@@ -50,10 +71,20 @@ your own profiles persist in the browser alongside them, including events, scena
 **People** holds each person's date of birth, sex, and **planned retirement date**, plus the
 resulting timeline (private pension access, State Pension, life expectancy) in chronological order.
 
-**Paying In** (accumulation) has your pension pot and contributions, plus incremental asset
-sections: **Cash savings** (current account + savings accounts, each with a type - Cash ISA, Easy
-Access, etc.), **Employer pensions** (each Defined Contribution or Defined Benefit), and **Shares &
-investments** (each with a type - S&S ISA, GIA, LISA, etc.), with an assets-today summary.
+**Paying In** (accumulation) has each person's pension pot and contributions, plus their own asset
+sections. **Pension contributions** take the employer amount as either a **percentage of salary**
+or a **fixed £/month**, capped at the **annual allowance** (default £60,000) with a warning when
+exceeded and a high-earner **taper** note (adjusted income over £260,000). **Bonus, equity & other
+savings** (optional) covers an annual **bonus** with a configurable immediate-cash / deferred-cash /
+RSU split and vesting years, **RSUs** already held plus ongoing grants, a **Sharesave / SAYE**
+scheme (monthly, term, discount), one-off upcoming cash, and extra regular saving - each added net
+of marginal tax to your investments and grown to retirement.
+
+Assets are held **per person**: **Cash savings** (current account + savings accounts, each with a
+type - Cash ISA, Easy Access, etc.), **Employer pensions** (each Defined Contribution or Defined
+Benefit), and **Shares & investments** (each with a type - S&S ISA, GIA, LISA, etc.) appear under
+**You** and, when a spouse is included, under **Your spouse**, each feeding that person's own
+projection, with a per-person assets-today summary.
 
 **Paying Out** (decumulation) projects your income year by year from your retirement date to average
 life expectancy. Retiring before a pension starts is handled across all the numbers: the gap years
