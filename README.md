@@ -24,6 +24,13 @@ Everything is a simplified planning model - not financial or tax advice.
   a "% of runs where the money lasts" score and a 10th-90th percentile fan chart;
 - **what-if scenarios** (retire earlier/later, markets better/worse, spend more/less) overlaid on
   the chart with a lifetime-income comparison table.
+- **tax strategies** with an honest Inheritance Tax verdict: save more each year; take the 25%
+  tax-free lump sum at pension access age into a GIA in the lower-tax spouse's name; or move a
+  pension into ISAs over time (default £20,000/person/year). Each shows its income-tax effect and
+  estate impact. The key caveat is made plain: under current rules an unused pension is *outside*
+  your estate while ISAs and GIAs are *inside* it, so these moves usually *increase* IHT rather
+  than reduce it - the gain is income-tax efficiency. From 6 April 2027 unused pensions fall into
+  the estate, so for later retirements the verdict flips to broadly IHT-neutral.
 
 **Tax** models each country's headline 2025/26-era income tax per person, on salary today and on
 retirement income (a Net column also appears in Paying Out):
@@ -50,10 +57,20 @@ your own profiles persist in the browser alongside them, including events, scena
 **People** holds each person's date of birth, sex, and **planned retirement date**, plus the
 resulting timeline (private pension access, State Pension, life expectancy) in chronological order.
 
-**Paying In** (accumulation) has your pension pot and contributions, plus incremental asset
-sections: **Cash savings** (current account + savings accounts, each with a type - Cash ISA, Easy
-Access, etc.), **Employer pensions** (each Defined Contribution or Defined Benefit), and **Shares &
-investments** (each with a type - S&S ISA, GIA, LISA, etc.), with an assets-today summary.
+**Paying In** (accumulation) has each person's pension pot and contributions, plus their own asset
+sections. **Pension contributions** take the employer amount as either a **percentage of salary**
+or a **fixed £/month**, capped at the **annual allowance** (default £60,000) with a warning when
+exceeded and a high-earner **taper** note (adjusted income over £260,000). **Bonus, equity & other
+savings** (optional) covers an annual **bonus** with a configurable immediate-cash / deferred-cash /
+RSU split and vesting years, **RSUs** already held plus ongoing grants, a **Sharesave / SAYE**
+scheme (monthly, term, discount), one-off upcoming cash, and extra regular saving - each added net
+of marginal tax to your investments and grown to retirement.
+
+Assets are held **per person**: **Cash savings** (current account + savings accounts, each with a
+type - Cash ISA, Easy Access, etc.), **Employer pensions** (each Defined Contribution or Defined
+Benefit), and **Shares & investments** (each with a type - S&S ISA, GIA, LISA, etc.) appear under
+**You** and, when a spouse is included, under **Your spouse**, each feeding that person's own
+projection, with a per-person assets-today summary.
 
 **Paying Out** (decumulation) projects your income year by year from your retirement date to average
 life expectancy. Retiring before a pension starts is handled across all the numbers: the gap years

@@ -851,6 +851,31 @@
         </div>
       </div>
 
+      <!-- YOUR savings, pensions & investments -->
+      <div class="card" id="assetsYouGroup">
+        <div class="person-title"><h2>Your savings, pensions &amp; investments</h2></div>
+        <p class="caption" style="margin-top:-6px;">Cash and shares bridge any early-retirement gap; defined-contribution
+          employer pots add to your drawdown pot; defined-benefit pensions pay a set income from their own start age.</p>
+        <h3>&#128181; Cash savings</h3>
+        <div class="field-row">
+          <div class="field">
+            <label for="cashCurrent">Current account balance (&pound;)</label>
+            <input type="text" inputmode="decimal" data-money="0" id="cashCurrent" value="10,000">
+          </div>
+        </div>
+        <div class="list-label">Savings accounts</div>
+        <div id="savingsList_you" class="asset-list"></div>
+        <button type="button" class="add-btn" data-add="savings" data-owner="you">+ Add savings account</button>
+        <div class="divider" style="margin: 12px 0;"></div>
+        <h3>&#127963; Employer pensions</h3>
+        <div id="employerPensionList_you" class="asset-list"></div>
+        <button type="button" class="add-btn" data-add="employerPensions" data-owner="you">+ Add employer pension</button>
+        <div class="divider" style="margin: 12px 0;"></div>
+        <h3>&#128200; Shares &amp; investments</h3>
+        <div id="shareList_you" class="asset-list"></div>
+        <button type="button" class="add-btn" data-add="shares" data-owner="you">+ Add share account</button>
+      </div>
+
       <div class="card person-card" id="spousePotCard">
         <div class="person-title"><h2>Your spouse</h2></div>
         <div class="segmented" id="spouseModeSeg">
@@ -889,41 +914,32 @@
         </div>
       </div>
 
-      <p class="caption" style="margin: 2px 0 -8px;">The sections below are yours. Cash and shares bridge any early-retirement gap; defined-contribution
-        employer pots add to your drawdown pot; defined-benefit pensions pay a set income from their own start age.</p>
-
-      <!-- CASH SAVINGS -->
-      <div class="card">
+      <!-- YOUR SPOUSE's savings, pensions & investments -->
+      <div class="card" id="assetsSpouseGroup">
+        <div class="person-title"><h2>Your spouse's savings, pensions &amp; investments</h2></div>
         <h3>&#128181; Cash savings</h3>
         <div class="field-row">
           <div class="field">
-            <label for="cashCurrent">Current account balance (&pound;)</label>
-            <input type="text" inputmode="decimal" data-money="0" id="cashCurrent" value="10,000">
+            <label for="spouseCashCurrent">Current account balance (&pound;)</label>
+            <input type="text" inputmode="decimal" data-money="0" id="spouseCashCurrent" value="0">
           </div>
         </div>
-        <div class="divider" style="margin: 12px 0;"></div>
         <div class="list-label">Savings accounts</div>
-        <div id="savingsList" class="asset-list"></div>
-        <button type="button" class="add-btn" data-add="savings">+ Add savings account</button>
-      </div>
-
-      <!-- EMPLOYER PENSIONS -->
-      <div class="card">
+        <div id="savingsList_spouse" class="asset-list"></div>
+        <button type="button" class="add-btn" data-add="savings" data-owner="spouse">+ Add savings account</button>
+        <div class="divider" style="margin: 12px 0;"></div>
         <h3>&#127963; Employer pensions</h3>
-        <div id="employerPensionList" class="asset-list"></div>
-        <button type="button" class="add-btn" data-add="employerPensions">+ Add employer pension</button>
-      </div>
-
-      <!-- SHARES -->
-      <div class="card">
+        <div id="employerPensionList_spouse" class="asset-list"></div>
+        <button type="button" class="add-btn" data-add="employerPensions" data-owner="spouse">+ Add employer pension</button>
+        <div class="divider" style="margin: 12px 0;"></div>
         <h3>&#128200; Shares &amp; investments</h3>
-        <div id="shareList" class="asset-list"></div>
-        <button type="button" class="add-btn" data-add="shares">+ Add share account</button>
+        <div id="shareList_spouse" class="asset-list"></div>
+        <button type="button" class="add-btn" data-add="shares" data-owner="spouse">+ Add share account</button>
       </div>
 
       <!-- ASSETS SUMMARY -->
       <div class="card">
-        <h3>Your assets today</h3>
+        <h3>Assets today</h3>
         <div id="assetsSummary"></div>
       </div>
     </section>
@@ -1868,20 +1884,37 @@ function todayObj() {
 const SAVINGS_TYPES = ["Easy Access", "Cash ISA", "Fixed-term Bond", "Premium Bonds", "Regular Saver", "Other"];
 const SHARE_TYPES = ["Stocks & Shares ISA", "General Investment Account", "Lifetime ISA", "Trading Account", "Other"];
 
+function emptyOwnerAssets() {
+  return { savings: [], employerPensions: [], shares: [] };
+}
 function defaultAssets() {
   return {
-    savings: [
-      { type: "Cash ISA", balance: 20000 },
-      { type: "Easy Access", balance: 15000 },
-    ],
-    // DC value 0 by default so nothing folds into the pot until you fill it in.
-    employerPensions: [
-      { label: "Workplace pension", kind: "DC", value: 0, contribution: 0, income: 0, startAge: 65 },
-    ],
-    shares: [
-      { type: "Stocks & Shares ISA", value: 30000 },
-    ],
+    you: {
+      savings: [
+        { type: "Cash ISA", balance: 20000 },
+        { type: "Easy Access", balance: 15000 },
+      ],
+      // DC value 0 by default so nothing folds into the pot until you fill it in.
+      employerPensions: [
+        { label: "Workplace pension", kind: "DC", value: 0, contribution: 0, income: 0, startAge: 65 },
+      ],
+      shares: [
+        { type: "Stocks & Shares ISA", value: 30000 },
+      ],
+    },
+    spouse: emptyOwnerAssets(),
   };
+}
+// Accept old single-owner {savings,employerPensions,shares} shape and wrap it
+// under "you" so pre-existing saved and demo profiles keep working.
+function migrateAssets(a) {
+  if (a && (a.you || a.spouse)) {
+    return { you: Object.assign(emptyOwnerAssets(), a.you), spouse: Object.assign(emptyOwnerAssets(), a.spouse) };
+  }
+  if (a && (a.savings || a.employerPensions || a.shares)) {
+    return { you: Object.assign(emptyOwnerAssets(), a), spouse: emptyOwnerAssets() };
+  }
+  return defaultAssets();
 }
 let assets = defaultAssets();
 
@@ -1890,22 +1923,24 @@ function optionsHtml(types, selected) {
   return types.map(t => `<option${t === selected ? " selected" : ""}>${t}</option>`).join("");
 }
 
-function renderAssetLists() {
-  // Savings
-  els("savingsList").innerHTML = assets.savings.length ? assets.savings.map((a, i) => `
-    <div class="asset-row" data-list="savings" data-idx="${i}">
+// Render one owner's three asset lists into their owner-scoped containers.
+function renderOwnerAssets(owner) {
+  const oa = assets[owner];
+  const sfx = "_" + owner;
+
+  els("savingsList" + sfx).innerHTML = oa.savings.length ? oa.savings.map((a, i) => `
+    <div class="asset-row" data-list="savings" data-owner="${owner}" data-idx="${i}">
       <div class="field"><label>Type</label>
         <select data-field="type">${optionsHtml(SAVINGS_TYPES, a.type)}</select></div>
       <div class="field"><label>Balance (£)</label>
         <input type="text" ${moneyAttr} data-field="balance" value="${fmtNum(a.balance)}"></div>
-      <button type="button" class="remove-btn" data-remove="savings" data-idx="${i}" aria-label="Remove">&times;</button>
+      <button type="button" class="remove-btn" data-remove="savings" data-owner="${owner}" data-idx="${i}" aria-label="Remove">&times;</button>
     </div>`).join("") : `<div class="asset-empty">No savings accounts yet.</div>`;
 
-  // Employer pensions
-  els("employerPensionList").innerHTML = assets.employerPensions.length ? assets.employerPensions.map((a, i) => {
+  els("employerPensionList" + sfx).innerHTML = oa.employerPensions.length ? oa.employerPensions.map((a, i) => {
     const isDB = a.kind === "DB";
     return `
-    <div class="asset-row" data-list="employerPensions" data-idx="${i}">
+    <div class="asset-row" data-list="employerPensions" data-owner="${owner}" data-idx="${i}">
       <div class="field" style="flex:1 1 140px;"><label>Name</label>
         <input type="text" data-field="label" value="${(a.label || "").replace(/"/g, "&quot;")}"></div>
       <div class="field" style="flex:0 0 150px;"><label>Type</label>
@@ -1924,36 +1959,37 @@ function renderAssetLists() {
       <div class="field"><label>Contribution (£/yr)</label>
         <input type="text" ${moneyAttr} data-field="contribution" value="${fmtNum(a.contribution)}"></div>
       `}
-      <button type="button" class="remove-btn" data-remove="employerPensions" data-idx="${i}" aria-label="Remove">&times;</button>
+      <button type="button" class="remove-btn" data-remove="employerPensions" data-owner="${owner}" data-idx="${i}" aria-label="Remove">&times;</button>
     </div>`;
   }).join("") : `<div class="asset-empty">No employer pensions yet.</div>`;
 
-  // Shares
-  els("shareList").innerHTML = assets.shares.length ? assets.shares.map((a, i) => `
-    <div class="asset-row" data-list="shares" data-idx="${i}">
+  els("shareList" + sfx).innerHTML = oa.shares.length ? oa.shares.map((a, i) => `
+    <div class="asset-row" data-list="shares" data-owner="${owner}" data-idx="${i}">
       <div class="field"><label>Type</label>
         <select data-field="type">${optionsHtml(SHARE_TYPES, a.type)}</select></div>
       <div class="field"><label>Value (£)</label>
         <input type="text" ${moneyAttr} data-field="value" value="${fmtNum(a.value)}"></div>
-      <button type="button" class="remove-btn" data-remove="shares" data-idx="${i}" aria-label="Remove">&times;</button>
+      <button type="button" class="remove-btn" data-remove="shares" data-owner="${owner}" data-idx="${i}" aria-label="Remove">&times;</button>
     </div>`).join("") : `<div class="asset-empty">No share accounts yet.</div>`;
+}
+function renderAssetLists() {
+  renderOwnerAssets("you");
+  renderOwnerAssets("spouse");
 }
 
 function fmtNum(n) { return (Number(n) || 0).toLocaleString("en-GB"); }
 
-// Read the editable asset rows back into the `assets` state.
+// Read the editable asset rows back into the `assets` state (both owners).
 function syncAssetsFromDOM() {
-  ["savings", "employerPensions", "shares"].forEach(listName => {
-    document.querySelectorAll(`.asset-row[data-list="${listName}"]`).forEach(row => {
-      const idx = +row.dataset.idx;
-      const obj = assets[listName][idx];
-      if (!obj) return;
-      row.querySelectorAll("[data-field]").forEach(inp => {
-        const f = inp.dataset.field;
-        if (inp.tagName === "SELECT" || f === "label") obj[f] = inp.value;
-        else if (f === "startAge") obj[f] = parseInt(inp.value, 10) || 0;
-        else obj[f] = parseMoney(inp.value) || 0;
-      });
+  document.querySelectorAll(".asset-row[data-owner]").forEach(row => {
+    const owner = row.dataset.owner, listName = row.dataset.list, idx = +row.dataset.idx;
+    const obj = assets[owner] && assets[owner][listName] && assets[owner][listName][idx];
+    if (!obj) return;
+    row.querySelectorAll("[data-field]").forEach(inp => {
+      const f = inp.dataset.field;
+      if (inp.tagName === "SELECT" || f === "label") obj[f] = inp.value;
+      else if (f === "startAge") obj[f] = parseInt(inp.value, 10) || 0;
+      else obj[f] = parseMoney(inp.value) || 0;
     });
   });
 }
@@ -1964,16 +2000,19 @@ function newAssetRow(listName) {
   return { label: "Employer pension", kind: "DC", value: 0, contribution: 0, income: 0, startAge: 65 };
 }
 
-// Aggregate assets for the calculation engine.
-function assetTotals() {
-  const cash = (parseMoney(els("cashCurrent").value) || 0)
-    + assets.savings.reduce((s, a) => s + (Number(a.balance) || 0), 0);
-  const shares = assets.shares.reduce((s, a) => s + (Number(a.value) || 0), 0);
-  const dcValue = assets.employerPensions.filter(p => p.kind === "DC")
+// Aggregate one owner's assets for the calculation engine.
+function assetTotals(owner) {
+  const oa = assets[owner] || emptyOwnerAssets();
+  const currentId = owner === "spouse" ? "spouseCashCurrent" : "cashCurrent";
+  const currentEl = els(currentId);
+  const cash = (currentEl ? parseMoney(currentEl.value) || 0 : 0)
+    + oa.savings.reduce((s, a) => s + (Number(a.balance) || 0), 0);
+  const shares = oa.shares.reduce((s, a) => s + (Number(a.value) || 0), 0);
+  const dcValue = oa.employerPensions.filter(p => p.kind === "DC")
     .reduce((s, a) => s + (Number(a.value) || 0), 0);
-  const dcContribution = assets.employerPensions.filter(p => p.kind === "DC")
+  const dcContribution = oa.employerPensions.filter(p => p.kind === "DC")
     .reduce((s, a) => s + (Number(a.contribution) || 0), 0);
-  const dbStreams = assets.employerPensions.filter(p => p.kind === "DB")
+  const dbStreams = oa.employerPensions.filter(p => p.kind === "DB")
     .map(a => ({ income: Number(a.income) || 0, startAge: Number(a.startAge) || 0 }));
   return { cash, shares, dcValue, dcContribution, dbStreams };
 }
@@ -2152,7 +2191,7 @@ const PROFILE_FIELD_IDS = [
   "rsuHeld", "rsuHeldYears", "rsuAmount", "rsuVestYears",
   "sayeMonthly", "sayeTermYears", "sayeDiscount", "oneOffCash", "oneOffYear", "extraSave",
   "stratSaveAmt", "stratIsaAmt",
-  "yourIncome", "yourIncomeGrowth", "cashCurrent",
+  "yourIncome", "yourIncomeGrowth", "cashCurrent", "spouseCashCurrent",
   "spousePot", "spouseDrawdown", "spousePotGrowth", "spouseIncome", "spouseIncomeGrowth",
   "statePensionWeekly", "statePensionGrowth", "discountRate",
   "numChildren", "numGrandchildren", "smallGiftAmount", "annualExemption",
@@ -2195,7 +2234,7 @@ function collectProfileData() {
 
 function applyProfileData(data) {
   PROFILE_FIELD_IDS.forEach(id => { if (data[id] !== undefined) els(id).value = data[id]; });
-  if (data.assets) { assets = JSON.parse(JSON.stringify(data.assets)); renderAssetLists(); }
+  assets = migrateAssets(data.assets ? JSON.parse(JSON.stringify(data.assets)) : null); renderAssetLists();
   planEvents = data.planEvents ? JSON.parse(JSON.stringify(data.planEvents)) : [];
   scenarios = data.scenarios ? JSON.parse(JSON.stringify(data.scenarios)) : [];
   renderEventList(); renderScenarioList();
@@ -2661,8 +2700,8 @@ function computeAll(overrides = {}) {
   const today = todayObj();
   const you = buildPersonSummary(inp.dob, inp.sex);
   const spouse = inp.spouseOn ? buildPersonSummary(inp.spouseDob, inp.spouseSex) : null;
-  const at = assetTotals();
-  const noAssets = { cash: 0, shares: 0, dcValue: 0, dcContribution: 0, dbStreams: [] };
+  const at = assetTotals("you");
+  const atSpouse = assetTotals("spouse");
 
   // Employer contribution: % of salary, or a fixed £/month, per the toggle.
   const employerContribution = inp.yourMode !== "pot" ? 0
@@ -2699,7 +2738,7 @@ function computeAll(overrides = {}) {
       mode: inp.spouseMode, potToday: inp.spousePot, drawdown: inp.spouseDrawdown, potGrowth: inp.spousePotGrowth,
       employerContribution: 0, annualAllowance: Infinity,
       startIncome: inp.spouseIncome, incomeGrowth: inp.spouseIncomeGrowth,
-      retireDate: inp.spouseRetireDate, retireSpend: 0, assets: noAssets,
+      retireDate: inp.spouseRetireDate, retireSpend: 0, assets: atSpouse,
       spWeekly: inp.spWeekly, spGrowth: inp.spGrowth, discount: inp.discount, today,
     });
     spouseRows = spouseBuilt.rows;
@@ -2732,7 +2771,7 @@ function computeAll(overrides = {}) {
 
   return { inp, today, you, spouse, yourRows, spouseRows, yourEffectivePot, yourContribution,
            employerContribution, uncappedContribution, equityAccrued, comp, workYears,
-           transferNote, gifting, giftSchedule, assetTotals: at,
+           transferNote, gifting, giftSchedule, assetTotals: at, assetTotalsSpouse: atSpouse,
            yourMeta: yourBuilt.meta, spouseMeta: spouseBuilt.meta, rlsTarget };
 }
 
@@ -3324,6 +3363,9 @@ function runMonteCarlo(model) {
     model.assetTotals.dbStreams.forEach(st => {
       if (y >= addYearsMonths(model.you.dob, st.startAge, 0).y) g += st.income;
     });
+    if (model.spouse) model.assetTotalsSpouse.dbStreams.forEach(st => {
+      if (y >= addYearsMonths(model.spouse.dob, st.startAge, 0).y) g += st.income;
+    });
     guaranteed.push(g);
   }
 
@@ -3511,23 +3553,29 @@ function renderAll() {
 let lastModel = null;
 
 function renderAssetsSummary(model) {
-  const a = model.assetTotals;
-  const dbTotal = a.dbStreams.reduce((s, st) => s + st.income, 0);
-  const liquid = a.cash + a.shares;
+  // Show/hide the spouse's asset group with the spouse toggle.
+  els("assetsSpouseGroup").style.display = model.spouse ? "" : "none";
+
   const equity = model.equityAccrued || 0;
-  const rows = [
-    ["Cash (current + savings)", gbp0(a.cash)],
-    ["Shares & investments", gbp0(a.shares)],
-  ];
-  if (equity > 0) rows.push(["From bonus / RSUs (by retirement)", gbp0(equity)]);
-  rows.push(
-    ["Liquid total (bridges early retirement)", gbp0(liquid + equity)],
-    ["Employer DC pots (added to your pot)", gbp0(a.dcValue)],
-    ["Employer DB income (from their start age)", dbTotal > 0 ? gbp0(dbTotal) + "/yr" : "—"],
-  );
-  els("assetsSummary").innerHTML = `<div class="stat-row">` + rows.map(([l, v]) =>
-    `<div class="stat"><span class="label">${l}</span><span class="value">${v}</span></div>`).join("") + `</div>
-    <p class="caption">Cash and shares are drawn (cash first) only in years you retire before a pension starts. DC pots fold into your drawdown pot; DB pensions add a fixed income from their start age.</p>`;
+  const block = (label, a, extra) => {
+    const dbTotal = a.dbStreams.reduce((s, st) => s + st.income, 0);
+    const rows = [
+      ["Cash (current + savings)", gbp0(a.cash)],
+      ["Shares & investments", gbp0(a.shares)],
+    ];
+    if (extra > 0) rows.push(["From bonus / RSUs (by retirement)", gbp0(extra)]);
+    rows.push(
+      ["Liquid (bridges early retirement)", gbp0(a.cash + a.shares + extra)],
+      ["Employer DC pots (fold into pot)", gbp0(a.dcValue)],
+      ["Employer DB income", dbTotal > 0 ? gbp0(dbTotal) + "/yr" : "—"],
+    );
+    return `<div class="list-label">${label}</div><div class="stat-row">` + rows.map(([l, v]) =>
+      `<div class="stat"><span class="label">${l}</span><span class="value">${v}</span></div>`).join("") + `</div>`;
+  };
+  let html = block(model.spouse ? "You" : "Assets today", model.assetTotals, equity);
+  if (model.spouse) html += block("Your spouse", model.assetTotalsSpouse, 0);
+  els("assetsSummary").innerHTML = html +
+    `<p class="caption">Each person's cash and shares are drawn (cash first) only in years they retire before a pension starts. DC pots fold into that person's drawdown pot; DB pensions add a fixed income from their start age.</p>`;
 }
 
 function updateAgeHeading(model) {
@@ -3718,7 +3766,8 @@ document.addEventListener("click", e => {
   const add = e.target.closest("[data-add]");
   if (add) {
     syncAssetsFromDOM();
-    assets[add.dataset.add].push(newAssetRow(add.dataset.add));
+    const owner = add.dataset.owner || "you";
+    assets[owner][add.dataset.add].push(newAssetRow(add.dataset.add));
     renderAssetLists();
     onUserChange();
     return;
@@ -3726,7 +3775,8 @@ document.addEventListener("click", e => {
   const rm = e.target.closest("[data-remove]");
   if (rm) {
     syncAssetsFromDOM();
-    assets[rm.dataset.remove].splice(+rm.dataset.idx, 1);
+    const owner = rm.dataset.owner || "you";
+    assets[owner][rm.dataset.remove].splice(+rm.dataset.idx, 1);
     renderAssetLists();
     onUserChange();
   }
@@ -3864,7 +3914,7 @@ function seedDemoProfiles() {
     rsuHeld: "0", rsuHeldYears: "2", rsuAmount: "0", rsuVestYears: "2",
     sayeMonthly: "0", sayeTermYears: "3", sayeDiscount: "20", oneOffCash: "0", oneOffYear: String(todayObj().y + 1), extraSave: "0",
     stratSaveAmt: "10,000", stratIsaAmt: "20,000", stratSaveOn: false, stratPclsOn: false, stratIsaOn: false,
-    yourIncome: "0", yourIncomeGrowth: "2", cashCurrent: "0",
+    yourIncome: "0", yourIncomeGrowth: "2", cashCurrent: "0", spouseCashCurrent: "0",
     spousePot: "0", spouseDrawdown: "4", spousePotGrowth: "6", spouseIncome: "0", spouseIncomeGrowth: "2",
     statePensionWeekly: "230.25", statePensionGrowth: "2.5", discountRate: "2.5",
     numChildren: "0", numGrandchildren: "0", smallGiftAmount: "250", annualExemption: "3,000",
