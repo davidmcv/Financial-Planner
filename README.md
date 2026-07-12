@@ -19,6 +19,14 @@ Everything is a simplified planning model - not financial or tax advice.
   e.g. an inheritance in or a house purchase out);
 - a Voyant Go-style **year-by-year breakdown**: a stacked bar chart underneath, one bar per year
   split by income source, with your spending target drawn across so short years are obvious;
+- both charts span the whole life, splitting the **Accumulation** (what you pay in each year) and
+  **Decumulation** (household income by source) phases with a retirement divider and labels;
+- a **Longevity chart** (adviser mode): your chance of still being alive by age (either-alive for
+  a couple, from a Gompertz survival curve anchored to life expectancy), the Monte Carlo portfolio
+  success rate by age (money still lasts), and a **longevity-adjusted** success rate =
+  `1 − (1 − success) × survival` (it only "fails" if the pot runs out *and* you're alive to see
+  it), with 50%/10%-survival age markers. The People tab shows each person's **maximum modelled
+  age** for the country and the odds of reaching given ages;
 - **living-standard targets** from the PLSA / Loughborough University Retirement Living Standards
   (Low = Minimum, Medium = Moderate, High = Comfortable; single and couple amounts), with a
   years-below-target verdict;
