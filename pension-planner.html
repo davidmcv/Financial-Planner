@@ -1707,20 +1707,22 @@ function accrueComp(inp, salary, growthPct, years, today) {
   const extraAnnual = inp.extraSaveOn ? inp.extraSave : 0; // already net
 
   let bal = 0;
+  const perYear = []; // net amount actually paid in each working year (excl. growth)
+  const oneOffIdx = inp.extraSaveOn && inp.oneOffCash > 0 ? inp.oneOffYear - today.y : null;
   for (let y = 0; y < years; y++) {
     let add = bonusNet + rsuGrantNet + extraAnnual;
     if (y < inp.rsuHeldYears) add += rsuHeldNetAnnual;
     if (y < inp.sayeTermYears) add += sayeAnnual;
+    if (inp.sayeOn && y === inp.sayeTermYears - 1) add += sayeUplift; // maturity discount gain
+    if (oneOffIdx !== null && oneOffIdx === y) add += inp.oneOffCash;
+    perYear.push(add);
     bal = (bal + add) * (1 + g);
-    if (inp.sayeOn && y === inp.sayeTermYears - 1) bal += sayeUplift; // maturity discount gain
   }
-  // One-off cash (net) received in a specific calendar year, grown to retirement.
-  if (inp.extraSaveOn && inp.oneOffCash > 0) {
-    const yr = inp.oneOffYear - today.y;
-    if (yr < 0) bal += inp.oneOffCash * Math.pow(1 + g, years);
-    else if (yr < years) bal += inp.oneOffCash * Math.pow(1 + g, years - 1 - yr);
+  // One-off cash already in hand (year in the past) or after retirement, grown to retirement.
+  if (oneOffIdx !== null && (oneOffIdx < 0 || oneOffIdx >= years)) {
+    bal += inp.oneOffCash * Math.pow(1 + g, oneOffIdx < 0 ? years : 0);
   }
-  return { total: bal, bonusNet, rsuHeldNetAnnual, rsuGrantNet, sayeAnnual, sayeUplift, extraAnnual };
+  return { total: bal, perYear, bonusNet, rsuHeldNetAnnual, rsuGrantNet, sayeAnnual, sayeUplift, extraAnnual };
 }
 
 /* =========================================================================
@@ -3223,6 +3225,43 @@ function themeColor(name, fallback) {
   return v || fallback;
 }
 
+// Pre-retirement "paying in" per year: pension contributions plus net comp
+// (bonus/RSU/sharesave/extra) saved that year - so the charts can show the
+// accumulation phase, not just decumulation.
+function accumulationSeries(model) {
+  const today = model.today, inp = model.inp;
+  const retYear = (model.yourMeta.decumStartDate || inp.retireDate).y;
+  const perYear = (model.comp && model.comp.perYear) || [];
+  const pension = model.yourContribution || 0;
+  const years = [];
+  for (let yy = today.y; yy < retYear; yy++) {
+    const comp = perYear[yy - today.y] || 0;
+    years.push({ year: yy, pension, comp, payIn: pension + comp });
+  }
+  return { years, retYear };
+}
+
+// Shared phase decoration for both planner charts: tinted Accumulation and
+// Decumulation bands, a retirement divider, and phase labels.
+function drawPhaseDecor(ctx, xf, retYear, domainEnd, padL, padR, padT, plotH, W) {
+  const xRet = Math.max(padL, Math.min(W - padR, xf(retYear)));
+  const xEnd = W - padR;
+  ctx.save();
+  ctx.fillStyle = themeColor("--accent", "#1F6F5C") + "12";
+  ctx.fillRect(padL, padT, Math.max(0, xRet - padL), plotH);
+  ctx.fillStyle = themeColor("--gold", "#A8762E") + "14";
+  ctx.fillRect(xRet, padT, Math.max(0, xEnd - xRet), plotH);
+  ctx.setLineDash([4, 3]); ctx.strokeStyle = themeColor("--ink-muted", "#5b6a63"); ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(xRet, padT); ctx.lineTo(xRet, padT + plotH); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.font = "600 11px sans-serif"; ctx.textAlign = "center";
+  ctx.fillStyle = themeColor("--ink-muted", "#5b6a63");
+  const labelY = 12;
+  if (xRet - padL > 70) ctx.fillText("◀ Accumulation (paying in)", (padL + xRet) / 2, labelY);
+  if (xEnd - xRet > 70) ctx.fillText("Decumulation (drawing down) ▶", (xRet + xEnd) / 2, labelY);
+  ctx.restore();
+}
+
 function drawPlannerChart(model) {
   const canvas = els("plannerChart");
   const wrap = canvas.parentElement;
@@ -3239,7 +3278,15 @@ function drawPlannerChart(model) {
   const padL = 62, padR = 14, padT = 56, padB = 40;
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const stacks = years.map(y => byYear[y]);
-  let maxV = Math.max(...stacks.map(s => Math.max(s.total + Math.max(0, s.event), model.rlsTarget || 0)));
+
+  // accumulation (pre-retirement) so the chart spans both phases
+  const acc = accumulationSeries(model);
+  const accYears = acc.years, retYear = acc.retYear;
+  const domainStart = accYears.length ? accYears[0].year : years[0];
+  const domainEnd = years[years.length - 1];
+  const accMaxPay = accYears.length ? Math.max(...accYears.map(a => a.payIn)) : 0;
+
+  let maxV = Math.max(accMaxPay, ...stacks.map(s => Math.max(s.total + Math.max(0, s.event), model.rlsTarget || 0)));
   // include scenario overlays in scale
   const scenarioSeries = scenarios.map(sc => {
     const m = computeAll({ retireShift: sc.retireShift, growthDelta: sc.growthDelta, spendDelta: sc.spendDelta });
@@ -3249,8 +3296,11 @@ function drawPlannerChart(model) {
   scenarioSeries.forEach(ss => ss.years.forEach(y => { maxV = Math.max(maxV, ss.byYear[y].total); }));
   maxV *= 1.08;
 
-  const x = y => padL + (y - years[0]) / Math.max(1, years[years.length - 1] - years[0]) * plotW;
+  const x = y => padL + (y - domainStart) / Math.max(1, domainEnd - domainStart) * plotW;
   const yPix = v => padT + plotH - v / maxV * plotH;
+
+  // phase bands + retirement divider + phase labels (behind the data)
+  drawPhaseDecor(ctx, x, retYear, domainEnd, padL, padR, padT, plotH, W);
 
   // gridlines + y labels
   ctx.strokeStyle = themeColor("--border", "#ddd"); ctx.fillStyle = themeColor("--ink-faint", "#999");
@@ -3259,6 +3309,15 @@ function drawPlannerChart(model) {
     const v = maxV / 4 * g, py = yPix(v);
     ctx.beginPath(); ctx.moveTo(padL, py); ctx.lineTo(W - padR, py); ctx.stroke();
     ctx.fillText(CUR() + Math.round(v / 1000) + "k", padL - 6, py + 4);
+  }
+
+  // accumulation "paying in" area (contributions each working year)
+  if (accYears.length) {
+    ctx.beginPath();
+    ctx.moveTo(x(domainStart), yPix(0));
+    accYears.forEach(a => ctx.lineTo(x(a.year), yPix(a.payIn)));
+    ctx.lineTo(x(retYear), yPix(0)); ctx.closePath();
+    ctx.fillStyle = "#5b7fa6cc"; ctx.fill();
   }
 
   // stacked areas: bridge (gold), private (green), db (teal), state (dark green)
@@ -3308,7 +3367,7 @@ function drawPlannerChart(model) {
   }
 
   // event flags: a vertical line, an emoji icon in a chip at the top, and a label
-  const flagsInView = flags.filter(f => f.year >= years[0] && f.year <= years[years.length - 1])
+  const flagsInView = flags.filter(f => f.year >= domainStart && f.year <= domainEnd)
     .sort((a, b) => a.year - b.year);
   const rowH = 15;
   const lanes = []; // avoid overlapping labels by stacking into lanes
@@ -3330,13 +3389,15 @@ function drawPlannerChart(model) {
     ctx.fillText(f.label, px + 11, iconY + 12);
   });
 
-  // x labels
+  // x labels across the full (accumulation + decumulation) span
   ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center"; ctx.font = "12px sans-serif";
-  const step = Math.ceil(years.length / 9);
-  years.forEach((y, i) => { if (i % step === 0) ctx.fillText(y, x(y), H - 14); });
+  const span = domainEnd - domainStart;
+  const xstep = Math.max(1, Math.ceil(span / 9));
+  for (let yy = domainStart; yy <= domainEnd; yy += xstep) ctx.fillText(yy, x(yy), H - 14);
 
   // legend + verdict
   els("plannerLegend").innerHTML = [
+    `<span class="key"><span class="swatch" style="background:#5b7fa6"></span>Paying in (contributions)</span>`,
     `<span class="key"><span class="swatch" style="background:${themeColor("--gold", "#A8762E")}"></span>Savings bridge</span>`,
     `<span class="key"><span class="swatch" style="background:${themeColor("--accent", "#1F6F5C")}"></span>Private pension</span>`,
     `<span class="key"><span class="swatch" style="background:#4a90a4"></span>DB pension</span>`,
@@ -3355,8 +3416,9 @@ function drawPlannerChart(model) {
     els("plannerVerdict").textContent = "No target set";
     els("plannerVerdict").className = "pill gold";
   }
-  els("plannerCaption").innerHTML = `Household income each year (today's-money target line; income shown in future ${CUR()}). ` +
-    `Vertical flags mark major events; the solid dark line includes your one-off events. Dashed lines are what-if scenarios.`;
+  els("plannerCaption").innerHTML = `The tinted left band is the <b>accumulation</b> phase (blue = contributions paid in each year); the right band is ` +
+    `<b>decumulation</b>, with household income by source. The dashed vertical line is retirement. ` +
+    `Flags mark major events; the solid dark line includes your one-off events; dashed lines are what-if scenarios.`;
   els("rlsCaption").innerHTML = rlsChoice === "none" ? "No target selected." :
     `${RLS[rlsChoice].label}: ${CUR()}${RLS[rlsChoice][model.spouse ? "couple" : "single"].toLocaleString("en-GB")}/yr for a ${model.spouse ? "couple" : "single person"} ` +
     `(PLSA Retirement Living Standards, 2025, developed with Loughborough University; UK-based figures shown in your currency unadjusted).`;
@@ -3377,14 +3439,29 @@ function drawBreakdownChart(model) {
 
   const { years, byYear } = householdSeries(model);
   if (!years.length) return;
-  const padL = 62, padR = 14, padT = 18, padB = 34;
+  const padL = 62, padR = 14, padT = 26, padB = 34;
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const target = model.rlsTarget || 0;
-  const stacks = years.map(y => byYear[y]);
-  let maxV = Math.max(...stacks.map(s => s.total), target) * 1.12;
+
+  // span both phases: accumulation "paying in" bars, then income bars
+  const acc = accumulationSeries(model);
+  const payByYear = {}; acc.years.forEach(a => { payByYear[a.year] = a.payIn; });
+  const retYear = acc.retYear;
+  const domainStart = acc.years.length ? acc.years[0].year : years[0];
+  const domainEnd = years[years.length - 1];
+  const allYears = [];
+  for (let yy = domainStart; yy <= domainEnd; yy++) allYears.push(yy);
+
+  const accMaxPay = acc.years.length ? Math.max(...acc.years.map(a => a.payIn)) : 0;
+  let maxV = Math.max(accMaxPay, ...years.map(y => byYear[y].total), target) * 1.12;
   if (maxV <= 0) maxV = 1;
 
   const yPix = v => padT + plotH - v / maxV * plotH;
+  const slot = plotW / allYears.length;
+  const idxOf = y => y - domainStart;
+  const xf = y => padL + slot * idxOf(y); // left edge, for the phase divider
+
+  drawPhaseDecor(ctx, xf, retYear, domainEnd, padL, padR, padT, plotH, W);
 
   // gridlines + y labels
   ctx.strokeStyle = themeColor("--border", "#ddd"); ctx.fillStyle = themeColor("--ink-faint", "#999");
@@ -3395,20 +3472,26 @@ function drawBreakdownChart(model) {
     ctx.fillText(CUR() + Math.round(v / 1000) + "k", padL - 6, py + 4);
   }
 
-  // bars: one stacked bar per year (income sources bottom-to-top)
+  // bars: one per year - a "paying in" bar during accumulation, a stacked
+  // income bar during decumulation (income sources bottom-to-top)
   const layers = [
     { key: "bridge", color: themeColor("--gold", "#A8762E") },
     { key: "private", color: themeColor("--accent", "#1F6F5C") },
     { key: "db", color: "#4a90a4" },
     { key: "state", color: themeColor("--accent-strong", "#14503F") },
   ];
-  const slot = plotW / years.length;
-  const bw = Math.max(2, Math.min(26, slot * 0.72));
-  years.forEach((y, i) => {
+  const bw = Math.max(2, Math.min(24, slot * 0.72));
+  allYears.forEach((y, i) => {
     const cx = padL + slot * (i + 0.5);
+    if (y < retYear) { // accumulation: single paying-in bar
+      const v = payByYear[y] || 0;
+      if (v > 0) { ctx.fillStyle = "#5b7fa6"; ctx.fillRect(cx - bw / 2, yPix(v), bw, yPix(0) - yPix(v)); }
+      return;
+    }
+    const s = byYear[y]; if (!s) return;
     let base = 0;
     layers.forEach(layer => {
-      const v = stacks[i][layer.key];
+      const v = s[layer.key];
       if (v <= 0) return;
       const y0 = yPix(base), y1 = yPix(base + v);
       ctx.fillStyle = layer.color;
@@ -3417,29 +3500,30 @@ function drawBreakdownChart(model) {
     });
   });
 
-  // spending-target line across the bars
+  // spending-target line across the decumulation bars
   if (target > 0) {
     ctx.beginPath(); ctx.setLineDash([5, 4]); ctx.lineWidth = 2;
     ctx.strokeStyle = themeColor("--critical", "#B23B3B");
-    ctx.moveTo(padL, yPix(target)); ctx.lineTo(W - padR, yPix(target)); ctx.stroke();
+    ctx.moveTo(Math.max(padL, xf(retYear)), yPix(target)); ctx.lineTo(W - padR, yPix(target)); ctx.stroke();
     ctx.setLineDash([]);
   }
 
   // x labels
   ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center"; ctx.font = "12px sans-serif";
-  const step = Math.ceil(years.length / 9);
-  years.forEach((y, i) => { if (i % step === 0) ctx.fillText(y, padL + slot * (i + 0.5), H - 12); });
+  const step = Math.max(1, Math.ceil(allYears.length / 9));
+  allYears.forEach((y, i) => { if (i % step === 0) ctx.fillText(y, padL + slot * (i + 0.5), H - 12); });
 
   els("breakdownLegend").innerHTML = [
+    `<span class="key"><span class="swatch" style="background:#5b7fa6"></span>Paying in (contributions)</span>`,
     `<span class="key"><span class="swatch" style="background:${themeColor("--gold", "#A8762E")}"></span>Savings bridge</span>`,
     `<span class="key"><span class="swatch" style="background:${themeColor("--accent", "#1F6F5C")}"></span>Private pension</span>`,
     `<span class="key"><span class="swatch" style="background:#4a90a4"></span>DB pension</span>`,
     `<span class="key"><span class="swatch" style="background:${themeColor("--accent-strong", "#14503F")}"></span>${COUNTRIES[currentCountry].spName}</span>`,
     target > 0 ? `<span class="key"><span class="swatch" style="background:${themeColor("--critical", "#B23B3B")}"></span>Spending target</span>` : "",
   ].filter(Boolean).join("");
-  els("breakdownCaption").innerHTML = `Each bar is one year's household income split by source (future ${CUR()}). ` +
-    `The dashed line is your spending target &mdash; bars below it are years income falls short. ` +
-    `Spending is modelled as a single target, not itemised categories.`;
+  els("breakdownCaption").innerHTML = `Left of the divider is the <b>accumulation</b> phase &mdash; blue bars are what you pay in each year. ` +
+    `Right of it is <b>decumulation</b>: each bar is one year's household income split by source (future ${CUR()}). ` +
+    `The dashed line is your spending target; bars below it are years income falls short. Spending is a single target, not itemised categories.`;
 }
 
 function runMonteCarlo(model) {
