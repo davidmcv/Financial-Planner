@@ -1,0 +1,6 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+sqlalchemy>=2.0
+email-validator>=2.0
+# production database driver (SQLite needs nothing extra):
+psycopg2-binary>=2.9

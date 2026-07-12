@@ -1,4 +1,16 @@
+<!-- =====================================================================
+     MAJOR CHANGE IN PROGRESS
+     This single-page version is being extended with an optional server
+     backend (see server/): user accounts and sign-in, profiles synced and
+     shareable across devices, and centrally maintained reference data
+     (tax tables and the market-return history) served from a relational
+     database instead of being frozen into this file.
+     The file remains fully standalone: opened directly from disk it works
+     exactly as before, using the built-in data and browser local storage.
+     When served by the backend it upgrades itself automatically.
+     ===================================================================== -->
 <title>Pension Planner</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>&#127807;</text></svg>">
 <style>
   :root {
     --paper: #F4F7F5;
@@ -445,6 +457,12 @@
   }
   .icon-btn:hover { color: var(--ink); }
   .modal-actions { display: flex; justify-content: flex-end; }
+  .btn-ghost {
+    background: var(--surface); color: var(--accent-strong);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 0.55rem 1rem; font: inherit; font-weight: 600; cursor: pointer;
+  }
+  .btn-ghost:hover { background: var(--accent-wash); }
   .btn-primary {
     background: var(--accent); color: white; border: none; font: inherit; font-size: 0.88rem;
     padding: 9px 16px; border-radius: 9px; cursor: pointer;
@@ -519,6 +537,7 @@
             <label for="profileSelect" class="profile-label">Saved profile</label>
             <div class="profile-row">
               <select id="profileSelect"></select>
+              <button class="icon-btn" id="shareProfile" title="Share this profile with another account" aria-label="Share profile" style="display: none;">&#128101;</button>
               <button class="icon-btn" id="deleteProfile" title="Delete this profile" aria-label="Delete profile">&#128465;</button>
             </div>
           </div>
@@ -540,6 +559,35 @@
             <span class="hint">Scotland has different income-tax bands</span>
           </div>
         </div>
+      </div>
+
+      <!-- ACCOUNT: shown only when the page is served by the backend (server/).
+           Standalone from disk, everything stays in browser local storage. -->
+      <div class="card" id="accountCard" style="display: none;">
+        <h2>Account</h2>
+        <div id="accountSignedOut">
+          <p class="hint" style="margin: 0 0 0.6rem;">Sign in to keep your saved profiles on the server - synced across devices and shareable with an adviser. Without an account, everything stays in this browser only.</p>
+          <div class="field-row">
+            <div class="field" style="flex: 1 1 180px;">
+              <label for="accountEmail">Email</label>
+              <input type="email" id="accountEmail" autocomplete="email" placeholder="you@example.com">
+            </div>
+            <div class="field" style="flex: 1 1 150px;">
+              <label for="accountPassword">Password <span class="hint-inline">(8+ characters)</span></label>
+              <input type="password" id="accountPassword" autocomplete="current-password">
+            </div>
+          </div>
+          <div class="field-row" style="margin-top: 0.5rem;">
+            <button type="button" class="btn-primary" id="signInBtn">Sign in</button>
+            <button type="button" class="btn-ghost" id="registerBtn">Create account</button>
+          </div>
+          <p class="hint" id="accountError" style="display: none; color: var(--critical); margin: 0.5rem 0 0;"></p>
+        </div>
+        <div id="accountSignedIn" style="display: none;">
+          <p style="margin: 0 0 0.6rem;">Signed in as <strong id="accountWho"></strong>. Saved profiles sync to the server; the &#128101; button next to the profile picker shares the selected profile with another account.</p>
+          <button type="button" class="btn-ghost" id="signOutBtn">Sign out</button>
+        </div>
+        <p class="hint" id="dataSourceNote" style="margin: 0.6rem 0 0;"></p>
       </div>
 
       <div class="card">
@@ -957,9 +1005,16 @@
       <button class="icon-btn" id="closeProfileModal" aria-label="Close">&#10005;</button>
     </div>
     <div class="field" id="profileNameField">
-      <label for="profileNameInput">Profile name</label>
-      <input type="text" id="profileNameInput" placeholder='e.g. David, or "Household"' maxlength="40">
-      <span class="hint">Saves all current inputs in this browser only</span>
+      <label for="profileNameInput" id="profileNameLabel">Profile name</label>
+      <input type="text" id="profileNameInput" placeholder='e.g. David, or "Household"' maxlength="120">
+      <span class="hint" id="profileNameHint">Saves all current inputs in this browser only</span>
+    </div>
+    <div class="field" id="sharePermissionField" style="display: none;">
+      <label for="sharePermission">Access</label>
+      <select id="sharePermission">
+        <option value="read" selected>View only</option>
+        <option value="write">View and edit</option>
+      </select>
     </div>
     <p id="profileModalMessage" style="display: none; margin: 0; font-size: 0.9rem;"></p>
     <div class="modal-actions">
@@ -1329,7 +1384,31 @@ const gbp2 = n => CUR() + n.toLocaleString("en-GB", { minimumFractionDigits: 2, 
 
 /* =========================================================================
    TAX ENGINES (2025/26-era headline rules, simplified; per person)
+   The tables live in TAXDATA using statutory GROSS thresholds - the same
+   shape the backend serves at /api/reference - so the server's maintained
+   copy can replace these built-ins wholesale when the page is served by it.
    ========================================================================= */
+let TAXDATA = {
+  UK: {
+    pa: 12570, paTaperFrom: 100000,
+    bands: [[12570, 0.20], [50270, 0.40], [125140, 0.45]],
+    scotBands: [[12570, 0.19], [15397, 0.20], [27491, 0.21], [43662, 0.42], [75000, 0.45], [125140, 0.48]],
+    niBands: [[12570, 0.08], [50270, 0.02]], // employee Class 1
+    ufplsTaxFree: 0.25,
+  },
+  US: { // 2025 federal, single filer
+    stdDeduction: 15000,
+    bands: [[0, 0.10], [11925, 0.12], [48475, 0.22], [103350, 0.24], [197300, 0.32], [250525, 0.35], [626350, 0.37]],
+  },
+  FR: { // 2025 barème, 1 part per person
+    bands: [[11497, 0.11], [29315, 0.30], [83823, 0.41], [180294, 0.45]],
+  },
+  AU: { // 2024-25 resident + Medicare levy
+    bands: [[18200, 0.16], [45000, 0.30], [135000, 0.37], [190000, 0.45]],
+    medicareRate: 0.02, medicareFrom: 26000, superTaxFreeAge: 60,
+  },
+};
+
 function taxBands(taxable, bands) { // bands: [[from, rate], ...] ascending
   let tax = 0;
   for (let i = 0; i < bands.length; i++) {
@@ -1341,35 +1420,35 @@ function taxBands(taxable, bands) { // bands: [[from, rate], ...] ascending
 }
 
 function ukPersonalAllowance(gross) {
-  const PA = 12570;
-  if (gross <= 100000) return PA;
-  return Math.max(0, PA - (gross - 100000) / 2);
+  const uk = TAXDATA.UK;
+  if (gross <= uk.paTaperFrom) return uk.pa;
+  return Math.max(0, uk.pa - (gross - uk.paTaperFrom) / 2);
 }
 
 function ukIncomeTax(gross, scottish) {
-  const pa = ukPersonalAllowance(gross);
-  const taxable = Math.max(0, gross - pa);
-  // Thresholds below are the statutory gross thresholds minus the standard
-  // allowance, applied to post-allowance income.
-  const bands = scottish
-    ? [[0, 0.19], [15397 - 12570, 0.20], [27491 - 12570, 0.21], [43662 - 12570, 0.42], [75000 - 12570, 0.45], [125140 - 12570, 0.48]]
-    : [[0, 0.20], [50270 - 12570, 0.40], [125140 - 12570, 0.45]];
+  const uk = TAXDATA.UK;
+  const taxable = Math.max(0, gross - ukPersonalAllowance(gross));
+  // Statutory gross thresholds shifted by the standard allowance, applied
+  // to post-allowance income (matches HMRC's banding of taxable income).
+  const bands = (scottish ? uk.scotBands : uk.bands)
+    .map(([from, rate]) => [Math.max(0, from - uk.pa), rate]);
   return taxBands(taxable, bands);
 }
-function ukNI(gross) { // employee Class 1, 2025/26
-  return taxBands(gross, [[12570, 0.08], [50270, 0.02]]);
+function ukNI(gross) {
+  return taxBands(gross, TAXDATA.UK.niBands);
 }
 
-function usIncomeTax(gross) { // 2025 federal, single filer, standard deduction
-  const taxable = Math.max(0, gross - 15000);
-  return taxBands(taxable, [[0, 0.10], [11925, 0.12], [48475, 0.22], [103350, 0.24], [197300, 0.32], [250525, 0.35], [626350, 0.37]]);
+function usIncomeTax(gross) {
+  const taxable = Math.max(0, gross - TAXDATA.US.stdDeduction);
+  return taxBands(taxable, TAXDATA.US.bands);
 }
-function frIncomeTax(gross) { // 2025 barème, 1 part per person
-  return taxBands(gross, [[11497, 0.11], [29315, 0.30], [83823, 0.41], [180294, 0.45]]);
+function frIncomeTax(gross) {
+  return taxBands(gross, TAXDATA.FR.bands);
 }
-function auIncomeTax(gross) { // 2024-25 resident + Medicare levy 2%
-  const base = taxBands(gross, [[18200, 0.16], [45000, 0.30], [135000, 0.37], [190000, 0.45]]);
-  const medicare = gross > 26000 ? gross * 0.02 : 0; // levy threshold approximated
+function auIncomeTax(gross) {
+  const au = TAXDATA.AU;
+  const base = taxBands(gross, au.bands);
+  const medicare = gross > au.medicareFrom ? gross * au.medicareRate : 0; // levy threshold approximated
   return base + medicare;
 }
 
@@ -1391,12 +1470,12 @@ function taxOnRetirement(privateAmt, otherAmt, age) {
   const scottish = els("scotland") && els("scotland").value === "scot";
   if (currentCountry === "UK") {
     // UFPLS basis: 25% of each private withdrawal tax-free, 75% taxable. No NI.
-    const taxable = privateAmt * 0.75 + otherAmt;
+    const taxable = privateAmt * (1 - TAXDATA.UK.ufplsTaxFree) + otherAmt;
     return privateAmt + otherAmt - ukIncomeTax(taxable, scottish);
   }
   if (currentCountry === "AU") {
     // Super withdrawals tax-free from 60; Age Pension taxable (SAPTO ignored).
-    const taxable = (age >= 60 ? 0 : privateAmt) + otherAmt;
+    const taxable = (age >= TAXDATA.AU.superTaxFreeAge ? 0 : privateAmt) + otherAmt;
     return privateAmt + otherAmt - auIncomeTax(taxable);
   }
   const gross = privateAmt + otherAmt;
@@ -1424,7 +1503,7 @@ let rlsChoice = "mod";
    2008, and the 1975 rebound. An approximation for stress-testing only,
    not a licensed data series.
    ========================================================================= */
-const HIST_REAL_RETURNS = [
+let HIST_REAL_RETURNS = [ // replaced by the server's maintained copy when served by the backend
   /*1925-34*/ 27, 3, 9, 12, -20, -12, -25, 32, 21, 10,
   /*1935-44*/ 8, 10, -14, -8, -5, -12, 12, 14, 8, 9,
   /*1945-54*/ 4, 12, 2, -8, -6, 4, 2, -6, 18, 36,
@@ -1681,9 +1760,168 @@ function assetTotals() {
 }
 
 /* =========================================================================
-   PROFILES  (local, browser-only "save per person" - no real login;
-   Google/Apple OAuth can't run in a sandboxed static page or without a
-   hosted domain + registered developer credentials)
+   ACCOUNT & SERVER SYNC
+   Optional backend (server/): when this page is served by it, /api/health
+   answers and the Account card appears - sign-in, cross-device profile
+   sync, adviser sharing, and maintained reference data (tax tables and
+   the market-return history) replacing the built-ins. Opened from disk,
+   every call here fails silently and the page stays fully standalone on
+   browser local storage.
+   ========================================================================= */
+const TOKEN_STORAGE_KEY = "pensionPlanner.token";
+
+const API = {
+  available: false,
+  user: null,      // signed-in email, or null
+  shared: [],      // profiles other accounts shared with me
+  token: null,
+  _saveTimers: {},
+
+  async call(path, opts = {}) {
+    const headers = { "Content-Type": "application/json" };
+    if (this.token) headers["Authorization"] = "Bearer " + this.token;
+    const res = await fetch(path, Object.assign({ headers }, opts));
+    let body = null;
+    try { body = await res.json(); } catch (e) { /* non-JSON */ }
+    if (!res.ok) {
+      const err = new Error((body && body.detail && (body.detail.message || body.detail)) || res.statusText);
+      err.status = res.status;
+      throw err;
+    }
+    return body;
+  },
+
+  async init() {
+    if (!location.protocol.startsWith("http")) return; // file:// - standalone
+    try {
+      await this.call("/api/health");
+    } catch (e) { return; } // no backend behind this page
+    this.available = true;
+    els("accountCard").style.display = "";
+    try {
+      const ref = await this.call("/api/reference");
+      this.applyReference(ref);
+    } catch (e) { /* keep built-ins */ }
+    const saved = localStorage.getItem(TOKEN_STORAGE_KEY);
+    if (saved) {
+      this.token = saved;
+      try {
+        const me = await this.call("/api/auth/me");
+        this.user = me.email;
+        await this.pullProfiles();
+      } catch (e) { this.token = null; localStorage.removeItem(TOKEN_STORAGE_KEY); }
+    }
+    this.updateUI();
+    renderAll();
+  },
+
+  applyReference(ref) {
+    if (ref.taxTables) Object.keys(TAXDATA).forEach(c => {
+      if (ref.taxTables[c]) TAXDATA[c] = ref.taxTables[c];
+    });
+    if (Array.isArray(ref.returns) && ref.returns.length >= 20) HIST_REAL_RETURNS = ref.returns;
+    els("dataSourceNote").textContent =
+      `Tax tables & market history: maintained by this server (version ${ref.version}), replacing the built-in copies.`;
+  },
+
+  async signIn(register) {
+    const email = els("accountEmail").value.trim();
+    const password = els("accountPassword").value;
+    const errEl = els("accountError");
+    errEl.style.display = "none";
+    try {
+      const body = await this.call(register ? "/api/auth/register" : "/api/auth/login",
+        { method: "POST", body: JSON.stringify({ email, password }) });
+      this.token = body.token;
+      this.user = body.email;
+      localStorage.setItem(TOKEN_STORAGE_KEY, this.token);
+      els("accountPassword").value = "";
+      await this.pullProfiles();
+      this.pushLocalProfiles(); // seed the account with anything saved offline
+      this.updateUI();
+      renderAll();
+    } catch (e) {
+      errEl.textContent = e.status === 422 ? "Enter a valid email and a password of 8+ characters."
+                                           : (e.message || "Could not sign in.");
+      errEl.style.display = "";
+    }
+  },
+
+  async signOut() {
+    try { await this.call("/api/auth/logout", { method: "POST" }); } catch (e) { /* already invalid */ }
+    this.token = null; this.user = null; this.shared = [];
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    currentShared = null;
+    this.updateUI();
+    refreshProfileSelect();
+  },
+
+  // Server profiles win over local same-name copies (they're the synced truth).
+  async pullProfiles() {
+    const body = await this.call("/api/profiles");
+    const profiles = loadProfiles();
+    Object.keys(body.profiles).forEach(name => { profiles[name] = body.profiles[name]; });
+    saveProfiles(profiles);
+    this.shared = body.shared || [];
+    refreshProfileSelect();
+  },
+
+  // One-off after sign-in: upload local-only profiles so this device's
+  // saves (including any renamed demo households) reach other devices.
+  pushLocalProfiles() {
+    if (!this.user) return;
+    const profiles = loadProfiles();
+    Object.keys(profiles).forEach(name => this.saveProfile(name, profiles[name]));
+  },
+
+  saveProfile(name, data) { // fire-and-forget, debounced per profile name
+    if (!this.user) return;
+    clearTimeout(this._saveTimers[name]);
+    this._saveTimers[name] = setTimeout(() => {
+      this.call("/api/profiles/" + encodeURIComponent(name),
+        { method: "PUT", body: JSON.stringify(data) }).catch(() => {});
+    }, 600);
+  },
+
+  saveShared(share) { // write-back to a profile shared with me
+    if (!this.user) return;
+    clearTimeout(this._saveTimers["__shared__" + share.owner + share.name]);
+    this._saveTimers["__shared__" + share.owner + share.name] = setTimeout(() => {
+      this.call(`/api/shared/${encodeURIComponent(share.owner)}/${encodeURIComponent(share.name)}`,
+        { method: "PUT", body: JSON.stringify(share.data) }).catch(() => {});
+    }, 600);
+  },
+
+  deleteProfile(name) {
+    if (!this.user) return;
+    this.call("/api/profiles/" + encodeURIComponent(name), { method: "DELETE" }).catch(() => {});
+  },
+
+  async shareProfile(name, email, permission) {
+    try {
+      await this.call(`/api/profiles/${encodeURIComponent(name)}/share`,
+        { method: "POST", body: JSON.stringify({ email, permission }) });
+      return true;
+    } catch (e) {
+      const msg = els("profileModalMessage");
+      msg.textContent = e.message || "Could not share the profile.";
+      msg.style.display = "";
+      msg.style.color = "var(--critical)";
+      return false;
+    }
+  },
+
+  updateUI() {
+    els("accountSignedOut").style.display = this.user ? "none" : "";
+    els("accountSignedIn").style.display = this.user ? "" : "none";
+    if (this.user) els("accountWho").textContent = this.user;
+    refreshProfileSelect();
+  },
+};
+
+/* =========================================================================
+   PROFILES  (saved in browser local storage; when signed in to the
+   backend they also sync to the server and can be shared with an adviser)
    ========================================================================= */
 
 const PROFILE_STORAGE_KEY = "pensionPlanner.profiles";
@@ -1698,6 +1936,7 @@ const PROFILE_FIELD_IDS = [
   "country", "scotland", "mcSpend", "mcRuns",
 ];
 let currentProfileName = null;
+let currentShared = null; // a profile someone shared with me, if selected
 
 function loadProfiles() {
   try { return JSON.parse(localStorage.getItem(PROFILE_STORAGE_KEY) || "{}"); }
@@ -1766,17 +2005,39 @@ function refreshProfileSelect() {
     opt.value = name; opt.textContent = name;
     sel.appendChild(opt);
   });
+  if (API.shared.length) { // profiles other accounts shared with me
+    const group = document.createElement("optgroup");
+    group.label = "Shared with me";
+    API.shared.forEach((share, i) => {
+      const opt = document.createElement("option");
+      opt.value = "__shared__:" + i;
+      opt.textContent = `${share.name} (from ${share.owner}${share.permission === "write" ? "" : ", view only"})`;
+      group.appendChild(opt);
+    });
+    sel.appendChild(group);
+  }
   const newOpt = document.createElement("option");
   newOpt.value = "__new__"; newOpt.textContent = "+ New profile…";
   sel.appendChild(newOpt);
-  sel.value = currentProfileName || "";
+  sel.value = currentShared ? "__shared__:" + API.shared.indexOf(currentShared)
+                            : (currentProfileName || "");
+  els("shareProfile").style.display = API.user && currentProfileName ? "" : "none";
 }
 
 function persistCurrentProfile() {
+  if (currentShared) { // editing a profile shared with me (write access)
+    if (currentShared.permission === "write") {
+      currentShared.data = collectProfileData();
+      API.saveShared(currentShared);
+    }
+    return;
+  }
   if (!currentProfileName) return;
   const profiles = loadProfiles();
-  profiles[currentProfileName] = collectProfileData();
+  const data = collectProfileData();
+  profiles[currentProfileName] = data;
   saveProfiles(profiles);
+  API.saveProfile(currentProfileName, data);
 }
 
 function onUserChange() {
@@ -2910,7 +3171,9 @@ function wireSegmented(segId, potFieldsId, incomeFieldsId, setMode) {
 wireSegmented("yourModeSeg", "yourPotFields", "yourIncomeFields", m => yourMode = m);
 wireSegmented("spouseModeSeg", "spousePotFields", "spouseIncomeFields", m => spouseMode = m);
 
-document.querySelectorAll("input:not(#profileNameInput), select:not(#profileSelect)").forEach(inp => {
+document.querySelectorAll(
+  "input:not(#profileNameInput):not(#accountEmail):not(#accountPassword), " +
+  "select:not(#profileSelect):not(#sharePermission)").forEach(inp => {
   inp.addEventListener("change", () => {
     if (inp.dataset.money !== undefined) formatMoneyInput(inp);
     onUserChange();
@@ -2957,6 +3220,14 @@ els("profileSelect").addEventListener("change", () => {
     openProfileModal("new");
     return;
   }
+  if (val.startsWith("__shared__:")) {
+    currentShared = API.shared[+val.slice(11)] || null;
+    currentProfileName = null;
+    if (currentShared) applyProfileData(currentShared.data);
+    refreshProfileSelect();
+    return;
+  }
+  currentShared = null;
   if (val === "") {
     currentProfileName = null;
     refreshProfileSelect();
@@ -2972,46 +3243,75 @@ els("deleteProfile").addEventListener("click", () => {
   if (!currentProfileName) return;
   openProfileModal("delete");
 });
+els("shareProfile").addEventListener("click", () => {
+  if (!currentProfileName || !API.user) return;
+  openProfileModal("share");
+});
 
-let profileModalMode = null; // "new" | "delete"
+let profileModalMode = null; // "new" | "delete" | "share"
 
 function openProfileModal(mode) {
   profileModalMode = mode;
-  const isNew = mode === "new";
-  els("profileModalTitle").textContent = isNew ? "New profile" : "Delete profile";
-  els("profileNameField").style.display = isNew ? "" : "none";
-  els("profileModalMessage").style.display = isNew ? "none" : "";
-  if (!isNew) {
+  const isDelete = mode === "delete";
+  const isShare = mode === "share";
+  els("profileModalTitle").textContent =
+    isDelete ? "Delete profile" : isShare ? `Share "${currentProfileName}"` : "New profile";
+  els("profileNameField").style.display = isDelete ? "none" : "";
+  els("profileNameLabel").textContent = isShare ? "Their account email" : "Profile name";
+  els("profileNameHint").textContent = isShare
+    ? "They must already have an account on this server"
+    : (API.user ? "Saves all current inputs to your account" : "Saves all current inputs in this browser only");
+  els("sharePermissionField").style.display = isShare ? "" : "none";
+  els("profileModalMessage").style.display = isDelete ? "" : "none";
+  if (isDelete) {
     els("profileModalMessage").textContent =
       `Delete the saved profile "${currentProfileName}"? This can't be undone.`;
   }
-  els("profileModalConfirm").textContent = isNew ? "Save" : "Delete";
+  els("profileModalConfirm").textContent = isDelete ? "Delete" : isShare ? "Share" : "Save";
   els("profileModal").classList.add("open");
-  if (isNew) {
+  if (!isDelete) {
     els("profileNameInput").value = "";
+    els("profileNameInput").placeholder = isShare ? "adviser@example.com" : 'e.g. David, or "Household"';
     els("profileNameInput").focus();
   }
 }
 
 function closeProfileModal() {
   els("profileModal").classList.remove("open");
+  els("profileModalMessage").style.color = "";
   profileModalMode = null;
   refreshProfileSelect();
 }
 
-els("profileModalConfirm").addEventListener("click", () => {
+els("signInBtn").addEventListener("click", () => API.signIn(false));
+els("registerBtn").addEventListener("click", () => API.signIn(true));
+els("signOutBtn").addEventListener("click", () => API.signOut());
+els("accountPassword").addEventListener("keydown", e => {
+  if (e.key === "Enter") API.signIn(false);
+});
+
+els("profileModalConfirm").addEventListener("click", async () => {
   if (profileModalMode === "new") {
     const name = els("profileNameInput").value.trim();
     if (!name) { els("profileNameInput").focus(); return; }
     const profiles = loadProfiles();
-    profiles[name] = collectProfileData();
+    const data = collectProfileData();
+    profiles[name] = data;
     saveProfiles(profiles);
     currentProfileName = name;
+    currentShared = null;
+    API.saveProfile(name, data);
   } else if (profileModalMode === "delete" && currentProfileName) {
     const profiles = loadProfiles();
     delete profiles[currentProfileName];
     saveProfiles(profiles);
+    API.deleteProfile(currentProfileName);
     currentProfileName = null;
+  } else if (profileModalMode === "share" && currentProfileName) {
+    const email = els("profileNameInput").value.trim();
+    if (!email) { els("profileNameInput").focus(); return; }
+    const ok = await API.shareProfile(currentProfileName, email, els("sharePermission").value);
+    if (!ok) return; // error already shown inside the modal
   }
   closeProfileModal();
 });
@@ -3092,4 +3392,5 @@ renderScenarioList();
 applyDepth();
 formatAllMoneyInputs();
 renderAll();
+API.init(); // async: detects the optional backend, reference data + account
 </script>

@@ -84,11 +84,59 @@ band in date order, and the remainder is taxed at 40% with taper relief (3-4 yrs
 5-6 16%, 6-7 8%; 7+ years fully exempt). This is a simplified planning estimate - it ignores the
 estate itself sharing the nil-rate band, spousal transfers, and the residence nil-rate band.
 
-A "Profile" picker on the People tab saves your inputs to the browser's local storage under a name you
-choose (e.g. "David & wife"), so you can switch between saved scenarios later. This is local-only,
-not a real login - there's no way to do genuine Google/Apple sign-in inside a static, dependency-free
-page without a hosted domain and registered OAuth credentials, so anyone with access to the browser
-can open any saved profile.
+A "Profile" picker on the People tab saves your inputs under a name you choose (e.g. "David &
+wife"), so you can switch between saved scenarios later. Opened from disk, profiles live in the
+browser's local storage only; served by the backend below, an Account card appears and signed-in
+profiles also sync to the server - across devices, and shareable with an adviser.
+
+## Server backend
+
+`server/` is an optional backend that turns the single file into a hosted, multi-user product. The
+page detects it automatically: opened from disk nothing changes, served by the backend it gains
+
+- **accounts and sign-in** (email + password; scrypt-hashed passwords, expiring bearer tokens);
+- **profile sync**: saved profiles live in the database and follow you across devices (local
+  storage still works offline and is merged on sign-in);
+- **adviser/client sharing**: share a profile with another account, view-only or view-and-edit
+  (the &#128101; button next to the profile picker);
+- **maintained reference data**: the tax tables and the 100-year market-return history are served
+  versioned from the database (`GET /api/reference`) and replace the built-ins, so rates can be
+  updated centrally without shipping a new HTML file.
+
+It's Python (FastAPI + SQLAlchemy) over a plain relational schema - `users`, `auth_tokens`,
+`profiles`, `profile_shares`, `reference_docs` - queryable with ordinary SQL. SQLite by default
+(zero setup, fine for development and small deployments); set `DATABASE_URL` to a PostgreSQL URL
+for production - the code is identical.
+
+```
+pip install -r server/requirements.txt
+uvicorn server.app:app --reload        # then open http://localhost:8000
+python3 -m unittest discover -s server/tests -t .   # API test suite
+```
+
+Or the production-shaped stack (app + PostgreSQL): `docker compose up --build`.
+
+### Recommended deployment
+
+For up to ~10,000 users with ~100 signed in at once, this workload is small: the API is light JSON
+reads/writes and all heavy computation (projections, Monte Carlo) runs in each user's browser. One
+small box is genuinely enough.
+
+- **Simplest (recommended): a single small VM** - e.g. a Hetzner CX22, DigitalOcean Basic droplet
+  or AWS Lightsail instance (2 vCPU / 4 GB, roughly £4-10/month) running `docker compose up` with
+  [Caddy](https://caddyserver.com) in front for automatic HTTPS. Nightly `pg_dump` to object
+  storage for backups. This comfortably serves 100 concurrent sessions with 2 uvicorn workers.
+- **Zero-ops alternative: a PaaS** - Fly.io, Railway or Render for the container, plus a managed
+  PostgreSQL (Neon, Supabase, or the platform's own). Slightly dearer, but patching, TLS and
+  backups are someone else's job. Good fit if nobody wants to own a server.
+- **Scaling path**: the app is stateless (sessions are rows in `auth_tokens`), so if it ever
+  outgrows one box you run more replicas behind a load balancer and scale PostgreSQL vertically -
+  no code changes. PostgreSQL on default settings won't be the bottleneck until well past this
+  user count.
+
+Avoid serverless/Lambda-style hosting here: always-on token-authenticated sessions and a relational
+pool suit a long-running process better, and the fixed cost of one tiny VM is lower than
+per-request pricing at this scale.
 
 ## Usage
 
