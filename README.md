@@ -5,12 +5,47 @@ year-by-year projected pension income table.
 
 ## Web app
 
-`pension-planner.html` is a self-contained interactive version - open it directly in a browser
-(no server, no build step, no dependencies). It's split into five tabs (People, Paying In, Paying
-Out, Household, Gifting) with live recalculation as you edit fields. All money is shown in GBP with
-comma separators, in the input fields as well as the tables. The web app extends beyond the CLI
-(`pension_year.py`) with the features below; the shared State-Pension-age / NMPA / life-expectancy
-maths still mirrors the Python exactly.
+`pension-planner.html` is a self-contained interactive financial planner - open it directly in a
+browser (no server, no build step, no dependencies). Six tabs (People, Paying In, Paying Out,
+Planner, Tax, Gifting) with live recalculation as you edit fields, money formatted with comma
+separators in your country's currency. The web app extends far beyond the CLI (`pension_year.py`);
+the shared UK State-Pension-age / NMPA / life-expectancy maths still mirrors the Python exactly.
+Everything is a simplified planning model - not financial or tax advice.
+
+**Planner** is the Voyant/Nova-style centrepiece:
+- a **major-events cash-flow chart**: stacked household income per year (savings bridge, private
+  drawdown, DB pensions, State Pension), with vertical flags for retirements, pension start dates
+  and your own custom one-off events (an inheritance in, a wedding or house purchase out);
+- **living-standard targets** from the PLSA / Loughborough University Retirement Living Standards
+  (Low = Minimum, Medium = Moderate, High = Comfortable; single and couple amounts), with a
+  years-below-target verdict;
+- a **Monte Carlo market stress test** (adviser mode): your household pots replayed against an
+  *approximate* 1925-2024 UK/global-equity real-return history, resampled in 5-year blocks, giving
+  a "% of runs where the money lasts" score and a 10th-90th percentile fan chart;
+- **what-if scenarios** (retire earlier/later, markets better/worse, spend more/less) overlaid on
+  the chart with a lifetime-income comparison table.
+
+**Tax** models each country's headline 2025/26-era income tax per person, on salary today and on
+retirement income (a Net column also appears in Paying Out):
+- **UK**: England/Wales/NI *and* Scottish bands (starter/basic/intermediate/higher/advanced/top),
+  personal-allowance taper above £100k, employee National Insurance, and UFPLS-style drawdown
+  (25% tax-free / 75% taxable, no NI on pensions);
+- **US**: 2025 federal brackets + standard deduction (single filer per person; no state tax);
+- **France**: 2025 barème (per person; social charges not modelled);
+- **Australia**: 2024-25 resident rates + Medicare levy, with superannuation income tax-free from
+  age 60.
+
+**Internationalisation**: a country picker (UK / US / France / Australia) switches currency,
+state-pension defaults and ages (Social Security 67, France 64, Age Pension 67; private access
+59½ / 64 / 60), and the tax engine. UK keeps the full SPA legislation including transitional bands.
+
+**Usability**: a **Plain English / Expert** wording toggle and a separate **Simple / Adviser**
+detail-level toggle (Simple hides advanced fields like growth rates and the Monte Carlo panel), so
+the same tool serves a novice and a professional planner.
+
+**Ten demo profiles** (very low wealth through ultra-high-net-worth, singles and couples, all four
+countries, a Scottish DB-pension case) are seeded on first run so it can be explored immediately;
+your own profiles persist in the browser alongside them, including events, scenarios and targets.
 
 **People** holds each person's date of birth, sex, and **planned retirement date**, plus the
 resulting timeline (private pension access, State Pension, life expectancy) in chronological order.
