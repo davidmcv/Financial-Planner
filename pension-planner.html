@@ -199,6 +199,22 @@
   .field-row { display: flex; flex-wrap: wrap; gap: 14px; }
   .field-row .field { flex: 1 1 160px; }
 
+  /* ---------- Charts (planner + Monte Carlo) ---------- */
+  .chart-wrap { width: 100%; overflow: hidden; border-radius: 10px; background: var(--surface-2); }
+  .chart-wrap canvas { display: block; width: 100%; }
+  .chart-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; font-size: 0.76rem; color: var(--ink-muted); }
+  .chart-legend .key { display: inline-flex; align-items: center; gap: 5px; }
+  .chart-legend .swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .hint-inline { font-size: 0.72rem; color: var(--ink-faint); font-weight: 400; }
+
+  /* Simple vs Adviser detail level: .adv elements hide in simple mode */
+  body.depth-simple .adv { display: none !important; }
+  .depth-seg button.active { background: var(--gold); color: white; }
+
+  .compare-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  .compare-table th, .compare-table td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--border); }
+  .compare-table th:first-child, .compare-table td:first-child { text-align: left; }
+
   /* ---------- Incremental asset lists ---------- */
   .list-label { font-size: 0.78rem; color: var(--ink-muted); margin-bottom: 8px; }
   .asset-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
@@ -450,7 +466,8 @@
       <button class="tab-btn active" data-tab="people"><span class="icon">&#128100;</span>People</button>
       <button class="tab-btn" data-tab="salary"><span class="icon">&#8681;</span>Paying In</button>
       <button class="tab-btn" data-tab="projection"><span class="icon">&#8679;</span>Paying Out</button>
-      <button class="tab-btn" data-tab="household"><span class="icon">&#8962;</span>Household</button>
+      <button class="tab-btn" data-tab="planner"><span class="icon">&#128506;</span>Planner</button>
+      <button class="tab-btn" data-tab="tax"><span class="icon">&#9878;</span>Tax</button>
       <button class="tab-btn" data-tab="gifting"><span class="icon">&#127873;</span>Gifting</button>
     </nav>
     <div class="rail-footer">
@@ -459,6 +476,13 @@
         <div class="wording-seg" style="width: 100%;">
           <button data-wording="plain" style="flex:1;">Plain English</button>
           <button data-wording="expert" style="flex:1;">Expert</button>
+        </div>
+      </div>
+      <div class="profile-box" style="padding: 0;">
+        <span class="profile-label">Detail level</span>
+        <div class="wording-seg depth-seg" style="width: 100%;">
+          <button data-depth="simple" style="flex:1;">Simple</button>
+          <button data-depth="adviser" style="flex:1;">Adviser</button>
         </div>
       </div>
       <button class="settings-btn" id="openSettings"><span>&#9881;</span> Assumptions</button>
@@ -473,6 +497,10 @@
       <button data-wording="plain">Plain</button>
       <button data-wording="expert">Expert</button>
     </div>
+    <div class="wording-seg depth-seg">
+      <button data-depth="simple">Simple</button>
+      <button data-depth="adviser">Pro</button>
+    </div>
     <button class="icon-btn" id="openSettingsMobile" aria-label="Assumptions">&#9881;</button>
   </header>
 
@@ -486,11 +514,30 @@
       </div>
 
       <div class="card">
-        <div class="profile-box" style="padding: 0;">
-          <label for="profileSelect" class="profile-label">Saved profile</label>
-          <div class="profile-row">
-            <select id="profileSelect"></select>
-            <button class="icon-btn" id="deleteProfile" title="Delete this profile" aria-label="Delete profile">&#128465;</button>
+        <div class="field-row">
+          <div class="profile-box" style="padding: 0; flex: 1 1 200px;">
+            <label for="profileSelect" class="profile-label">Saved profile</label>
+            <div class="profile-row">
+              <select id="profileSelect"></select>
+              <button class="icon-btn" id="deleteProfile" title="Delete this profile" aria-label="Delete profile">&#128465;</button>
+            </div>
+          </div>
+          <div class="field" style="flex: 1 1 160px;">
+            <label for="country">Country (tax &amp; state pension rules)</label>
+            <select id="country">
+              <option value="UK" selected>United Kingdom</option>
+              <option value="US">United States</option>
+              <option value="FR">France</option>
+              <option value="AU">Australia</option>
+            </select>
+          </div>
+          <div class="field" style="flex: 0 0 150px;" id="scotlandField">
+            <label for="scotland">UK region</label>
+            <select id="scotland">
+              <option value="ruk" selected>England / Wales / NI</option>
+              <option value="scot">Scotland</option>
+            </select>
+            <span class="hint">Scotland has different income-tax bands</span>
           </div>
         </div>
       </div>
@@ -587,11 +634,11 @@
               <label for="yourPot">Pension pot today (&pound;)</label>
               <input type="text" inputmode="decimal" data-money="0" id="yourPot" value="1,000,000">
             </div>
-            <div class="field">
+            <div class="field adv">
               <label for="yourPotGrowth">Assumed pot growth (%)</label>
               <input type="number" id="yourPotGrowth" value="6" min="-20" step="0.1">
             </div>
-            <div class="field">
+            <div class="field adv">
               <label for="yourDrawdown"><span class="phase-chip decum tiny" data-term="decumulationShort">Taking out</span> Annual drawdown (%)</label>
               <input type="number" id="yourDrawdown" value="4" min="0" step="0.1">
               <span class="hint">% you take out each year in retirement</span>
@@ -605,7 +652,7 @@
               <input type="text" inputmode="decimal" data-money="0" id="yourSalary" value="60,000">
               <span class="hint">&pound;0 &ndash; &pound;1,000,000</span>
             </div>
-            <div class="field">
+            <div class="field adv">
               <label for="yourEmployerRate">Employer contribution (%)</label>
               <input type="number" id="yourEmployerRate" value="15" min="0" max="100" step="0.5">
             </div>
@@ -622,7 +669,7 @@
               <label for="yourIncome">Starting annual income (&pound;)</label>
               <input type="text" inputmode="decimal" data-money="0" id="yourIncome" value="24,000">
             </div>
-            <div class="field">
+            <div class="field adv">
               <label for="yourIncomeGrowth">Annual growth (%)</label>
               <input type="number" id="yourIncomeGrowth" value="2" min="-20" step="0.1">
             </div>
@@ -643,11 +690,11 @@
               <label for="spousePot">Pension pot today (&pound;)</label>
               <input type="text" inputmode="decimal" data-money="0" id="spousePot" value="500,000">
             </div>
-            <div class="field">
+            <div class="field adv">
               <label for="spouseDrawdown">Annual drawdown (%)</label>
               <input type="number" id="spouseDrawdown" value="4" min="0" step="0.1">
             </div>
-            <div class="field">
+            <div class="field adv">
               <label for="spousePotGrowth">Assumed pot growth (%)</label>
               <input type="number" id="spousePotGrowth" value="6" min="-20" step="0.1">
             </div>
@@ -660,7 +707,7 @@
               <label for="spouseIncome">Starting annual income (&pound;)</label>
               <input type="text" inputmode="decimal" data-money="0" id="spouseIncome" value="18,000">
             </div>
-            <div class="field">
+            <div class="field adv">
               <label for="spouseIncomeGrowth">Annual growth (%)</label>
               <input type="number" id="spouseIncomeGrowth" value="2" min="-20" step="0.1">
             </div>
@@ -716,13 +763,83 @@
       <div id="projectionCards"></div>
     </section>
 
-    <!-- HOUSEHOLD -->
-    <section class="panel" id="tab-household">
+    <!-- PLANNER (lifetime cash-flow chart, targets, Monte Carlo, what-ifs, household) -->
+    <section class="panel" id="tab-planner">
       <div class="panel-head">
-        <h1>Household combined</h1>
-        <p>Both incomes summed by calendar year, including any pension pot that transfers between you on death.</p>
+        <h1>Lifetime planner</h1>
+        <p>Your whole retirement on one chart: income each year, major life events, a living-standard target, market-history stress testing, and what-if scenarios.</p>
       </div>
+
+      <div class="card">
+        <div class="person-title">
+          <h2>Major events &amp; cash flow</h2>
+          <span class="pill" id="plannerVerdict"></span>
+        </div>
+        <div class="chart-wrap"><canvas id="plannerChart" height="300"></canvas></div>
+        <div class="chart-legend" id="plannerLegend"></div>
+        <p class="caption" id="plannerCaption"></p>
+      </div>
+
+      <div class="card">
+        <h3>Living standard target <span class="hint-inline">(PLSA / Loughborough University Retirement Living Standards)</span></h3>
+        <div class="segmented" id="rlsSeg">
+          <button data-rls="none">No target</button>
+          <button data-rls="min">Low (Minimum)</button>
+          <button data-rls="mod" class="active">Medium (Moderate)</button>
+          <button data-rls="comf">High (Comfortable)</button>
+        </div>
+        <p class="caption" id="rlsCaption" style="margin-top:10px;"></p>
+      </div>
+
+      <div class="card">
+        <h3>Your events</h3>
+        <p class="caption" style="margin-top:-4px;">One-off amounts in a given year (an inheritance in, a wedding or house purchase out). They adjust that year's income line and appear as flags on the chart.</p>
+        <div id="eventList" class="asset-list"></div>
+        <button type="button" class="add-btn" id="addEventBtn">+ Add event</button>
+      </div>
+
+      <div class="card adv">
+        <div class="person-title">
+          <h2>Market stress test <span class="hint-inline">(Monte Carlo)</span></h2>
+          <span class="pill" id="mcVerdict">&mdash;</span>
+        </div>
+        <p class="caption" style="margin-top:-4px;">Replays your household plan against ~100 years of (approximate) real annual returns for a UK/global equity portfolio, resampled in random multi-year blocks, to ask: <b>how often does the money last?</b> Withdrawals each year = your spending target minus guaranteed income (State + DB). Historical patterns are no guarantee of the future.</p>
+        <div class="field-row" style="margin: 10px 0;">
+          <div class="field" style="flex:0 0 140px;">
+            <label for="mcRuns">Simulations</label>
+            <select id="mcRuns"><option>200</option><option selected>500</option><option>1000</option></select>
+          </div>
+          <div class="field" style="flex:0 0 200px;">
+            <label for="mcSpend">Spending target (&pound;/yr, today's money)</label>
+            <input type="text" inputmode="decimal" data-money="0" id="mcSpend" value="">
+            <span class="hint">Blank = use living-standard target above</span>
+          </div>
+          <button type="button" class="btn-primary" id="runMcBtn" style="align-self:flex-end;">Run stress test</button>
+        </div>
+        <div class="chart-wrap"><canvas id="mcChart" height="260"></canvas></div>
+        <p class="caption" id="mcCaption"></p>
+      </div>
+
+      <div class="card">
+        <h3>What-if scenarios</h3>
+        <p class="caption" style="margin-top:-4px;">Compare tweaks against your base plan &mdash; retire earlier or later, weaker or stronger markets, spend more or less. The chart above overlays each scenario's household income.</p>
+        <div id="scenarioList" class="asset-list"></div>
+        <button type="button" class="add-btn" id="addScenarioBtn">+ Add what-if</button>
+        <div id="scenarioCompare" style="margin-top:12px;"></div>
+      </div>
+
       <div id="householdCards"></div>
+    </section>
+
+    <!-- TAX -->
+    <section class="panel" id="tab-tax">
+      <div class="panel-head">
+        <h1>Tax</h1>
+        <p id="taxSubtitle">How much tax you'd each pay &mdash; on salary today and on your retirement income &mdash; under your country's current rules.</p>
+      </div>
+      <div class="notice info"><span class="icon">&#9878;</span><span id="taxRegimeNote"></span></div>
+      <div id="taxCards"></div>
+      <p class="caption">Simplified models of each country's headline income tax (UK includes National Insurance and the Scotland/rest-of-UK band differences; Australia includes the Medicare levy and tax-free super from 60; US is federal only; France is the bar&egrave;me with household parts, excluding social charges). Planning estimates, not tax advice.</p>
     </section>
 
     <!-- GIFTING -->
@@ -746,19 +863,19 @@
         </div>
         <div class="divider" style="margin: 14px 0;"></div>
         <div class="field-row">
-          <div class="field">
+          <div class="field adv">
             <label for="smallGiftAmount">Small gifts exemption, per person (&pound;)</label>
             <input type="text" inputmode="decimal" data-money="0" id="smallGiftAmount" value="250">
             <span class="hint">UK statutory rate &mdash; any number of recipients</span>
           </div>
-          <div class="field">
+          <div class="field adv">
             <label for="annualExemption">Annual exemption, total pot (&pound;)</label>
             <input type="text" inputmode="decimal" data-money="0" id="annualExemption" value="3,000">
             <span class="hint">One shared allowance, not per recipient</span>
           </div>
         </div>
         <div class="field-row">
-          <div class="field">
+          <div class="field adv">
             <label for="giftPerRecipient">Custom rate per recipient (&pound;, optional)</label>
             <input type="text" inputmode="decimal" data-money="0" id="giftPerRecipient" value="">
             <span class="hint">Overrides the small gifts exemption above if set</span>
@@ -779,7 +896,7 @@
             <input type="text" inputmode="decimal" data-money="0" id="plannedAnnualGift" value="">
             <span class="hint">Checked against the tax-free ceiling below</span>
           </div>
-          <div class="field">
+          <div class="field adv">
             <label for="giftStartYear">Gifting starts (year)</label>
             <input type="number" id="giftStartYear" value="2026" min="1990" max="2100" step="1">
             <span class="hint">Gifts repeat each year until your life expectancy</span>
@@ -795,9 +912,10 @@
   <!-- Mobile bottom tab bar (all tabs, no horizontal scroll) -->
   <nav class="bottomnav" id="bottomnav">
     <button class="tab-btn active" data-tab="people"><span class="icon">&#128100;</span>People</button>
-    <button class="tab-btn" data-tab="salary"><span class="icon">&#8681;</span>Paying In</button>
-    <button class="tab-btn" data-tab="projection"><span class="icon">&#8679;</span>Paying Out</button>
-    <button class="tab-btn" data-tab="household"><span class="icon">&#128106;</span>Home</button>
+    <button class="tab-btn" data-tab="salary"><span class="icon">&#8681;</span>In</button>
+    <button class="tab-btn" data-tab="projection"><span class="icon">&#8679;</span>Out</button>
+    <button class="tab-btn" data-tab="planner"><span class="icon">&#128506;</span>Planner</button>
+    <button class="tab-btn" data-tab="tax"><span class="icon">&#9878;</span>Tax</button>
     <button class="tab-btn" data-tab="gifting"><span class="icon">&#127873;</span>Gifts</button>
   </nav>
 </div>
@@ -1156,15 +1274,25 @@ function combineIncomeTables(rowsA, rowsB) {
    ========================================================================= */
 
 function buildPersonSummary(dob, sex) {
-  const [spaY, spaM] = calculateSpaAge(dob, sex);
+  const c = COUNTRIES[currentCountry];
+  let spaY, spaM, nmpaAge, nmpaDate, transition;
+  if (c.spaFlat === null) { // UK: full legislation
+    [spaY, spaM] = calculateSpaAge(dob, sex);
+    [nmpaAge, nmpaDate] = calculateNmpaAccess(dob);
+    transition = inTransitionWindow(dob);
+  } else { // US/FR/AU: flat statutory ages
+    spaY = c.spaFlat; spaM = 0;
+    nmpaAge = Math.floor(c.accessAge);
+    nmpaDate = addYearsMonths(dob, nmpaAge, Math.round((c.accessAge % 1) * 12));
+    transition = false;
+  }
   const spaDate = addYearsMonths(dob, spaY, spaM);
-  const [nmpaAge, nmpaDate] = calculateNmpaAccess(dob);
   const [leY, leM] = calculateLifeExpectancy(sex);
   const lifeExpDate = addYearsMonths(dob, leY, leM);
   return {
     dob, sex, spaYears: spaY, spaMonths: spaM, spaDate,
     nmpaAge, nmpaDate, lifeExpAge: leY, lifeExpMonths: leM, lifeExpDate,
-    transition: inTransitionWindow(dob),
+    transition,
   };
 }
 
@@ -1172,8 +1300,187 @@ function buildPersonSummary(dob, sex) {
    FORMATTING HELPERS
    ========================================================================= */
 
-const gbp0 = n => "£" + Math.round(n).toLocaleString("en-GB");
-const gbp2 = n => "£" + n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/* =========================================================================
+   COUNTRIES & INTERNATIONALISATION
+   Simplified national rules: currency, state-pension defaults, private
+   pension access age, and the income-tax engine used on the Tax tab and
+   the Net column. UK keeps the full SPA legislation; others use their
+   flat statutory ages.
+   ========================================================================= */
+const COUNTRIES = {
+  UK: { currency: "£", name: "United Kingdom", spaFlat: null, accessAge: null, // uses full UK rules
+        spWeeklyDefault: 230.25, spName: "State Pension",
+        note: "UK 2025/26: income tax (England/Wales/NI or Scottish bands), National Insurance on salary, personal allowance £12,570 tapering above £100,000. Pension drawdown: 25% tax-free, 75% taxed as income (UFPLS basis); no NI on pension income." },
+  US: { currency: "$", name: "United States", spaFlat: 67, accessAge: 59.5,
+        spWeeklyDefault: 460, spName: "Social Security",
+        note: "US 2025 federal rates only (single filer per person, standard deduction $15,000); state income tax not modelled. 401(k)/IRA access from 59½; Social Security full retirement age 67." },
+  FR: { currency: "€", name: "France", spaFlat: 64, accessAge: 64,
+        spWeeklyDefault: 330, spName: "Pension de retraite",
+        note: "France 2025 barème (per person, 1 part; quotient familial and social charges CSG/CRDS not modelled). Âge légal de départ 64 (post-2023 reform)." },
+  AU: { currency: "A$", name: "Australia", spaFlat: 67, accessAge: 60,
+        spWeeklyDefault: 575, spName: "Age Pension",
+        note: "Australia 2024–25 resident rates + 2% Medicare levy. Superannuation income is tax-free from age 60, so private drawdown after 60 is untaxed; Age Pension from 67 (means testing not modelled)." },
+};
+let currentCountry = "UK";
+const CUR = () => COUNTRIES[currentCountry].currency;
+
+const gbp0 = n => CUR() + Math.round(n).toLocaleString("en-GB");
+const gbp2 = n => CUR() + n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/* =========================================================================
+   TAX ENGINES (2025/26-era headline rules, simplified; per person)
+   ========================================================================= */
+function taxBands(taxable, bands) { // bands: [[from, rate], ...] ascending
+  let tax = 0;
+  for (let i = 0; i < bands.length; i++) {
+    const [from, rate] = bands[i];
+    const to = i + 1 < bands.length ? bands[i + 1][0] : Infinity;
+    if (taxable > from) tax += (Math.min(taxable, to) - from) * rate;
+  }
+  return tax;
+}
+
+function ukPersonalAllowance(gross) {
+  const PA = 12570;
+  if (gross <= 100000) return PA;
+  return Math.max(0, PA - (gross - 100000) / 2);
+}
+
+function ukIncomeTax(gross, scottish) {
+  const pa = ukPersonalAllowance(gross);
+  const taxable = Math.max(0, gross - pa);
+  // Thresholds below are the statutory gross thresholds minus the standard
+  // allowance, applied to post-allowance income.
+  const bands = scottish
+    ? [[0, 0.19], [15397 - 12570, 0.20], [27491 - 12570, 0.21], [43662 - 12570, 0.42], [75000 - 12570, 0.45], [125140 - 12570, 0.48]]
+    : [[0, 0.20], [50270 - 12570, 0.40], [125140 - 12570, 0.45]];
+  return taxBands(taxable, bands);
+}
+function ukNI(gross) { // employee Class 1, 2025/26
+  return taxBands(gross, [[12570, 0.08], [50270, 0.02]]);
+}
+
+function usIncomeTax(gross) { // 2025 federal, single filer, standard deduction
+  const taxable = Math.max(0, gross - 15000);
+  return taxBands(taxable, [[0, 0.10], [11925, 0.12], [48475, 0.22], [103350, 0.24], [197300, 0.32], [250525, 0.35], [626350, 0.37]]);
+}
+function frIncomeTax(gross) { // 2025 barème, 1 part per person
+  return taxBands(gross, [[11497, 0.11], [29315, 0.30], [83823, 0.41], [180294, 0.45]]);
+}
+function auIncomeTax(gross) { // 2024-25 resident + Medicare levy 2%
+  const base = taxBands(gross, [[18200, 0.16], [45000, 0.30], [135000, 0.37], [190000, 0.45]]);
+  const medicare = gross > 26000 ? gross * 0.02 : 0; // levy threshold approximated
+  return base + medicare;
+}
+
+// Salary today: returns {tax, ni, net, effective}
+function taxOnSalary(gross) {
+  const scottish = els("scotland") && els("scotland").value === "scot";
+  let tax = 0, ni = 0;
+  if (currentCountry === "UK") { tax = ukIncomeTax(gross, scottish); ni = ukNI(gross); }
+  else if (currentCountry === "US") tax = usIncomeTax(gross);
+  else if (currentCountry === "FR") tax = frIncomeTax(gross);
+  else if (currentCountry === "AU") tax = auIncomeTax(gross);
+  const net = gross - tax - ni;
+  return { tax, ni, net, effective: gross > 0 ? (tax + ni) / gross * 100 : 0 };
+}
+
+// Retirement income for one projection year. privateAmt = drawdown/flat
+// income; otherAmt = state pension + DB (taxable where taxed). Returns net.
+function taxOnRetirement(privateAmt, otherAmt, age) {
+  const scottish = els("scotland") && els("scotland").value === "scot";
+  if (currentCountry === "UK") {
+    // UFPLS basis: 25% of each private withdrawal tax-free, 75% taxable. No NI.
+    const taxable = privateAmt * 0.75 + otherAmt;
+    return privateAmt + otherAmt - ukIncomeTax(taxable, scottish);
+  }
+  if (currentCountry === "AU") {
+    // Super withdrawals tax-free from 60; Age Pension taxable (SAPTO ignored).
+    const taxable = (age >= 60 ? 0 : privateAmt) + otherAmt;
+    return privateAmt + otherAmt - auIncomeTax(taxable);
+  }
+  const gross = privateAmt + otherAmt;
+  if (currentCountry === "US") return gross - usIncomeTax(gross);
+  return gross - frIncomeTax(gross);
+}
+
+/* =========================================================================
+   RETIREMENT LIVING STANDARDS (PLSA / Loughborough University, 2025)
+   Annual amounts, today's money. Low/Medium/High = Minimum/Moderate/Comfortable.
+   ========================================================================= */
+const RLS = {
+  min:  { single: 13400, couple: 21600, label: "Low (Minimum)" },
+  mod:  { single: 31700, couple: 43900, label: "Medium (Moderate)" },
+  comf: { single: 43900, couple: 60600, label: "High (Comfortable)" },
+};
+let rlsChoice = "mod";
+
+/* =========================================================================
+   HISTORICAL RETURNS (for Monte Carlo)
+   Approximate annual REAL total returns (%) for a UK/global equity
+   portfolio (FTSE All-Share-like), 1925-2024. Reconstructed to match the
+   published shape of the historical record (Barclays Equity Gilt Study
+   era): mean ~5-6% real, deep drawdowns in 1929-31, 1973-74, 2000-02 and
+   2008, and the 1975 rebound. An approximation for stress-testing only,
+   not a licensed data series.
+   ========================================================================= */
+const HIST_REAL_RETURNS = [
+  /*1925-34*/ 27, 3, 9, 12, -20, -12, -25, 32, 21, 10,
+  /*1935-44*/ 8, 10, -14, -8, -5, -12, 12, 14, 8, 9,
+  /*1945-54*/ 4, 12, 2, -8, -6, 4, 2, -6, 18, 36,
+  /*1955-64*/ 4, -8, 2, 30, 40, -4, -3, -4, 12, -8,
+  /*1965-74*/ 3, -12, 24, 38, -18, -12, 34, 8, -35, -58,
+  /*1975-84*/ 87, -6, 34, 2, -4, 18, 2, 20, 23, 26,
+  /*1985-94*/ 15, 22, 4, 6, 27, -17, 13, 16, 23, -9,
+  /*1995-04*/ 17, 12, 20, 11, 21, -8, -15, -24, 17, 9,
+  /*2005-14*/ 19, 13, 1, -33, 25, 10, -8, 9, 18, 0,
+  /*2015-24*/ 0, 15, 9, -12, 17, -12, 14, -8, 4, 7,
+];
+
+// Block bootstrap: stitch random contiguous blocks (default 5y) so bad and
+// good years cluster the way they did historically.
+function sampleReturnPath(years, blockLen = 5) {
+  const path = [];
+  while (path.length < years) {
+    const start = Math.floor(Math.random() * (HIST_REAL_RETURNS.length - blockLen));
+    for (let i = 0; i < blockLen && path.length < years; i++) {
+      path.push(HIST_REAL_RETURNS[start + i] / 100);
+    }
+  }
+  return path;
+}
+
+/* Monte Carlo: does the household pot survive? All in today's money (real
+   returns; flat real spending target and guaranteed income). */
+function mcSimulate({ startPot, years, guaranteed, targetSpend, runs }) {
+  const endBalances = [];
+  const paths = []; // retained subset for the fan chart
+  let successes = 0;
+  for (let r = 0; r < runs; r++) {
+    const rets = sampleReturnPath(years);
+    let pot = startPot, failed = false;
+    const path = [pot];
+    for (let y = 0; y < years; y++) {
+      const need = Math.max(0, targetSpend - (guaranteed[y] || 0));
+      pot = (pot - need) * (1 + rets[y]);
+      if (pot < 0) { failed = true; pot = 0; }
+      path.push(pot);
+    }
+    if (!failed) successes++;
+    endBalances.push(pot);
+    if (r < 120) paths.push(path);
+  }
+  const bands = [];
+  for (let y = 0; y <= years; y++) {
+    const vals = paths.map(p => p[y]).sort((a, b) => a - b);
+    const pick = q => vals[Math.min(vals.length - 1, Math.floor(q * vals.length))];
+    bands.push({ p10: pick(0.10), p25: pick(0.25), p50: pick(0.50), p75: pick(0.75), p90: pick(0.90) });
+  }
+  endBalances.sort((a, b) => a - b);
+  const pickEnd = q => endBalances[Math.min(endBalances.length - 1, Math.floor(q * endBalances.length))];
+  return { successPct: successes / runs * 100, bands,
+           endLow: pickEnd(0.10), endMed: pickEnd(0.50), endHigh: pickEnd(0.90) };
+}
 
 // Money inputs are type="text" with data-money="0|2" (decimal places) so
 // they can display comma separators - type="number" fields reject them.
@@ -1388,6 +1695,7 @@ const PROFILE_FIELD_IDS = [
   "statePensionWeekly", "statePensionGrowth", "discountRate",
   "numChildren", "numGrandchildren", "smallGiftAmount", "annualExemption",
   "giftPerRecipient", "essentialSpending", "plannedAnnualGift", "giftStartYear",
+  "country", "scotland", "mcSpend", "mcRuns",
 ];
 let currentProfileName = null;
 
@@ -1406,13 +1714,24 @@ function collectProfileData() {
   data.yourMode = yourMode;
   data.spouseMode = spouseMode;
   syncAssetsFromDOM();
+  syncPlanListsFromDOM();
   data.assets = JSON.parse(JSON.stringify(assets));
+  data.planEvents = JSON.parse(JSON.stringify(planEvents));
+  data.scenarios = JSON.parse(JSON.stringify(scenarios));
+  data.rlsChoice = rlsChoice;
   return data;
 }
 
 function applyProfileData(data) {
   PROFILE_FIELD_IDS.forEach(id => { if (data[id] !== undefined) els(id).value = data[id]; });
   if (data.assets) { assets = JSON.parse(JSON.stringify(data.assets)); renderAssetLists(); }
+  planEvents = data.planEvents ? JSON.parse(JSON.stringify(data.planEvents)) : [];
+  scenarios = data.scenarios ? JSON.parse(JSON.stringify(data.scenarios)) : [];
+  renderEventList(); renderScenarioList();
+  rlsChoice = data.rlsChoice || "mod";
+  els("rlsSeg").querySelectorAll("button").forEach(b => b.classList.toggle("active", b.dataset.rls === rlsChoice));
+  currentCountry = els("country").value || "UK";
+  els("scotlandField").style.display = currentCountry === "UK" ? "" : "none";
   formatAllMoneyInputs();
 
   const wantSpouseOn = !!data.spouseOn;
@@ -1690,8 +2009,25 @@ function applyTransferV2(you, spouse, youMeta, spouseMeta, yourRows, spouseRows,
   return youFirst ? { yourRows, spouseRows: survUpdated, note } : { yourRows: survUpdated, spouseRows, note };
 }
 
-function computeAll() {
+// overrides support what-if scenarios: {retireShift (yrs), growthDelta (pct
+// points on every growth rate), spendDelta (pct on retireSpend)} or direct
+// key overrides on the inputs object.
+function computeAll(overrides = {}) {
   const inp = readInputs();
+  if (overrides.retireShift) {
+    inp.retireDate = addYearsMonths(inp.retireDate, overrides.retireShift, 0);
+    if (inp.spouseRetireDate) inp.spouseRetireDate = addYearsMonths(inp.spouseRetireDate, overrides.retireShift, 0);
+  }
+  if (overrides.growthDelta) {
+    inp.yourPotGrowth += overrides.growthDelta;
+    inp.spousePotGrowth += overrides.growthDelta;
+    inp.yourIncomeGrowth += overrides.growthDelta;
+    inp.spouseIncomeGrowth += overrides.growthDelta;
+  }
+  if (overrides.spendDelta) inp.retireSpend *= (1 + overrides.spendDelta / 100);
+  Object.keys(overrides).forEach(k => {
+    if (!["retireShift", "growthDelta", "spendDelta"].includes(k)) inp[k] = overrides[k];
+  });
   syncAssetsFromDOM();
   const today = todayObj();
   const you = buildPersonSummary(inp.dob, inp.sex);
@@ -1741,8 +2077,16 @@ function computeAll() {
     );
   }
 
+  // Net-of-tax income per row (country-aware; DB + State fully assessable).
+  yourRows.forEach(r => { r.net = taxOnRetirement(r.private, r.state + (r.db || 0), r.age); });
+  spouseRows.forEach(r => { r.net = taxOnRetirement(r.private, r.state + (r.db || 0), r.age); });
+
+  // Household living-standard target (single vs couple).
+  const rlsTarget = rlsChoice === "none" ? null : RLS[rlsChoice][spouse ? "couple" : "single"];
+
   return { inp, today, you, spouse, yourRows, spouseRows, yourEffectivePot, yourContribution,
-           transferNote, gifting, giftSchedule, assetTotals: at };
+           transferNote, gifting, giftSchedule, assetTotals: at,
+           yourMeta: yourBuilt.meta, spouseMeta: spouseBuilt.meta, rlsTarget };
 }
 
 /* ---------- render: People tab reacts via inputs directly, no render needed ---------- */
@@ -1807,7 +2151,7 @@ function tableHtml(rows, hasPot, discountRate) {
   if (hasPot) cols.push("Pot");
   cols.push(privLabel, "State");
   if (showDb) cols.push("DB");
-  cols.push("Weekly", "Month", fv, pv);
+  cols.push("Weekly", "Month", fv, "Net", pv);
   const head = "<tr>" + cols.map(c => `<th>${c}</th>`).join("") + "</tr>";
   const body = rows.map((r, i) => {
     const spaRow = r.state > 0 && (i > 0 ? rows[i - 1].state === 0 : true) ? " spa-row" : "";
@@ -1819,14 +2163,14 @@ function tableHtml(rows, hasPot, discountRate) {
       : gbp0(r.private);
     cells.push(privCell, gbp0(r.state));
     if (showDb) cells.push(gbp0(r.db));
-    cells.push(gbp0(r.weekly), gbp0(r.monthly), gbp0(r.annual), gbp0(r.present));
+    cells.push(gbp0(r.weekly), gbp0(r.monthly), gbp0(r.annual), gbp0(r.net !== undefined ? r.net : r.annual), gbp0(r.present));
     return `<tr class="${(spaRow + bridgeRow).trim()}">` + cells.map(c => `<td>${c}</td>`).join("") + "</tr>";
   }).join("");
   const notes = [`Highlighted row = year the ${term("spaShort")} begins.`];
   if (showBridge) notes.push(`Amber rows are funded from cash then shares before a pension starts` +
     (rows.some(r => r.shortfall > 0) ? ` (red = shortfall your savings can't cover)` : "") + `.`);
   if (showDb) notes.push(`DB = defined-benefit pension income.`);
-  notes.push(`<b>${fv}</b> = ${term("fvLong")}. <b>${pv}</b> = ${term("pvLong")}, discounted at ${discountRate.toFixed(1)}%/yr.`);
+  notes.push(`<b>${fv}</b> = ${term("fvLong")}. <b>Net</b> = after ${COUNTRIES[currentCountry].name} income tax (see the Tax tab). <b>${pv}</b> = ${term("pvLong")}, discounted at ${discountRate.toFixed(1)}%/yr.`);
   return `<div class="table-scroll"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>
     <p class="caption">${notes.join(" ")} Figures rounded to the nearest &pound;.</p>`;
 }
@@ -2034,6 +2378,363 @@ function renderGiftIhtSchedule(model) {
     </div>`;
 }
 
+/* =========================================================================
+   PLANNER: custom events, what-if scenarios, cash-flow chart, Monte Carlo
+   ========================================================================= */
+
+let planEvents = [];   // {year, label, amount, dir: "in"|"out"}
+let scenarios = [];    // {name, retireShift, growthDelta, spendDelta}
+let lastMc = null;     // cached Monte Carlo result for redraws
+
+function renderEventList() {
+  els("eventList").innerHTML = planEvents.length ? planEvents.map((ev, i) => `
+    <div class="asset-row" data-plan-list="events" data-idx="${i}">
+      <div class="field" style="flex:1 1 130px;"><label>Label</label>
+        <input type="text" data-pfield="label" value="${(ev.label || "").replace(/"/g, "&quot;")}"></div>
+      <div class="field" style="flex:0 0 90px;"><label>Year</label>
+        <input type="number" data-pfield="year" min="2000" max="2100" value="${ev.year}"></div>
+      <div class="field" style="flex:0 0 130px;"><label>Direction</label>
+        <select data-pfield="dir">
+          <option value="in"${ev.dir === "in" ? " selected" : ""}>Money in</option>
+          <option value="out"${ev.dir === "out" ? " selected" : ""}>Money out</option>
+        </select></div>
+      <div class="field"><label>Amount (${CUR()})</label>
+        <input type="text" inputmode="decimal" data-pfield="amount" value="${fmtNum(ev.amount)}"></div>
+      <button type="button" class="remove-btn" data-plan-remove="events" data-idx="${i}" aria-label="Remove">&times;</button>
+    </div>`).join("") : `<div class="asset-empty">No events yet &mdash; e.g. "Inheritance 2035 in ${CUR()}150,000" or "Wedding 2032 out ${CUR()}20,000".</div>`;
+}
+
+function renderScenarioList() {
+  els("scenarioList").innerHTML = scenarios.length ? scenarios.map((sc, i) => `
+    <div class="asset-row" data-plan-list="scenarios" data-idx="${i}">
+      <div class="field" style="flex:1 1 120px;"><label>Name</label>
+        <input type="text" data-pfield="name" value="${(sc.name || "").replace(/"/g, "&quot;")}"></div>
+      <div class="field" style="flex:0 0 110px;"><label>Retire +/- yrs</label>
+        <input type="number" data-pfield="retireShift" min="-15" max="15" step="1" value="${sc.retireShift}"></div>
+      <div class="field" style="flex:0 0 110px;"><label>Growth +/- %</label>
+        <input type="number" data-pfield="growthDelta" min="-10" max="10" step="0.5" value="${sc.growthDelta}"></div>
+      <div class="field" style="flex:0 0 120px;"><label>Spending +/- %</label>
+        <input type="number" data-pfield="spendDelta" min="-50" max="50" step="5" value="${sc.spendDelta}"></div>
+      <button type="button" class="remove-btn" data-plan-remove="scenarios" data-idx="${i}" aria-label="Remove">&times;</button>
+    </div>`).join("") : `<div class="asset-empty">No what-ifs yet &mdash; try "Retire 2 years earlier" or "Markets 2% worse".</div>`;
+}
+
+function syncPlanListsFromDOM() {
+  document.querySelectorAll(".asset-row[data-plan-list]").forEach(row => {
+    const list = row.dataset.planList === "events" ? planEvents : scenarios;
+    const obj = list[+row.dataset.idx];
+    if (!obj) return;
+    row.querySelectorAll("[data-pfield]").forEach(inp => {
+      const f = inp.dataset.pfield;
+      if (f === "label" || f === "name" || f === "dir") obj[f] = inp.value;
+      else if (f === "amount") obj[f] = parseMoney(inp.value) || 0;
+      else obj[f] = parseFloat(inp.value) || 0;
+    });
+  });
+}
+
+// Household totals by calendar year, plus automatic + custom event flags.
+function householdSeries(model) {
+  const byYear = {};
+  const addRows = (rows, who) => rows.forEach(r => {
+    const y = r.date.y;
+    byYear[y] = byYear[y] || { year: y, private: 0, state: 0, db: 0, bridge: 0, total: 0, event: 0 };
+    const b = byYear[y];
+    if (r.isBridge) b.bridge += r.private; else b.private += r.private;
+    b.state += r.state; b.db += (r.db || 0); b.total += r.annual;
+  });
+  addRows(model.yourRows, "you");
+  if (model.spouse) addRows(model.spouseRows, "spouse");
+  planEvents.forEach(ev => {
+    if (byYear[ev.year]) byYear[ev.year].event += (ev.dir === "in" ? 1 : -1) * ev.amount;
+  });
+  const years = Object.keys(byYear).map(Number).sort((a, b) => a - b);
+  const flags = [];
+  const you = model.you, spouse = model.spouse, inp = model.inp;
+  flags.push({ year: addYearsMonths(inp.retireDate, 0, 0).y, label: "You retire" });
+  flags.push({ year: you.spaDate.y, label: `Your ${COUNTRIES[currentCountry].spName}` });
+  if (spouse) {
+    flags.push({ year: inp.spouseRetireDate.y, label: "Spouse retires" });
+    flags.push({ year: spouse.spaDate.y, label: `Spouse ${COUNTRIES[currentCountry].spName}` });
+  }
+  planEvents.forEach(ev => flags.push({ year: ev.year, label: ev.label || "Event", custom: true }));
+  return { years, byYear, flags };
+}
+
+function themeColor(name, fallback) {
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return v || fallback;
+}
+
+function drawPlannerChart(model) {
+  const canvas = els("plannerChart");
+  const wrap = canvas.parentElement;
+  const W = Math.max(320, wrap.clientWidth), H = 300;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.height = H + "px";
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  const { years, byYear, flags } = householdSeries(model);
+  if (!years.length) return;
+  const padL = 46, padR = 10, padT = 26, padB = 30;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const stacks = years.map(y => byYear[y]);
+  let maxV = Math.max(...stacks.map(s => Math.max(s.total + Math.max(0, s.event), model.rlsTarget || 0)));
+  // include scenario overlays in scale
+  const scenarioSeries = scenarios.map(sc => {
+    const m = computeAll({ retireShift: sc.retireShift, growthDelta: sc.growthDelta, spendDelta: sc.spendDelta });
+    const hs = householdSeries(m);
+    return { name: sc.name || "What-if", years: hs.years, byYear: hs.byYear };
+  });
+  scenarioSeries.forEach(ss => ss.years.forEach(y => { maxV = Math.max(maxV, ss.byYear[y].total); }));
+  maxV *= 1.08;
+
+  const x = y => padL + (y - years[0]) / Math.max(1, years[years.length - 1] - years[0]) * plotW;
+  const yPix = v => padT + plotH - v / maxV * plotH;
+
+  // gridlines + y labels
+  ctx.strokeStyle = themeColor("--border", "#ddd"); ctx.fillStyle = themeColor("--ink-faint", "#999");
+  ctx.lineWidth = 1; ctx.font = "10px sans-serif"; ctx.textAlign = "right";
+  for (let g = 0; g <= 4; g++) {
+    const v = maxV / 4 * g, py = yPix(v);
+    ctx.beginPath(); ctx.moveTo(padL, py); ctx.lineTo(W - padR, py); ctx.stroke();
+    ctx.fillText(CUR() + Math.round(v / 1000) + "k", padL - 5, py + 3);
+  }
+
+  // stacked areas: bridge (gold), private (green), db (teal), state (dark green)
+  const layers = [
+    { key: "bridge", color: themeColor("--gold", "#A8762E") + "cc" },
+    { key: "private", color: themeColor("--accent", "#1F6F5C") + "b0" },
+    { key: "db", color: "#4a90a4cc" },
+    { key: "state", color: themeColor("--accent-strong", "#14503F") + "cc" },
+  ];
+  const cum = years.map(() => 0);
+  layers.forEach(layer => {
+    ctx.beginPath();
+    years.forEach((y, i) => { const px = x(y), py = yPix(cum[i]); i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py); });
+    for (let i = years.length - 1; i >= 0; i--) {
+      cum[i] += stacks[i][layer.key];
+      ctx.lineTo(x(years[i]), yPix(cum[i]));
+    }
+    ctx.closePath(); ctx.fillStyle = layer.color; ctx.fill();
+  });
+
+  // events adjustment line (total +/- events)
+  ctx.beginPath(); ctx.strokeStyle = themeColor("--ink", "#222"); ctx.lineWidth = 1.5;
+  years.forEach((y, i) => {
+    const v = stacks[i].total + stacks[i].event;
+    const px = x(y), py = yPix(Math.max(0, v));
+    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  });
+  ctx.stroke();
+
+  // scenario overlays (dashed)
+  const scColors = ["#c2571f", "#7b53c1", "#2266aa", "#a4266a"];
+  scenarioSeries.forEach((ss, si) => {
+    ctx.beginPath(); ctx.setLineDash([5, 4]); ctx.strokeStyle = scColors[si % scColors.length]; ctx.lineWidth = 1.6;
+    ss.years.forEach((y, i) => {
+      if (y < years[0] || y > years[years.length - 1]) return;
+      const px = x(y), py = yPix(ss.byYear[y].total);
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    });
+    ctx.stroke(); ctx.setLineDash([]);
+  });
+
+  // living-standard target line
+  if (model.rlsTarget) {
+    ctx.beginPath(); ctx.setLineDash([2, 3]); ctx.strokeStyle = themeColor("--critical", "#B23B3B"); ctx.lineWidth = 1.5;
+    ctx.moveTo(padL, yPix(model.rlsTarget)); ctx.lineTo(W - padR, yPix(model.rlsTarget));
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  // event flags
+  ctx.textAlign = "left"; ctx.font = "9px sans-serif";
+  const seenYears = new Set();
+  flags.forEach(f => {
+    if (f.year < years[0] || f.year > years[years.length - 1]) return;
+    const px = x(f.year);
+    ctx.strokeStyle = f.custom ? themeColor("--gold", "#A8762E") : themeColor("--ink-faint", "#888");
+    ctx.beginPath(); ctx.moveTo(px, padT - 2); ctx.lineTo(px, padT + plotH); ctx.stroke();
+    const lift = seenYears.has(f.year) ? 10 : 0; seenYears.add(f.year);
+    ctx.fillStyle = f.custom ? themeColor("--gold", "#A8762E") : themeColor("--ink-muted", "#666");
+    ctx.save(); ctx.translate(px + 3, padT + 4 + lift); ctx.fillText(f.label, 0, 0); ctx.restore();
+  });
+
+  // x labels
+  ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center"; ctx.font = "10px sans-serif";
+  const step = Math.ceil(years.length / 8);
+  years.forEach((y, i) => { if (i % step === 0) ctx.fillText(y, x(y), H - 12); });
+
+  // legend + verdict
+  els("plannerLegend").innerHTML = [
+    `<span class="key"><span class="swatch" style="background:${themeColor("--gold", "#A8762E")}"></span>Savings bridge</span>`,
+    `<span class="key"><span class="swatch" style="background:${themeColor("--accent", "#1F6F5C")}"></span>Private pension</span>`,
+    `<span class="key"><span class="swatch" style="background:#4a90a4"></span>DB pension</span>`,
+    `<span class="key"><span class="swatch" style="background:${themeColor("--accent-strong", "#14503F")}"></span>${COUNTRIES[currentCountry].spName}</span>`,
+    model.rlsTarget ? `<span class="key"><span class="swatch" style="background:${themeColor("--critical", "#B23B3B")}"></span>Target (${RLS[rlsChoice].label})</span>` : "",
+    ...scenarioSeries.map((ss, si) => `<span class="key"><span class="swatch" style="background:${scColors[si % scColors.length]}"></span>${ss.name}</span>`),
+  ].filter(Boolean).join("");
+
+  if (model.rlsTarget) {
+    const short = stacks.filter(s => s.total + s.event < model.rlsTarget).length;
+    els("plannerVerdict").textContent = short === 0
+      ? `On track: every year meets the ${RLS[rlsChoice].label} standard`
+      : `${short} of ${stacks.length} years fall below the ${RLS[rlsChoice].label} standard`;
+    els("plannerVerdict").className = "pill" + (short === 0 ? "" : " warn");
+  } else {
+    els("plannerVerdict").textContent = "No target set";
+    els("plannerVerdict").className = "pill gold";
+  }
+  els("plannerCaption").innerHTML = `Household income each year (today's-money target line; income shown in future ${CUR()}). ` +
+    `Vertical flags mark major events; the solid dark line includes your one-off events. Dashed lines are what-if scenarios.`;
+  els("rlsCaption").innerHTML = rlsChoice === "none" ? "No target selected." :
+    `${RLS[rlsChoice].label}: ${CUR()}${RLS[rlsChoice][model.spouse ? "couple" : "single"].toLocaleString("en-GB")}/yr for a ${model.spouse ? "couple" : "single person"} ` +
+    `(PLSA Retirement Living Standards, 2025, developed with Loughborough University; UK-based figures shown in your currency unadjusted).`;
+}
+
+function runMonteCarlo(model) {
+  // Household: both pots pooled from your decumulation start; guaranteed
+  // income = both state pensions + DB streams, in today's money.
+  const inp = model.inp;
+  const startYear = Math.max(todayObj().y, model.yourMeta.decumStartDate ? model.yourMeta.decumStartDate.y : todayObj().y);
+  const endYear = Math.max(model.you.lifeExpDate.y, model.spouse ? model.spouse.lifeExpDate.y : 0);
+  const years = Math.max(1, endYear - startYear);
+  let startPot = model.yourMeta.accumulatedPot || 0;
+  if (model.spouse && model.spouseMeta.mode === "pot") startPot += model.spouseMeta.accumulatedPot || 0;
+
+  const guaranteed = [];
+  for (let i = 0; i < years; i++) {
+    const y = startYear + i;
+    let g = 0;
+    if (y >= model.you.spaDate.y) g += inp.spWeekly * 52;
+    if (model.spouse && y >= model.spouse.spaDate.y) g += inp.spWeekly * 52;
+    model.assetTotals.dbStreams.forEach(st => {
+      if (y >= addYearsMonths(model.you.dob, st.startAge, 0).y) g += st.income;
+    });
+    guaranteed.push(g);
+  }
+
+  const custom = parseMoney(els("mcSpend").value);
+  const targetSpend = (custom && custom > 0) ? custom
+    : (model.rlsTarget || RLS.mod[model.spouse ? "couple" : "single"]);
+  const runs = parseInt(els("mcRuns").value, 10) || 500;
+
+  lastMc = { ...mcSimulate({ startPot, years, guaranteed, targetSpend, runs }),
+             startYear, years, targetSpend, runs, startPot };
+  drawMcChart();
+}
+
+function drawMcChart() {
+  if (!lastMc) return;
+  const canvas = els("mcChart"), wrap = canvas.parentElement;
+  const W = Math.max(320, wrap.clientWidth), H = 260;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = W * dpr; canvas.height = H * dpr; canvas.style.height = H + "px";
+  const ctx = canvas.getContext("2d"); ctx.scale(dpr, dpr); ctx.clearRect(0, 0, W, H);
+
+  const { bands, startYear, years } = lastMc;
+  const padL = 52, padR = 10, padT = 12, padB = 26;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const maxV = Math.max(1, ...bands.map(b => b.p90)) * 1.05;
+  const x = i => padL + i / years * plotW;
+  const yPix = v => padT + plotH - v / maxV * plotH;
+
+  ctx.strokeStyle = themeColor("--border", "#ddd"); ctx.fillStyle = themeColor("--ink-faint", "#999");
+  ctx.font = "10px sans-serif"; ctx.textAlign = "right";
+  for (let g = 0; g <= 4; g++) {
+    const v = maxV / 4 * g, py = yPix(v);
+    ctx.beginPath(); ctx.moveTo(padL, py); ctx.lineTo(W - padR, py); ctx.stroke();
+    ctx.fillText(CUR() + (v >= 1e6 ? (v / 1e6).toFixed(1) + "m" : Math.round(v / 1000) + "k"), padL - 5, py + 3);
+  }
+  const band = (lo, hi, color) => {
+    ctx.beginPath();
+    bands.forEach((b, i) => { const px = x(i), py = yPix(b[hi]); i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py); });
+    for (let i = bands.length - 1; i >= 0; i--) ctx.lineTo(x(i), yPix(bands[i][lo]));
+    ctx.closePath(); ctx.fillStyle = color; ctx.fill();
+  };
+  band("p10", "p90", themeColor("--accent", "#1F6F5C") + "33");
+  band("p25", "p75", themeColor("--accent", "#1F6F5C") + "55");
+  ctx.beginPath(); ctx.strokeStyle = themeColor("--accent-strong", "#14503F"); ctx.lineWidth = 2;
+  bands.forEach((b, i) => { const px = x(i), py = yPix(b.p50); i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py); });
+  ctx.stroke();
+
+  ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center";
+  const step = Math.ceil(years / 6);
+  for (let i = 0; i <= years; i += step) ctx.fillText(startYear + i, x(i), H - 8);
+
+  const pct = lastMc.successPct;
+  els("mcVerdict").textContent = `${pct.toFixed(0)}% of runs: money lasts`;
+  els("mcVerdict").className = "pill" + (pct >= 85 ? "" : pct >= 60 ? " gold" : " warn");
+  els("mcCaption").innerHTML =
+    `${lastMc.runs.toLocaleString()} simulations, spending target ${gbp0(lastMc.targetSpend)}/yr (today's money) from ${startYear}, ` +
+    `starting pot ${gbp0(lastMc.startPot)}. Shaded = 10th&ndash;90th and 25th&ndash;75th percentile pot balance; line = median. ` +
+    `Ending pot: low ${gbp0(lastMc.endLow)}, median ${gbp0(lastMc.endMed)}, high ${gbp0(lastMc.endHigh)}. ` +
+    `Returns resampled in 5-year blocks from an <b>approximate</b> 1925&ndash;2024 UK/global equity real-return history.`;
+}
+
+function renderScenarioCompare(model) {
+  if (!scenarios.length) { els("scenarioCompare").innerHTML = ""; return; }
+  const lifetime = rows => rows.reduce((s, r) => s + r.annual, 0);
+  const base = { name: "Base plan", li: lifetime(model.yourRows) + lifetime(model.spouseRows) ,
+                 first: (householdSeries(model).years.length ? householdSeries(model).byYear[householdSeries(model).years[0]].total : 0) };
+  const rows = [base, ...scenarios.map(sc => {
+    const m = computeAll({ retireShift: sc.retireShift, growthDelta: sc.growthDelta, spendDelta: sc.spendDelta });
+    const hs = householdSeries(m);
+    return { name: sc.name || "What-if", li: lifetime(m.yourRows) + lifetime(m.spouseRows),
+             first: hs.years.length ? hs.byYear[hs.years[0]].total : 0 };
+  })];
+  els("scenarioCompare").innerHTML = `<div class="table-scroll"><table class="compare-table"><thead>
+      <tr><th>Scenario</th><th>First retirement-year income</th><th>Lifetime household income</th><th>vs base</th></tr></thead><tbody>` +
+    rows.map((r, i) => `<tr><td>${r.name}</td><td>${gbp0(r.first)}</td><td>${gbp0(r.li)}</td>
+      <td>${i === 0 ? "&mdash;" : (r.li >= base.li ? "+" : "&minus;") + gbp0(Math.abs(r.li - base.li))}</td></tr>`).join("") +
+    `</tbody></table></div>`;
+}
+
+/* =========================================================================
+   TAX TAB
+   ========================================================================= */
+function renderTax(model) {
+  const c = COUNTRIES[currentCountry];
+  const scottish = els("scotland").value === "scot";
+  els("taxRegimeNote").innerHTML = `<b>${c.name}${currentCountry === "UK" ? (scottish ? " (Scotland)" : " (England / Wales / NI)") : ""}.</b> ${c.note}`;
+  els("scotlandField").style.display = currentCountry === "UK" ? "" : "none";
+
+  const card = (label, salary, row) => {
+    const s = taxOnSalary(salary);
+    let retire = "";
+    if (row) {
+      const gross = row.annual, net = row.net;
+      retire = `
+        <h3 style="margin-top:14px;">First retirement year (${row.date.y}, age ${row.age})</h3>
+        <div class="stat-row">
+          <div class="stat"><span class="label">Gross income</span><span class="value">${gbp0(gross)}</span></div>
+          <div class="stat"><span class="label">Tax</span><span class="value">${gbp0(gross - net)}</span></div>
+          <div class="stat"><span class="label">Net income</span><span class="value">${gbp0(net)}</span>
+            <span class="sub">${gross > 0 ? ((gross - net) / gross * 100).toFixed(1) : 0}% effective rate</span></div>
+        </div>`;
+    }
+    return `<div class="card person-card">
+      <div class="person-title"><h2>${label}</h2></div>
+      <h3>Salary today</h3>
+      <div class="stat-row">
+        <div class="stat"><span class="label">Gross salary</span><span class="value">${gbp0(salary)}</span></div>
+        <div class="stat"><span class="label">Income tax</span><span class="value">${gbp0(s.tax)}</span></div>
+        ${currentCountry === "UK" ? `<div class="stat"><span class="label">National Insurance</span><span class="value">${gbp0(s.ni)}</span></div>` : ""}
+        <div class="stat"><span class="label">Net</span><span class="value">${gbp0(s.net)}</span>
+          <span class="sub">${s.effective.toFixed(1)}% effective rate</span></div>
+      </div>
+      ${retire}
+    </div>`;
+  };
+
+  let html = card("You", model.inp.yourSalary, model.yourRows.find(r => !r.isBridge) || model.yourRows[0]);
+  if (model.spouse) html += card("Your spouse", 0, model.spouseRows.find(r => !r.isBridge) || model.spouseRows[0]);
+  els("taxCards").innerHTML = html;
+}
+
 function renderAll() {
   applyStaticTerms();
   let model;
@@ -2050,7 +2751,15 @@ function renderAll() {
   renderHousehold(model);
   renderGifting(model);
   updateAgeHeading(model);
+  renderTax(model);
+  lastModel = model;
+  if (els("tab-planner").classList.contains("active")) {
+    drawPlannerChart(model);
+    renderScenarioCompare(model);
+    drawMcChart();
+  }
 }
+let lastModel = null;
 
 function renderAssetsSummary(model) {
   const a = model.assetTotals;
@@ -2087,6 +2796,10 @@ function activateTab(tabName) {
   els(`tab-${tabName}`).classList.add("active");
   const c = document.querySelector(".content");
   if (c) c.scrollTop = 0;
+  if (tabName === "planner" && lastModel) {
+    // Canvas has zero width while hidden - draw once visible.
+    requestAnimationFrame(() => { drawPlannerChart(lastModel); renderScenarioCompare(lastModel); drawMcChart(); });
+  }
 }
 // Delegated so both the desktop rail and the mobile bottom nav work.
 document.addEventListener("click", e => {
@@ -2097,10 +2810,78 @@ document.addEventListener("click", e => {
 // Wording toggle (plain English vs expert terms), delegated across both bars.
 document.addEventListener("click", e => {
   const btn = e.target.closest(".wording-seg button");
-  if (!btn) return;
+  if (!btn || !btn.dataset.wording) return;
   wordingMode = btn.dataset.wording;
   localStorage.setItem(WORDING_STORAGE_KEY, wordingMode);
   renderAll();
+});
+
+// Simple vs Adviser detail level.
+const DEPTH_STORAGE_KEY = "pensionPlanner.depth";
+let depthMode = localStorage.getItem(DEPTH_STORAGE_KEY) || "simple";
+function applyDepth() {
+  document.body.classList.toggle("depth-simple", depthMode === "simple");
+  document.querySelectorAll(".depth-seg button").forEach(b =>
+    b.classList.toggle("active", b.dataset.depth === depthMode));
+}
+document.addEventListener("click", e => {
+  const btn = e.target.closest(".depth-seg button");
+  if (!btn) return;
+  depthMode = btn.dataset.depth;
+  localStorage.setItem(DEPTH_STORAGE_KEY, depthMode);
+  applyDepth();
+});
+
+// Country & living-standard target.
+els("country").addEventListener("change", () => {
+  currentCountry = els("country").value;
+  els("statePensionWeekly").value = COUNTRIES[currentCountry].spWeeklyDefault.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  els("scotlandField").style.display = currentCountry === "UK" ? "" : "none";
+  onUserChange();
+});
+els("rlsSeg").addEventListener("click", e => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  rlsChoice = btn.dataset.rls;
+  els("rlsSeg").querySelectorAll("button").forEach(b => b.classList.toggle("active", b.dataset.rls === rlsChoice));
+  onUserChange();
+});
+
+// Planner events & what-if scenarios (add / edit / remove).
+els("addEventBtn").addEventListener("click", () => {
+  syncPlanListsFromDOM();
+  planEvents.push({ year: todayObj().y + 5, label: "Event", amount: 10000, dir: "out" });
+  renderEventList(); onUserChange();
+});
+els("addScenarioBtn").addEventListener("click", () => {
+  syncPlanListsFromDOM();
+  scenarios.push({ name: `What-if ${scenarios.length + 1}`, retireShift: -2, growthDelta: 0, spendDelta: 0 });
+  renderScenarioList(); onUserChange();
+});
+document.addEventListener("click", e => {
+  const rm = e.target.closest("[data-plan-remove]");
+  if (!rm) return;
+  syncPlanListsFromDOM();
+  (rm.dataset.planRemove === "events" ? planEvents : scenarios).splice(+rm.dataset.idx, 1);
+  rm.dataset.planRemove === "events" ? renderEventList() : renderScenarioList();
+  onUserChange();
+});
+document.addEventListener("change", e => {
+  if (!e.target.closest(".asset-row[data-plan-list]")) return;
+  if (e.target.dataset.money !== undefined) formatMoneyInput(e.target);
+  syncPlanListsFromDOM();
+  onUserChange();
+});
+
+// Monte Carlo.
+els("runMcBtn").addEventListener("click", () => {
+  if (!lastModel) return;
+  runMonteCarlo(lastModel);
+});
+window.addEventListener("resize", () => {
+  if (els("tab-planner").classList.contains("active") && lastModel) {
+    drawPlannerChart(lastModel); drawMcChart();
+  }
 });
 
 els("openSettingsMobile").addEventListener("click", () => els("settingsModal").classList.add("open"));
@@ -2242,10 +3023,73 @@ els("profileNameInput").addEventListener("keydown", e => {
   if (e.key === "Enter") els("profileModalConfirm").click();
 });
 
+/* =========================================================================
+   DEMO PROFILES: 10 households from very low to ultra-high wealth, seeded
+   on first run so the tool can be explored and tested immediately.
+   ========================================================================= */
+function seedDemoProfiles() {
+  if (localStorage.getItem("pensionPlanner.seeded")) return;
+  const existing = loadProfiles();
+  if (Object.keys(existing).length) return;
+  const base = {
+    dob: "1973-03-01", sex: "M", retireDate: "2028-03-01", retireSpend: "0",
+    spouseDob: "1976-04-01", spouseSex: "F", spouseRetireDate: "2033-04-01",
+    yourPot: "0", yourDrawdown: "4", yourPotGrowth: "6", yourSalary: "0", yourEmployerRate: "15",
+    yourIncome: "0", yourIncomeGrowth: "2", cashCurrent: "0",
+    spousePot: "0", spouseDrawdown: "4", spousePotGrowth: "6", spouseIncome: "0", spouseIncomeGrowth: "2",
+    statePensionWeekly: "230.25", statePensionGrowth: "2.5", discountRate: "2.5",
+    numChildren: "0", numGrandchildren: "0", smallGiftAmount: "250", annualExemption: "3,000",
+    giftPerRecipient: "", essentialSpending: "0", plannedAnnualGift: "", giftStartYear: String(todayObj().y),
+    country: "UK", scotland: "ruk", mcSpend: "", mcRuns: "500",
+    spouseOn: true, yourMode: "pot", spouseMode: "income",
+    assets: { savings: [], employerPensions: [], shares: [] },
+    planEvents: [], scenarios: [], rlsChoice: "mod",
+  };
+  const mk = o => Object.assign(JSON.parse(JSON.stringify(base)), o);
+  const profiles = {
+    "01 · Early career (very low)": mk({ dob: "1996-05-10", sex: "F", retireDate: "2064-05-10", spouseOn: false,
+      yourPot: "4,000", yourSalary: "24,000", yourEmployerRate: "8", cashCurrent: "800", rlsChoice: "min" }),
+    "02 · Young family (low)": mk({ dob: "1990-02-14", spouseDob: "1991-09-30", retireDate: "2058-02-14", spouseRetireDate: "2059-09-30",
+      yourPot: "18,000", yourSalary: "30,000", yourEmployerRate: "8", spouseIncome: "6,000", cashCurrent: "2,500",
+      assets: { savings: [{ type: "Easy Access", balance: 3000 }], employerPensions: [], shares: [] }, rlsChoice: "min" }),
+    "03 · Median household": mk({ dob: "1982-07-01", spouseDob: "1984-01-20", retireDate: "2049-07-01", spouseRetireDate: "2051-01-20",
+      yourPot: "85,000", yourSalary: "37,500", yourEmployerRate: "10", spouseIncome: "12,000", cashCurrent: "8,000",
+      assets: { savings: [{ type: "Cash ISA", balance: 12000 }], employerPensions: [{ label: "Workplace", kind: "DC", value: 20000, contribution: 2000, income: 0, startAge: 65 }], shares: [] } }),
+    "04 · Mid-career professionals": mk({ yourPot: "320,000", yourSalary: "62,000", spouseIncome: "20,000", cashCurrent: "15,000",
+      assets: { savings: [{ type: "Cash ISA", balance: 30000 }], employerPensions: [{ label: "Employer DC", kind: "DC", value: 60000, contribution: 6000, income: 0, startAge: 65 }], shares: [{ type: "Stocks & Shares ISA", value: 40000 }] } }),
+    "05 · Scotland teacher (DB)": mk({ scotland: "scot", dob: "1970-11-05", sex: "F", retireDate: "2030-11-05", spouseOn: false,
+      yourPot: "120,000", yourSalary: "45,000",
+      assets: { savings: [{ type: "Easy Access", balance: 20000 }], employerPensions: [{ label: "Teachers' DB", kind: "DB", value: 0, contribution: 0, income: 18000, startAge: 60 }], shares: [] } }),
+    "06 · US tech couple": mk({ country: "US", statePensionWeekly: "460.00", yourPot: "800,000", yourSalary: "150,000",
+      spousePot: "200,000", spouseMode: "pot", cashCurrent: "25,000",
+      assets: { savings: [{ type: "Other", balance: 40000 }], employerPensions: [], shares: [{ type: "Trading Account", value: 250000 }] } }),
+    "07 · France, retiring soon": mk({ country: "FR", statePensionWeekly: "330.00", dob: "1966-03-15", retireDate: "2030-03-15",
+      spouseOn: false, yourPot: "300,000", yourSalary: "48,000", cashCurrent: "12,000" }),
+    "08 · Australia couple": mk({ country: "AU", statePensionWeekly: "575.00", yourPot: "900,000", yourSalary: "110,000",
+      spousePot: "350,000", spouseMode: "pot", cashCurrent: "30,000",
+      assets: { savings: [], employerPensions: [], shares: [{ type: "General Investment Account", value: 150000 }] } }),
+    "09 · High net worth": mk({ yourPot: "2,000,000", yourSalary: "120,000", spousePot: "600,000", spouseMode: "pot",
+      cashCurrent: "50,000", numChildren: "2", numGrandchildren: "3", plannedAnnualGift: "20,000", essentialSpending: "60,000",
+      assets: { savings: [{ type: "Cash ISA", balance: 80000 }, { type: "Premium Bonds", balance: 50000 }], employerPensions: [], shares: [{ type: "Stocks & Shares ISA", value: 300000 }, { type: "General Investment Account", value: 200000 }] }, rlsChoice: "comf" }),
+    "10 · Ultra high net worth": mk({ dob: "1968-01-10", retireDate: "2026-06-01", yourPot: "8,000,000", yourSalary: "250,000",
+      spousePot: "1,500,000", spouseMode: "pot", cashCurrent: "500,000", retireSpend: "150,000",
+      numChildren: "3", numGrandchildren: "4", plannedAnnualGift: "100,000", essentialSpending: "150,000",
+      planEvents: [{ year: todayObj().y + 4, label: "Sell holiday home", amount: 750000, dir: "in" }],
+      assets: { savings: [{ type: "Cash ISA", balance: 200000 }], employerPensions: [], shares: [{ type: "General Investment Account", value: 2500000 }, { type: "Stocks & Shares ISA", value: 500000 }] }, rlsChoice: "comf" }),
+  };
+  saveProfiles(profiles);
+  localStorage.setItem("pensionPlanner.seeded", "1");
+}
+
+seedDemoProfiles();
 refreshProfileSelect();
 
 els("giftStartYear").value = todayObj().y;
+currentCountry = els("country").value || "UK";
 renderAssetLists();
+renderEventList();
+renderScenarioList();
+applyDepth();
 formatAllMoneyInputs();
 renderAll();
 </script>
