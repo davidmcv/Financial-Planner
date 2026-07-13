@@ -20,7 +20,17 @@ Everything is a simplified planning model - not financial or tax advice.
 - a Voyant Go-style **year-by-year breakdown**: a stacked bar chart underneath, one bar per year
   split by income source, with your spending target drawn across so short years are obvious;
 - both charts span the whole life, splitting the **Accumulation** (what you pay in each year) and
-  **Decumulation** (household income by source) phases with a retirement divider and labels;
+  **Decumulation** (household income by source) phases with a labelled retirement divider; every
+  event flag shows the person's age and the date;
+- **spending phases** (go-go / slow-go / no-go): configurable percentages of the target by age, so
+  you can plan higher spending in the active early travel years and less later — shown as a stepped
+  target line;
+- a **funding view with smoothing**: turn on *use non-pension savings to smooth spending* and the
+  breakdown bars show exactly where each year's money comes from — guaranteed income and pension
+  drawdown first, then tax-free lump sums, cash, Cash ISA, GIA, S&S ISA and any **home-downsizing**
+  proceeds, drawn to hold the target and flatten the later drop-off (with the year savings run out
+  called out). The **25% tax-free lump sum** can be taken per person at access age, and **property
+  & vehicles** are recorded per person with an optional downsize year;
 - a **Longevity chart** (adviser mode): your chance of still being alive by age (either-alive for
   a couple, from a Gompertz survival curve anchored to life expectancy), the Monte Carlo portfolio
   success rate by age (money still lasts), and a **longevity-adjusted** success rate =
