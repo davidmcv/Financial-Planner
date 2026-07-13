@@ -701,6 +701,8 @@
               <span class="hint">% you take out each year in retirement</span>
             </div>
           </div>
+          <label class="check-inline"><input type="checkbox" id="yourTakePcls"> Take the 25% tax-free lump sum at your access age</label>
+          <span class="hint" style="display:block; margin:-4px 0 4px;">Reduces the drawdown pot to 75% and adds the tax-free cash to your savings, available to fund/smooth retirement.</span>
           <div class="divider" style="margin: 14px 0;"></div>
           <h3><span class="phase-chip accum" data-term="accumulationShort">Paying in</span> Pension contributions (until you can access this pot)</h3>
           <div class="field-row">
@@ -877,6 +879,11 @@
         <h3>&#128200; Shares &amp; investments</h3>
         <div id="shareList_you" class="asset-list"></div>
         <button type="button" class="add-btn" data-add="shares" data-owner="you">+ Add share account</button>
+        <div class="divider" style="margin: 12px 0;"></div>
+        <h3>&#127968; Property &amp; vehicles</h3>
+        <div id="propertyList_you" class="asset-list"></div>
+        <button type="button" class="add-btn" data-add="property" data-owner="you">+ Add property or vehicle</button>
+        <p class="caption" style="margin-top:6px;">Homes and cars count towards net worth. For a home you can set a <b>downsize year</b> and the equity released, which is added to your retirement funding from that year.</p>
       </div>
 
       <div class="card person-card" id="spousePotCard">
@@ -901,6 +908,7 @@
               <input type="number" id="spousePotGrowth" value="6" min="-20" step="0.1">
             </div>
           </div>
+          <label class="check-inline"><input type="checkbox" id="spouseTakePcls"> Take the 25% tax-free lump sum at access age</label>
         </div>
 
         <div id="spouseIncomeFields">
@@ -938,6 +946,10 @@
         <h3>&#128200; Shares &amp; investments</h3>
         <div id="shareList_spouse" class="asset-list"></div>
         <button type="button" class="add-btn" data-add="shares" data-owner="spouse">+ Add share account</button>
+        <div class="divider" style="margin: 12px 0;"></div>
+        <h3>&#127968; Property &amp; vehicles</h3>
+        <div id="propertyList_spouse" class="asset-list"></div>
+        <button type="button" class="add-btn" data-add="property" data-owner="spouse">+ Add property or vehicle</button>
       </div>
 
       <!-- ASSETS SUMMARY -->
@@ -988,6 +1000,34 @@
           <button data-rls="comf">High (Comfortable)</button>
         </div>
         <p class="caption" id="rlsCaption" style="margin-top:10px;"></p>
+
+        <div class="divider" style="margin: 14px 0;"></div>
+        <h3>Spending phases <span class="hint-inline">(go-go / slow-go / no-go years)</span></h3>
+        <label class="check-inline"><input type="checkbox" id="spendPhasesOn"> Vary spending by retirement phase</label>
+        <div id="spendPhaseFields" style="display:none;">
+          <p class="caption" style="margin:-2px 0 8px;">Spend more in the active early "go-go" travel years, easing off through "slow-go" and "no-go" years. Percentages are of your target above.</p>
+          <div class="field-row">
+            <div class="field"><label for="goGoPct">Go-go spend (%)</label>
+              <input type="number" id="goGoPct" value="120" min="0" max="300" step="5"></div>
+            <div class="field"><label for="goGoUntilAge">…until age</label>
+              <input type="number" id="goGoUntilAge" value="75" min="55" max="100"></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label for="slowGoPct">Slow-go spend (%)</label>
+              <input type="number" id="slowGoPct" value="100" min="0" max="300" step="5"></div>
+            <div class="field"><label for="slowGoUntilAge">…until age</label>
+              <input type="number" id="slowGoUntilAge" value="85" min="55" max="105"></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label for="noGoPct">No-go spend (%)</label>
+              <input type="number" id="noGoPct" value="80" min="0" max="300" step="5"></div>
+          </div>
+        </div>
+
+        <div class="divider" style="margin: 14px 0;"></div>
+        <h3>Funding &amp; smoothing</h3>
+        <label class="check-inline"><input type="checkbox" id="smoothOn"> Use non-pension savings to smooth spending</label>
+        <p class="caption" style="margin-top:-2px;">When on, cash, ISAs, GIAs, tax-free lump sums and any downsizing proceeds are drawn to top income up to your target &mdash; flattening the income line and the later drop-off. The breakdown chart shows exactly where each year's money comes from.</p>
       </div>
 
       <div class="card">
@@ -1935,9 +1975,10 @@ function todayObj() {
 
 const SAVINGS_TYPES = ["Easy Access", "Cash ISA", "Fixed-term Bond", "Premium Bonds", "Regular Saver", "Other"];
 const SHARE_TYPES = ["Stocks & Shares ISA", "General Investment Account", "Lifetime ISA", "Trading Account", "Other"];
+const PROPERTY_TYPES = ["Main home", "Second home", "Buy-to-let", "Car", "Other"];
 
 function emptyOwnerAssets() {
-  return { savings: [], employerPensions: [], shares: [] };
+  return { savings: [], employerPensions: [], shares: [], property: [] };
 }
 function defaultAssets() {
   return {
@@ -1953,6 +1994,7 @@ function defaultAssets() {
       shares: [
         { type: "Stocks & Shares ISA", value: 30000 },
       ],
+      property: [],
     },
     spouse: emptyOwnerAssets(),
   };
@@ -2023,6 +2065,26 @@ function renderOwnerAssets(owner) {
         <input type="text" ${moneyAttr} data-field="value" value="${fmtNum(a.value)}"></div>
       <button type="button" class="remove-btn" data-remove="shares" data-owner="${owner}" data-idx="${i}" aria-label="Remove">&times;</button>
     </div>`).join("") : `<div class="asset-empty">No share accounts yet.</div>`;
+
+  const propEl = els("propertyList" + sfx);
+  const propList = oa.property || [];
+  if (propEl) propEl.innerHTML = propList.length ? propList.map((a, i) => {
+    const canDownsize = a.type !== "Car";
+    return `
+    <div class="asset-row" data-list="property" data-owner="${owner}" data-idx="${i}">
+      <div class="field" style="flex:0 0 140px;"><label>Type</label>
+        <select data-field="type">${optionsHtml(PROPERTY_TYPES, a.type)}</select></div>
+      <div class="field"><label>Value today (£)</label>
+        <input type="text" ${moneyAttr} data-field="value" value="${fmtNum(a.value)}"></div>
+      ${canDownsize ? `
+      <div class="field" style="flex:0 0 110px;"><label>Downsize in year</label>
+        <input type="number" data-field="downsizeYear" min="2020" max="2100" placeholder="—" value="${a.downsizeYear || ""}"></div>
+      <div class="field"><label>Release (£)</label>
+        <input type="text" ${moneyAttr} data-field="releaseAmount" value="${fmtNum(a.releaseAmount)}"></div>
+      ` : ""}
+      <button type="button" class="remove-btn" data-remove="property" data-owner="${owner}" data-idx="${i}" aria-label="Remove">&times;</button>
+    </div>`;
+  }).join("") : `<div class="asset-empty">No property or vehicles yet.</div>`;
 }
 function renderAssetLists() {
   renderOwnerAssets("you");
@@ -2041,6 +2103,7 @@ function syncAssetsFromDOM() {
       const f = inp.dataset.field;
       if (inp.tagName === "SELECT" || f === "label") obj[f] = inp.value;
       else if (f === "startAge") obj[f] = parseInt(inp.value, 10) || 0;
+      else if (f === "downsizeYear") obj[f] = inp.value.trim() === "" ? "" : (parseInt(inp.value, 10) || "");
       else obj[f] = parseMoney(inp.value) || 0;
     });
   });
@@ -2049,6 +2112,7 @@ function syncAssetsFromDOM() {
 function newAssetRow(listName) {
   if (listName === "savings") return { type: "Easy Access", balance: 0 };
   if (listName === "shares") return { type: "Stocks & Shares ISA", value: 0 };
+  if (listName === "property") return { type: "Main home", value: 0, downsizeYear: "", releaseAmount: 0 };
   return { label: "Employer pension", kind: "DC", value: 0, contribution: 0, income: 0, startAge: 65 };
 }
 
@@ -2066,7 +2130,11 @@ function assetTotals(owner) {
     .reduce((s, a) => s + (Number(a.contribution) || 0), 0);
   const dbStreams = oa.employerPensions.filter(p => p.kind === "DB")
     .map(a => ({ income: Number(a.income) || 0, startAge: Number(a.startAge) || 0 }));
-  return { cash, shares, dcValue, dcContribution, dbStreams };
+  const property = (oa.property || []).reduce((s, a) => s + (Number(a.value) || 0), 0);
+  const downsizeEvents = (oa.property || [])
+    .filter(a => a.downsizeYear && (Number(a.releaseAmount) || 0) > 0)
+    .map(a => ({ year: Number(a.downsizeYear), amount: Number(a.releaseAmount) || 0, label: a.type }));
+  return { cash, shares, dcValue, dcContribution, dbStreams, property, downsizeEvents };
 }
 
 /* =========================================================================
@@ -2243,6 +2311,7 @@ const PROFILE_FIELD_IDS = [
   "rsuHeld", "rsuHeldYears", "rsuAmount", "rsuVestYears",
   "sayeMonthly", "sayeTermYears", "sayeDiscount", "oneOffCash", "oneOffYear", "extraSave",
   "stratSaveAmt", "stratIsaAmt",
+  "goGoPct", "goGoUntilAge", "slowGoPct", "slowGoUntilAge", "noGoPct",
   "yourIncome", "yourIncomeGrowth", "cashCurrent", "spouseCashCurrent",
   "spousePot", "spouseDrawdown", "spousePotGrowth", "spouseIncome", "spouseIncomeGrowth",
   "statePensionWeekly", "statePensionGrowth", "discountRate",
@@ -2275,6 +2344,10 @@ function collectProfileData() {
   data.stratSaveOn = els("stratSaveOn").checked;
   data.stratPclsOn = els("stratPclsOn").checked;
   data.stratIsaOn = els("stratIsaOn").checked;
+  data.yourTakePcls = els("yourTakePcls").checked;
+  data.spouseTakePcls = els("spouseTakePcls").checked;
+  data.smoothOn = els("smoothOn").checked;
+  data.spendPhasesOn = els("spendPhasesOn").checked;
   syncAssetsFromDOM();
   syncPlanListsFromDOM();
   data.assets = JSON.parse(JSON.stringify(assets));
@@ -2333,6 +2406,11 @@ function applyProfileData(data) {
   els("stratSaveFields").style.display = data.stratSaveOn ? "" : "none";
   els("stratPclsFields").style.display = data.stratPclsOn ? "" : "none";
   els("stratIsaFields").style.display = data.stratIsaOn ? "" : "none";
+  els("yourTakePcls").checked = !!data.yourTakePcls;
+  els("spouseTakePcls").checked = !!data.spouseTakePcls;
+  els("smoothOn").checked = !!data.smoothOn;
+  els("spendPhasesOn").checked = !!data.spendPhasesOn;
+  els("spendPhaseFields").style.display = data.spendPhasesOn ? "" : "none";
 
   renderAll();
 }
@@ -2453,7 +2531,29 @@ function readInputs() {
     stratPclsOn: els("stratPclsOn").checked,
     stratIsaOn: els("stratIsaOn").checked,
     stratIsaAmt: money("stratIsaAmt"),
+    yourTakePcls: els("yourTakePcls").checked,
+    spouseTakePcls: els("spouseTakePcls").checked,
+    smoothOn: els("smoothOn").checked,
+    spendPhasesOn: els("spendPhasesOn").checked,
+    goGoUntilAge: parseInt(els("goGoUntilAge").value, 10) || 75,
+    slowGoUntilAge: parseInt(els("slowGoUntilAge").value, 10) || 85,
+    goGoPct: parseFloat(els("goGoPct").value) || 100,
+    slowGoPct: parseFloat(els("slowGoPct").value) || 100,
+    noGoPct: parseFloat(els("noGoPct").value) || 100,
   };
+}
+
+// Spending target for a given calendar year, applying the go-go / slow-go /
+// no-go phase multipliers (based on your age) to the base target. Returns the
+// base target when phases are off.
+function targetForYear(model, base, year) {
+  const inp = model.inp;
+  if (!inp.spendPhasesOn || !base) return base;
+  const age = year - model.you.dob.y;
+  let pct = inp.noGoPct;
+  if (age < inp.goGoUntilAge) pct = inp.goGoPct;
+  else if (age < inp.slowGoUntilAge) pct = inp.slowGoPct;
+  return base * pct / 100;
 }
 
 // Marginal income-tax rate (no NI) on the next £1,000 at this gross, using the
@@ -2638,7 +2738,7 @@ function buildPersonProjection(p, o) {
   const retireAge = ageAtDate(p.dob, o.retireDate);
   const startAge = retireAge, endAge = p.lifeExpAge;
   const meta = { mode: o.mode, decumStartAge, decumStartDate, accumulatedPot: 0,
-                 drawdown: o.drawdown, growth: o.potGrowth };
+                 drawdown: o.drawdown, growth: o.potGrowth, pclsCash: 0, pclsYear: null };
   if (startAge > endAge) return { rows: [], meta };
 
   // Accumulation up to the decumulation start (pot grows; DC employer pots
@@ -2651,6 +2751,13 @@ function buildPersonProjection(p, o) {
     const contrib = Math.min(o.employerContribution + o.assets.dcContribution,
                              o.annualAllowance != null ? o.annualAllowance : Infinity);
     meta.accumulatedPot = accumulatePensionPot(effToday, o.today, decumStartDate, contrib, o.potGrowth);
+    // 25% tax-free lump sum taken at access: pot drops to 75%, the cash is
+    // recorded for the funding model to draw on.
+    if (o.takePcls) {
+      meta.pclsCash = meta.accumulatedPot * 0.25;
+      meta.pclsYear = decumStartDate.y;
+      meta.accumulatedPot *= 0.75;
+    }
     const series = generateDcDrawdownSeries(
       decumStartAge, decumStartDate, endAge, meta.accumulatedPot, o.drawdown, o.potGrowth,
       o.injectionDate || null, o.injectionAmount || 0);
@@ -2776,7 +2883,7 @@ function computeAll(overrides = {}) {
 
   const yourBuilt = buildPersonProjection(you, {
     mode: inp.yourMode, potToday: inp.yourPot, drawdown: inp.yourDrawdown, potGrowth: inp.yourPotGrowth,
-    employerContribution, annualAllowance: inp.annualAllowance,
+    employerContribution, annualAllowance: inp.annualAllowance, takePcls: inp.yourTakePcls,
     startIncome: inp.yourIncome, incomeGrowth: inp.yourIncomeGrowth,
     retireDate: inp.retireDate, retireSpend: inp.retireSpend, assets: atYou,
     spWeekly: inp.spWeekly, spGrowth: inp.spGrowth, discount: inp.discount, today,
@@ -2789,7 +2896,7 @@ function computeAll(overrides = {}) {
   if (spouse) {
     spouseBuilt = buildPersonProjection(spouse, {
       mode: inp.spouseMode, potToday: inp.spousePot, drawdown: inp.spouseDrawdown, potGrowth: inp.spousePotGrowth,
-      employerContribution: 0, annualAllowance: Infinity,
+      employerContribution: 0, annualAllowance: Infinity, takePcls: inp.spouseTakePcls,
       startIncome: inp.spouseIncome, incomeGrowth: inp.spouseIncomeGrowth,
       retireDate: inp.spouseRetireDate, retireSpend: 0, assets: atSpouse,
       spWeekly: inp.spWeekly, spGrowth: inp.spGrowth, discount: inp.discount, today,
@@ -3271,20 +3378,95 @@ function householdSeries(model) {
   const years = Object.keys(byYear).map(Number).sort((a, b) => a - b);
   const flags = [];
   const you = model.you, spouse = model.spouse, inp = model.inp;
-  flags.push({ year: addYearsMonths(inp.retireDate, 0, 0).y, label: "You retire", icon: "🏖️" });
-  flags.push({ year: you.spaDate.y, label: `Your ${COUNTRIES[currentCountry].spName}`, icon: "🏛️" });
+  const sub = (age, dObj) => `age ${age} · ${fmtDate(dObj)}`;
+  flags.push({ year: inp.retireDate.y, label: "You retire", icon: "🏖️",
+    sub: sub(ageAtDate(you.dob, inp.retireDate), inp.retireDate) });
+  flags.push({ year: you.spaDate.y, label: `Your ${COUNTRIES[currentCountry].spName}`, icon: "🏛️",
+    sub: sub(you.spaYears, you.spaDate) });
   if (spouse) {
-    flags.push({ year: inp.spouseRetireDate.y, label: "Spouse retires", icon: "🏖️" });
-    flags.push({ year: spouse.spaDate.y, label: `Spouse ${COUNTRIES[currentCountry].spName}`, icon: "🏛️" });
+    flags.push({ year: inp.spouseRetireDate.y, label: "Spouse retires", icon: "🏖️",
+      sub: sub(ageAtDate(spouse.dob, inp.spouseRetireDate), inp.spouseRetireDate) });
+    flags.push({ year: spouse.spaDate.y, label: `Spouse ${COUNTRIES[currentCountry].spName}`, icon: "🏛️",
+      sub: sub(spouse.spaYears, spouse.spaDate) });
   }
   planEvents.forEach(ev => flags.push({ year: ev.year, label: ev.label || "Event", custom: true,
-    icon: ev.dir === "in" ? "💰" : "🏡" }));
+    icon: ev.dir === "in" ? "💰" : "🏡", sub: `age ${ev.year - you.dob.y} · ${ev.year}` }));
   return { years, byYear, flags };
 }
 
 function themeColor(name, fallback) {
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   return v || fallback;
+}
+
+// Split one owner's non-pension savings into funding buckets by wrapper type.
+function fundingBuckets(owner) {
+  const oa = assets[owner] || emptyOwnerAssets();
+  const currentEl = els(owner === "spouse" ? "spouseCashCurrent" : "cashCurrent");
+  let cash = currentEl ? parseMoney(currentEl.value) || 0 : 0, cashISA = 0, ssISA = 0, gia = 0;
+  oa.savings.forEach(a => { const v = Number(a.balance) || 0; if (a.type === "Cash ISA") cashISA += v; else cash += v; });
+  oa.shares.forEach(a => { const v = Number(a.value) || 0; (a.type === "Stocks & Shares ISA" || a.type === "Lifetime ISA") ? ssISA += v : gia += v; });
+  return { cash, cashISA, ssISA, gia };
+}
+
+// Household funding model: each decumulation year, meet the (phase-adjusted)
+// spending target from guaranteed income + pension drawdown, then draw
+// non-pension savings - tax-free lump sum, cash, Cash ISA, GIA, S&S ISA - plus
+// any downsizing proceeds, as far as they last. Itemises where money comes from.
+function householdFunding(model) {
+  const inp = model.inp, today = model.today, spouse = model.spouse, you = model.you;
+  const startYear = Math.min(model.yourMeta.decumStartDate.y,
+    spouse ? model.spouseMeta.decumStartDate.y : Infinity);
+  const endYear = Math.max(you.lifeExpDate.y, spouse ? spouse.lifeExpDate.y : 0);
+
+  const inc = {};
+  const addRows = rows => rows.forEach(r => {
+    const b = inc[r.date.y] || (inc[r.date.y] = { state: 0, db: 0, pension: 0 });
+    b.state += r.state; b.db += (r.db || 0);
+    if (!r.isBridge) b.pension += r.private;
+  });
+  addRows(model.yourRows); if (spouse) addRows(model.spouseRows);
+
+  const by = fundingBuckets("you"), bs = spouse ? fundingBuckets("spouse") : { cash: 0, cashISA: 0, ssISA: 0, gia: 0 };
+  const gInvest = (inp.yourPotGrowth || 0) / 100, gCash = 0.015, gCashISA = 0.02;
+  const grow = (v, rate) => v * Math.pow(1 + rate, Math.max(0, startYear - today.y));
+  const pool = {
+    pcls: 0,
+    cash: grow(by.cash + bs.cash, gCash),
+    cashISA: grow(by.cashISA + bs.cashISA, gCashISA),
+    gia: grow(by.gia + bs.gia, gInvest) + (model.equityAccrued || 0),
+    ssISA: grow(by.ssISA + bs.ssISA, gInvest),
+  };
+  const pclsAdds = {}, downAdds = {};
+  [model.yourMeta, spouse ? model.spouseMeta : null].forEach(m => {
+    if (m && m.pclsYear) pclsAdds[m.pclsYear] = (pclsAdds[m.pclsYear] || 0) + m.pclsCash;
+  });
+  (model.assetTotals.downsizeEvents || []).concat(spouse ? (model.assetTotalsSpouse.downsizeEvents || []) : [])
+    .forEach(e => { if (e.year >= startYear) downAdds[e.year] = (downAdds[e.year] || 0) + e.amount; });
+
+  const custom = parseMoney(els("mcSpend").value);
+  const baseTarget = (custom && custom > 0) ? custom : (model.rlsTarget || RLS.mod[spouse ? "couple" : "single"]);
+
+  const byYear = {};
+  let exhaustedYear = null;
+  for (let y = startYear; y <= endYear; y++) {
+    pool.pcls += pclsAdds[y] || 0;
+    const dz = downAdds[y] || 0; pool.cash += dz;
+    const b = inc[y] || { state: 0, db: 0, pension: 0 };
+    const target = targetForYear(model, baseTarget, y);
+    let need = Math.max(0, target - (b.state + b.db + b.pension));
+    const draws = { pcls: 0, cash: 0, cashISA: 0, gia: 0, ssISA: 0, downsize: 0 };
+    ["pcls", "cash", "cashISA", "gia", "ssISA"].forEach(k => {
+      const d = Math.min(need, pool[k]); pool[k] -= d; need -= d; draws[k] += d;
+    });
+    if (dz > 0 && draws.cash > 0) { draws.downsize = Math.min(draws.cash, dz); draws.cash -= draws.downsize; }
+    if (need > 0.5 && exhaustedYear === null) exhaustedYear = y;
+    const total = b.state + b.db + b.pension + draws.pcls + draws.downsize + draws.cash + draws.cashISA + draws.gia + draws.ssISA;
+    byYear[y] = { year: y, state: b.state, db: b.db, pension: b.pension, ...draws, target, total };
+    pool.cash *= (1 + gCash); pool.cashISA *= (1 + gCashISA); pool.gia *= (1 + gInvest); pool.ssISA *= (1 + gInvest); pool.pcls *= (1 + gCash);
+  }
+  const years = Object.keys(byYear).map(Number).sort((a, b) => a - b);
+  return { years, byYear, exhaustedYear };
 }
 
 // Pre-retirement "paying in" per year: pension contributions plus net comp
@@ -3303,25 +3485,70 @@ function accumulationSeries(model) {
   return { years, retYear };
 }
 
-// Shared phase decoration for both planner charts: tinted Accumulation and
-// Decumulation bands, a retirement divider, and phase labels.
+// Shared phase decoration for both planner charts: clearly tinted Accumulation
+// and Decumulation bands, a bold labelled retirement divider, and header pills.
 function drawPhaseDecor(ctx, xf, retYear, domainEnd, padL, padR, padT, plotH, W) {
   const xRet = Math.max(padL, Math.min(W - padR, xf(retYear)));
   const xEnd = W - padR;
   ctx.save();
-  ctx.fillStyle = themeColor("--accent", "#1F6F5C") + "12";
+  // stronger tints so the two phases read at a glance
+  ctx.fillStyle = "#5b7fa61f";
   ctx.fillRect(padL, padT, Math.max(0, xRet - padL), plotH);
-  ctx.fillStyle = themeColor("--gold", "#A8762E") + "14";
+  ctx.fillStyle = themeColor("--accent", "#1F6F5C") + "16";
   ctx.fillRect(xRet, padT, Math.max(0, xEnd - xRet), plotH);
-  ctx.setLineDash([4, 3]); ctx.strokeStyle = themeColor("--ink-muted", "#5b6a63"); ctx.lineWidth = 1.5;
+  // header pills labelling each phase, sitting just inside the top of the plot
+  const pill = (cx, text, bg, half) => {
+    if (half < 80) return;
+    ctx.font = "600 11px " + SANS; ctx.textAlign = "center";
+    const w = ctx.measureText(text).width + 18;
+    ctx.fillStyle = bg;
+    roundRect(ctx, cx - w / 2, padT + 6, w, 20, 10); ctx.fill();
+    ctx.fillStyle = "#ffffff"; ctx.fillText(text, cx, padT + 20);
+  };
+  pill((padL + xRet) / 2, "ACCUMULATION · paying in", "#5b7fa6", xRet - padL);
+  pill((xRet + xEnd) / 2, "DECUMULATION · drawing down", themeColor("--accent", "#1F6F5C"), xEnd - xRet);
+  // bold retirement divider + label chip
+  ctx.strokeStyle = themeColor("--accent-strong", "#14503F"); ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(xRet, padT); ctx.lineTo(xRet, padT + plotH); ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.font = "600 11px " + SANS; ctx.textAlign = "center";
-  ctx.fillStyle = themeColor("--ink-muted", "#5b6a63");
-  const labelY = 12;
-  if (xRet - padL > 70) ctx.fillText("◀ Accumulation (paying in)", (padL + xRet) / 2, labelY);
-  if (xEnd - xRet > 70) ctx.fillText("Decumulation (drawing down) ▶", (xRet + xEnd) / 2, labelY);
+  ctx.font = "600 10px " + SANS; ctx.textAlign = "center";
+  const rw = ctx.measureText("RETIREMENT").width + 14;
+  ctx.fillStyle = themeColor("--accent-strong", "#14503F");
+  roundRect(ctx, xRet - rw / 2, padT + plotH - 20, rw, 17, 8); ctx.fill();
+  ctx.fillStyle = "#ffffff"; ctx.fillText("RETIREMENT", xRet, padT + plotH - 8);
   ctx.restore();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+// Shared event-flag rendering (both charts): dashed line, icon, label and an
+// age/date sub-line, stacked into lanes so labels don't collide.
+function drawEventFlags(ctx, flags, xf, domainStart, domainEnd, padT, plotH) {
+  const inView = flags.filter(f => f.year >= domainStart && f.year <= domainEnd).sort((a, b) => a.year - b.year);
+  const laneW = 100, rowH = 26, lanes = [];
+  inView.forEach(f => {
+    const px = xf(f.year);
+    ctx.strokeStyle = f.custom ? themeColor("--gold", "#A8762E") : themeColor("--ink-faint", "#9aa39f");
+    ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(px, padT); ctx.lineTo(px, padT + plotH); ctx.stroke(); ctx.setLineDash([]);
+    let lane = 0;
+    while (lanes[lane] !== undefined && px - lanes[lane] < laneW) lane++;
+    lanes[lane] = px;
+    const topY = padT - 58 + lane * rowH;
+    ctx.textAlign = "center"; ctx.font = "15px " + SANS;
+    ctx.fillText(f.icon || "📌", px, topY + 12);
+    ctx.textAlign = "left"; ctx.font = "600 10.5px " + SANS;
+    ctx.fillStyle = f.custom ? themeColor("--gold", "#A8762E") : themeColor("--ink", "#0F1D19");
+    ctx.fillText(f.label, px + 10, topY + 6);
+    if (f.sub) { ctx.font = "9px " + SANS; ctx.fillStyle = themeColor("--ink-faint", "#8A968F"); ctx.fillText(f.sub, px + 10, topY + 17); }
+  });
 }
 
 function drawPlannerChart(model) {
@@ -3337,7 +3564,7 @@ function drawPlannerChart(model) {
 
   const { years, byYear, flags } = householdSeries(model);
   if (!years.length) return;
-  const padL = 62, padR = 14, padT = 56, padB = 40;
+  const padL = 62, padR = 14, padT = 84, padB = 40;
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const stacks = years.map(y => byYear[y]);
 
@@ -3409,6 +3636,21 @@ function drawPlannerChart(model) {
   });
   ctx.stroke();
 
+  // funded (smoothed) income overlay: when savings smoothing is on, show the
+  // flattened household income the funding model achieves.
+  const smooth = model.inp.smoothOn;
+  const fund = smooth ? householdFunding(model) : null;
+  if (smooth) {
+    ctx.beginPath(); ctx.strokeStyle = "#8a5cd0"; ctx.lineWidth = 2;
+    let started = false;
+    fund.years.forEach(y => {
+      if (y < years[0] || y > domainEnd) return;
+      const px = x(y), py = yPix(fund.byYear[y].total);
+      started ? ctx.lineTo(px, py) : (ctx.moveTo(px, py), started = true);
+    });
+    ctx.stroke();
+  }
+
   // scenario overlays (dashed)
   const scColors = ["#c2571f", "#7b53c1", "#2266aa", "#a4266a"];
   scenarioSeries.forEach((ss, si) => {
@@ -3421,35 +3663,22 @@ function drawPlannerChart(model) {
     ctx.stroke(); ctx.setLineDash([]);
   });
 
-  // living-standard target line
-  if (model.rlsTarget) {
+  // spending-target line (stepped for go-go / no-go phases)
+  const baseTarget = model.rlsTarget || 0;
+  const targetAt = y => targetForYear(model, baseTarget, y);
+  if (baseTarget > 0) {
     ctx.beginPath(); ctx.setLineDash([2, 3]); ctx.strokeStyle = themeColor("--critical", "#B23B3B"); ctx.lineWidth = 1.5;
-    ctx.moveTo(padL, yPix(model.rlsTarget)); ctx.lineTo(W - padR, yPix(model.rlsTarget));
+    let started = false;
+    for (let y = years[0]; y <= domainEnd; y++) {
+      const px = x(y), py = yPix(targetAt(y));
+      started ? ctx.lineTo(px, py) : (ctx.moveTo(padL, py), ctx.lineTo(px, py), started = true);
+    }
+    ctx.lineTo(W - padR, yPix(targetAt(domainEnd)));
     ctx.stroke(); ctx.setLineDash([]);
   }
 
-  // event flags: a vertical line, an emoji icon in a chip at the top, and a label
-  const flagsInView = flags.filter(f => f.year >= domainStart && f.year <= domainEnd)
-    .sort((a, b) => a.year - b.year);
-  const rowH = 15;
-  const lanes = []; // avoid overlapping labels by stacking into lanes
-  flagsInView.forEach(f => {
-    const px = x(f.year);
-    ctx.strokeStyle = f.custom ? themeColor("--gold", "#A8762E") : themeColor("--ink-faint", "#9aa39f");
-    ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
-    ctx.beginPath(); ctx.moveTo(px, padT); ctx.lineTo(px, padT + plotH); ctx.stroke();
-    ctx.setLineDash([]);
-    // pick a lane where the label won't collide with a recent flag
-    let lane = 0;
-    while (lanes[lane] !== undefined && px - lanes[lane] < 90) lane++;
-    lanes[lane] = px;
-    const iconY = padT - 40 + lane * rowH;
-    ctx.font = "16px " + SANS; ctx.textAlign = "center";
-    ctx.fillText(f.icon || "📌", px, iconY + 13);
-    ctx.font = "11px " + SANS; ctx.textAlign = "left";
-    ctx.fillStyle = f.custom ? themeColor("--gold", "#A8762E") : themeColor("--ink-muted", "#5b6a63");
-    ctx.fillText(f.label, px + 11, iconY + 12);
-  });
+  // event flags: a vertical line, an emoji icon, a label and an age/date sub-line
+  drawEventFlags(ctx, flags, x, domainStart, domainEnd, padT, plotH);
 
   // x labels across the full (accumulation + decumulation) span
   ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center"; ctx.font = "12px " + SANS;
@@ -3464,15 +3693,17 @@ function drawPlannerChart(model) {
     `<span class="key"><span class="swatch" style="background:${themeColor("--accent", "#1F6F5C")}"></span>Private pension</span>`,
     `<span class="key"><span class="swatch" style="background:#4a90a4"></span>DB pension</span>`,
     `<span class="key"><span class="swatch" style="background:${themeColor("--accent-strong", "#14503F")}"></span>${COUNTRIES[currentCountry].spName}</span>`,
+    smooth ? `<span class="key"><span class="swatch" style="background:#8a5cd0"></span>Funded income (smoothed)</span>` : "",
     model.rlsTarget ? `<span class="key"><span class="swatch" style="background:${themeColor("--critical", "#B23B3B")}"></span>Target (${RLS[rlsChoice].label})</span>` : "",
     ...scenarioSeries.map((ss, si) => `<span class="key"><span class="swatch" style="background:${scColors[si % scColors.length]}"></span>${ss.name}</span>`),
   ].filter(Boolean).join("");
 
-  if (model.rlsTarget) {
-    const short = stacks.filter(s => s.total + s.event < model.rlsTarget).length;
+  if (baseTarget > 0) {
+    const incomeAt = y => smooth ? fund.byYear[y].total : (byYear[y].total + byYear[y].event);
+    const short = years.filter(y => incomeAt(y) < targetAt(y) - 0.5).length;
     els("plannerVerdict").textContent = short === 0
-      ? `On track: every year meets the ${RLS[rlsChoice].label} standard`
-      : `${short} of ${stacks.length} years fall below the ${RLS[rlsChoice].label} standard`;
+      ? `On track: every year meets the target`
+      : `${short} of ${years.length} years fall below target`;
     els("plannerVerdict").className = "pill" + (short === 0 ? "" : " warn");
   } else {
     els("plannerVerdict").textContent = "No target set";
@@ -3491,7 +3722,7 @@ function drawPlannerChart(model) {
 function drawBreakdownChart(model) {
   const canvas = els("breakdownChart");
   const wrap = canvas.parentElement;
-  const W = Math.max(320, wrap.clientWidth), H = 360;
+  const W = Math.max(320, wrap.clientWidth), H = 420;
   const dpr = window.devicePixelRatio || 1;
   canvas.width = W * dpr; canvas.height = H * dpr;
   canvas.style.height = H + "px";
@@ -3499,9 +3730,9 @@ function drawBreakdownChart(model) {
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, W, H);
 
-  const { years, byYear } = householdSeries(model);
+  const { years, byYear, flags } = householdSeries(model);
   if (!years.length) return;
-  const padL = 62, padR = 14, padT = 26, padB = 34;
+  const padL = 62, padR = 14, padT = 84, padB = 34;
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const target = model.rlsTarget || 0;
 
@@ -3513,9 +3744,36 @@ function drawBreakdownChart(model) {
   const domainEnd = years[years.length - 1];
   const allYears = [];
   for (let yy = domainStart; yy <= domainEnd; yy++) allYears.push(yy);
-
   const accMaxPay = acc.years.length ? Math.max(...acc.years.map(a => a.payIn)) : 0;
-  let maxV = Math.max(accMaxPay, ...years.map(y => byYear[y].total), target) * 1.12;
+
+  // With smoothing on, use the funding model (income + savings draws by
+  // source); otherwise the pension-income view. Layers stack bottom-to-top.
+  const smooth = model.inp.smoothOn;
+  const fund = smooth ? householdFunding(model) : null;
+  const decYear = y => smooth ? fund.byYear[y] : byYear[y];
+  const layers = smooth ? [
+    { key: "state", color: themeColor("--accent-strong", "#14503F"), label: COUNTRIES[currentCountry].spName },
+    { key: "db", color: "#4a90a4", label: "DB pension" },
+    { key: "pension", color: themeColor("--accent", "#1F6F5C"), label: "Pension drawdown" },
+    { key: "pcls", color: themeColor("--gold", "#A8762E"), label: "Tax-free lump sum" },
+    { key: "downsize", color: "#b5834a", label: "Downsizing" },
+    { key: "cash", color: "#8aa0b8", label: "Cash & savings" },
+    { key: "cashISA", color: "#5f7ea6", label: "Cash ISA" },
+    { key: "gia", color: "#9a7bc0", label: "GIA / other" },
+    { key: "ssISA", color: "#6f62c4", label: "Stocks & Shares ISA" },
+  ] : [
+    { key: "bridge", color: themeColor("--gold", "#A8762E"), label: "Savings bridge" },
+    { key: "private", color: themeColor("--accent", "#1F6F5C"), label: "Private pension" },
+    { key: "db", color: "#4a90a4", label: "DB pension" },
+    { key: "state", color: themeColor("--accent-strong", "#14503F"), label: COUNTRIES[currentCountry].spName },
+  ];
+  // phase-adjusted target per year (go-go / slow-go / no-go)
+  const baseTarget = model.rlsTarget || 0;
+  const targetAt = y => targetForYear(model, baseTarget, y);
+
+  const decMax = Math.max(0, ...years.map(y => { const s = decYear(y); return s ? s.total : 0; }),
+    ...years.map(y => targetAt(y)));
+  let maxV = Math.max(accMaxPay, decMax, baseTarget) * 1.12;
   if (maxV <= 0) maxV = 1;
 
   const yPix = v => padT + plotH - v / maxV * plotH;
@@ -3534,14 +3792,6 @@ function drawBreakdownChart(model) {
     ctx.fillText(CUR() + Math.round(v / 1000) + "k", padL - 6, py + 4);
   }
 
-  // bars: one per year - a "paying in" bar during accumulation, a stacked
-  // income bar during decumulation (income sources bottom-to-top)
-  const layers = [
-    { key: "bridge", color: themeColor("--gold", "#A8762E") },
-    { key: "private", color: themeColor("--accent", "#1F6F5C") },
-    { key: "db", color: "#4a90a4" },
-    { key: "state", color: themeColor("--accent-strong", "#14503F") },
-  ];
   const bw = Math.max(2, Math.min(24, slot * 0.72));
   allYears.forEach((y, i) => {
     const cx = padL + slot * (i + 0.5);
@@ -3550,11 +3800,11 @@ function drawBreakdownChart(model) {
       if (v > 0) { ctx.fillStyle = "#5b7fa6"; ctx.fillRect(cx - bw / 2, yPix(v), bw, yPix(0) - yPix(v)); }
       return;
     }
-    const s = byYear[y]; if (!s) return;
+    const s = decYear(y); if (!s) return;
     let base = 0;
     layers.forEach(layer => {
       const v = s[layer.key];
-      if (v <= 0) return;
+      if (!v || v <= 0) return;
       const y0 = yPix(base), y1 = yPix(base + v);
       ctx.fillStyle = layer.color;
       ctx.fillRect(cx - bw / 2, y1, bw, y0 - y1);
@@ -3562,30 +3812,42 @@ function drawBreakdownChart(model) {
     });
   });
 
-  // spending-target line across the decumulation bars
-  if (target > 0) {
+  // spending-target line (stepped for go-go / no-go) across decumulation bars
+  if (baseTarget > 0) {
     ctx.beginPath(); ctx.setLineDash([5, 4]); ctx.lineWidth = 2;
     ctx.strokeStyle = themeColor("--critical", "#B23B3B");
-    ctx.moveTo(Math.max(padL, xf(retYear)), yPix(target)); ctx.lineTo(W - padR, yPix(target)); ctx.stroke();
-    ctx.setLineDash([]);
+    let started = false;
+    for (let y = retYear; y <= domainEnd; y++) {
+      const cx = padL + slot * (idxOf(y) + 0.5), py = yPix(targetAt(y));
+      started ? ctx.lineTo(cx, py) : (ctx.moveTo(padL + slot * idxOf(retYear), py), ctx.lineTo(cx, py), started = true);
+    }
+    ctx.lineTo(W - padR, yPix(targetAt(domainEnd)));
+    ctx.stroke(); ctx.setLineDash([]);
   }
+
+  // major-event flags (same as the chart above), centred on each year's bar
+  drawEventFlags(ctx, flags, y => padL + slot * (idxOf(y) + 0.5), domainStart, domainEnd, padT, plotH);
 
   // x labels
   ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center"; ctx.font = "12px " + SANS;
   const step = Math.max(1, Math.ceil(allYears.length / 9));
   allYears.forEach((y, i) => { if (i % step === 0) ctx.fillText(y, padL + slot * (i + 0.5), H - 12); });
 
+  const key = (c, t) => `<span class="key"><span class="swatch" style="background:${c}"></span>${t}</span>`;
   els("breakdownLegend").innerHTML = [
-    `<span class="key"><span class="swatch" style="background:#5b7fa6"></span>Paying in (contributions)</span>`,
-    `<span class="key"><span class="swatch" style="background:${themeColor("--gold", "#A8762E")}"></span>Savings bridge</span>`,
-    `<span class="key"><span class="swatch" style="background:${themeColor("--accent", "#1F6F5C")}"></span>Private pension</span>`,
-    `<span class="key"><span class="swatch" style="background:#4a90a4"></span>DB pension</span>`,
-    `<span class="key"><span class="swatch" style="background:${themeColor("--accent-strong", "#14503F")}"></span>${COUNTRIES[currentCountry].spName}</span>`,
-    target > 0 ? `<span class="key"><span class="swatch" style="background:${themeColor("--critical", "#B23B3B")}"></span>Spending target</span>` : "",
+    key("#5b7fa6", "Paying in (contributions)"),
+    ...layers.slice().reverse().map(l => key(l.color, l.label)),
+    baseTarget > 0 ? key(themeColor("--critical", "#B23B3B"), "Spending target") : "",
   ].filter(Boolean).join("");
-  els("breakdownCaption").innerHTML = `Left of the divider is the <b>accumulation</b> phase &mdash; blue bars are what you pay in each year. ` +
-    `Right of it is <b>decumulation</b>: each bar is one year's household income split by source (future ${CUR()}). ` +
-    `The dashed line is your spending target; bars below it are years income falls short. Spending is a single target, not itemised categories.`;
+  els("breakdownCaption").innerHTML = smooth
+    ? `Left of the divider is the <b>accumulation</b> phase. Right of it, each bar shows <b>where that year's money comes from</b> ` +
+      `&mdash; guaranteed income and pension drawdown first, then non-pension savings (tax-free cash, cash, ISAs, GIA) and any ` +
+      `downsizing proceeds drawn to hold the target${model.inp.spendPhasesOn ? " (which steps down through your go-go/slow-go/no-go phases)" : ""}. ` +
+      (fund.exhaustedYear ? `Savings run out around <b>${fund.exhaustedYear}</b>, after which income falls back to guaranteed + pension. ` : `Savings last the whole plan. `) +
+      `A simplified drawdown order; not tax-optimised advice.`
+    : `Left of the divider is the <b>accumulation</b> phase &mdash; blue bars are contributions. Right of it is <b>decumulation</b>: ` +
+      `each bar is one year's household income by source. Turn on <b>Use non-pension savings to smooth spending</b> to see cash, ISAs, ` +
+      `GIA and downsizing drawn in to fund the target. The dashed line is your spending target.`;
 }
 
 function runMonteCarlo(model) {
@@ -3945,6 +4207,9 @@ function renderAssetsSummary(model) {
       ["Employer DC pots (fold into pot)", gbp0(a.dcValue)],
       ["Employer DB income", dbTotal > 0 ? gbp0(dbTotal) + "/yr" : "—"],
     );
+    if ((a.property || 0) > 0) rows.push(["Property & vehicles", gbp0(a.property)]);
+    const dz = (a.downsizeEvents || []).reduce((s, e) => s + e.amount, 0);
+    if (dz > 0) rows.push(["Downsizing releases", gbp0(dz)]);
     return `<div class="list-label">${label}</div><div class="stat-row">` + rows.map(([l, v]) =>
       `<div class="stat"><span class="label">${l}</span><span class="value">${v}</span></div>`).join("") + `</div>`;
   };
@@ -4119,7 +4384,8 @@ els("extraSaveOn").addEventListener("change", e => {
   els("extraSaveFields").style.display = e.target.checked ? "" : "none";
   onUserChange();
 });
-[["stratSaveOn", "stratSaveFields"], ["stratPclsOn", "stratPclsFields"], ["stratIsaOn", "stratIsaFields"]]
+[["stratSaveOn", "stratSaveFields"], ["stratPclsOn", "stratPclsFields"], ["stratIsaOn", "stratIsaFields"],
+ ["spendPhasesOn", "spendPhaseFields"]]
   .forEach(([cb, fields]) => els(cb).addEventListener("change", e => {
     els(fields).style.display = e.target.checked ? "" : "none";
     onUserChange();
@@ -4296,6 +4562,8 @@ function seedDemoProfiles() {
     rsuHeld: "0", rsuHeldYears: "2", rsuAmount: "0", rsuVestYears: "2",
     sayeMonthly: "0", sayeTermYears: "3", sayeDiscount: "20", oneOffCash: "0", oneOffYear: String(todayObj().y + 1), extraSave: "0",
     stratSaveAmt: "10,000", stratIsaAmt: "20,000", stratSaveOn: false, stratPclsOn: false, stratIsaOn: false,
+    goGoPct: "120", goGoUntilAge: "75", slowGoPct: "100", slowGoUntilAge: "85", noGoPct: "80",
+    yourTakePcls: false, spouseTakePcls: false, smoothOn: false, spendPhasesOn: false,
     yourIncome: "0", yourIncomeGrowth: "2", cashCurrent: "0", spouseCashCurrent: "0",
     spousePot: "0", spouseDrawdown: "4", spousePotGrowth: "6", spouseIncome: "0", spouseIncomeGrowth: "2",
     statePensionWeekly: "230.25", statePensionGrowth: "2.5", discountRate: "2.5",
