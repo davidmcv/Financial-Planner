@@ -3271,14 +3271,19 @@ function householdSeries(model) {
   const years = Object.keys(byYear).map(Number).sort((a, b) => a - b);
   const flags = [];
   const you = model.you, spouse = model.spouse, inp = model.inp;
-  flags.push({ year: addYearsMonths(inp.retireDate, 0, 0).y, label: "You retire", icon: "🏖️" });
-  flags.push({ year: you.spaDate.y, label: `Your ${COUNTRIES[currentCountry].spName}`, icon: "🏛️" });
+  const sub = (age, dObj) => `age ${age} · ${fmtDate(dObj)}`;
+  flags.push({ year: inp.retireDate.y, label: "You retire", icon: "🏖️",
+    sub: sub(ageAtDate(you.dob, inp.retireDate), inp.retireDate) });
+  flags.push({ year: you.spaDate.y, label: `Your ${COUNTRIES[currentCountry].spName}`, icon: "🏛️",
+    sub: sub(you.spaYears, you.spaDate) });
   if (spouse) {
-    flags.push({ year: inp.spouseRetireDate.y, label: "Spouse retires", icon: "🏖️" });
-    flags.push({ year: spouse.spaDate.y, label: `Spouse ${COUNTRIES[currentCountry].spName}`, icon: "🏛️" });
+    flags.push({ year: inp.spouseRetireDate.y, label: "Spouse retires", icon: "🏖️",
+      sub: sub(ageAtDate(spouse.dob, inp.spouseRetireDate), inp.spouseRetireDate) });
+    flags.push({ year: spouse.spaDate.y, label: `Spouse ${COUNTRIES[currentCountry].spName}`, icon: "🏛️",
+      sub: sub(spouse.spaYears, spouse.spaDate) });
   }
   planEvents.forEach(ev => flags.push({ year: ev.year, label: ev.label || "Event", custom: true,
-    icon: ev.dir === "in" ? "💰" : "🏡" }));
+    icon: ev.dir === "in" ? "💰" : "🏡", sub: `age ${ev.year - you.dob.y} · ${ev.year}` }));
   return { years, byYear, flags };
 }
 
@@ -3303,25 +3308,70 @@ function accumulationSeries(model) {
   return { years, retYear };
 }
 
-// Shared phase decoration for both planner charts: tinted Accumulation and
-// Decumulation bands, a retirement divider, and phase labels.
+// Shared phase decoration for both planner charts: clearly tinted Accumulation
+// and Decumulation bands, a bold labelled retirement divider, and header pills.
 function drawPhaseDecor(ctx, xf, retYear, domainEnd, padL, padR, padT, plotH, W) {
   const xRet = Math.max(padL, Math.min(W - padR, xf(retYear)));
   const xEnd = W - padR;
   ctx.save();
-  ctx.fillStyle = themeColor("--accent", "#1F6F5C") + "12";
+  // stronger tints so the two phases read at a glance
+  ctx.fillStyle = "#5b7fa61f";
   ctx.fillRect(padL, padT, Math.max(0, xRet - padL), plotH);
-  ctx.fillStyle = themeColor("--gold", "#A8762E") + "14";
+  ctx.fillStyle = themeColor("--accent", "#1F6F5C") + "16";
   ctx.fillRect(xRet, padT, Math.max(0, xEnd - xRet), plotH);
-  ctx.setLineDash([4, 3]); ctx.strokeStyle = themeColor("--ink-muted", "#5b6a63"); ctx.lineWidth = 1.5;
+  // header pills labelling each phase, sitting just inside the top of the plot
+  const pill = (cx, text, bg, half) => {
+    if (half < 80) return;
+    ctx.font = "600 11px " + SANS; ctx.textAlign = "center";
+    const w = ctx.measureText(text).width + 18;
+    ctx.fillStyle = bg;
+    roundRect(ctx, cx - w / 2, padT + 6, w, 20, 10); ctx.fill();
+    ctx.fillStyle = "#ffffff"; ctx.fillText(text, cx, padT + 20);
+  };
+  pill((padL + xRet) / 2, "ACCUMULATION · paying in", "#5b7fa6", xRet - padL);
+  pill((xRet + xEnd) / 2, "DECUMULATION · drawing down", themeColor("--accent", "#1F6F5C"), xEnd - xRet);
+  // bold retirement divider + label chip
+  ctx.strokeStyle = themeColor("--accent-strong", "#14503F"); ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(xRet, padT); ctx.lineTo(xRet, padT + plotH); ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.font = "600 11px " + SANS; ctx.textAlign = "center";
-  ctx.fillStyle = themeColor("--ink-muted", "#5b6a63");
-  const labelY = 12;
-  if (xRet - padL > 70) ctx.fillText("◀ Accumulation (paying in)", (padL + xRet) / 2, labelY);
-  if (xEnd - xRet > 70) ctx.fillText("Decumulation (drawing down) ▶", (xRet + xEnd) / 2, labelY);
+  ctx.font = "600 10px " + SANS; ctx.textAlign = "center";
+  const rw = ctx.measureText("RETIREMENT").width + 14;
+  ctx.fillStyle = themeColor("--accent-strong", "#14503F");
+  roundRect(ctx, xRet - rw / 2, padT + plotH - 20, rw, 17, 8); ctx.fill();
+  ctx.fillStyle = "#ffffff"; ctx.fillText("RETIREMENT", xRet, padT + plotH - 8);
   ctx.restore();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+// Shared event-flag rendering (both charts): dashed line, icon, label and an
+// age/date sub-line, stacked into lanes so labels don't collide.
+function drawEventFlags(ctx, flags, xf, domainStart, domainEnd, padT, plotH) {
+  const inView = flags.filter(f => f.year >= domainStart && f.year <= domainEnd).sort((a, b) => a.year - b.year);
+  const laneW = 100, rowH = 26, lanes = [];
+  inView.forEach(f => {
+    const px = xf(f.year);
+    ctx.strokeStyle = f.custom ? themeColor("--gold", "#A8762E") : themeColor("--ink-faint", "#9aa39f");
+    ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(px, padT); ctx.lineTo(px, padT + plotH); ctx.stroke(); ctx.setLineDash([]);
+    let lane = 0;
+    while (lanes[lane] !== undefined && px - lanes[lane] < laneW) lane++;
+    lanes[lane] = px;
+    const topY = padT - 58 + lane * rowH;
+    ctx.textAlign = "center"; ctx.font = "15px " + SANS;
+    ctx.fillText(f.icon || "📌", px, topY + 12);
+    ctx.textAlign = "left"; ctx.font = "600 10.5px " + SANS;
+    ctx.fillStyle = f.custom ? themeColor("--gold", "#A8762E") : themeColor("--ink", "#0F1D19");
+    ctx.fillText(f.label, px + 10, topY + 6);
+    if (f.sub) { ctx.font = "9px " + SANS; ctx.fillStyle = themeColor("--ink-faint", "#8A968F"); ctx.fillText(f.sub, px + 10, topY + 17); }
+  });
 }
 
 function drawPlannerChart(model) {
@@ -3337,7 +3387,7 @@ function drawPlannerChart(model) {
 
   const { years, byYear, flags } = householdSeries(model);
   if (!years.length) return;
-  const padL = 62, padR = 14, padT = 56, padB = 40;
+  const padL = 62, padR = 14, padT = 84, padB = 40;
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const stacks = years.map(y => byYear[y]);
 
@@ -3428,28 +3478,8 @@ function drawPlannerChart(model) {
     ctx.stroke(); ctx.setLineDash([]);
   }
 
-  // event flags: a vertical line, an emoji icon in a chip at the top, and a label
-  const flagsInView = flags.filter(f => f.year >= domainStart && f.year <= domainEnd)
-    .sort((a, b) => a.year - b.year);
-  const rowH = 15;
-  const lanes = []; // avoid overlapping labels by stacking into lanes
-  flagsInView.forEach(f => {
-    const px = x(f.year);
-    ctx.strokeStyle = f.custom ? themeColor("--gold", "#A8762E") : themeColor("--ink-faint", "#9aa39f");
-    ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
-    ctx.beginPath(); ctx.moveTo(px, padT); ctx.lineTo(px, padT + plotH); ctx.stroke();
-    ctx.setLineDash([]);
-    // pick a lane where the label won't collide with a recent flag
-    let lane = 0;
-    while (lanes[lane] !== undefined && px - lanes[lane] < 90) lane++;
-    lanes[lane] = px;
-    const iconY = padT - 40 + lane * rowH;
-    ctx.font = "16px " + SANS; ctx.textAlign = "center";
-    ctx.fillText(f.icon || "📌", px, iconY + 13);
-    ctx.font = "11px " + SANS; ctx.textAlign = "left";
-    ctx.fillStyle = f.custom ? themeColor("--gold", "#A8762E") : themeColor("--ink-muted", "#5b6a63");
-    ctx.fillText(f.label, px + 11, iconY + 12);
-  });
+  // event flags: a vertical line, an emoji icon, a label and an age/date sub-line
+  drawEventFlags(ctx, flags, x, domainStart, domainEnd, padT, plotH);
 
   // x labels across the full (accumulation + decumulation) span
   ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center"; ctx.font = "12px " + SANS;
@@ -3491,7 +3521,7 @@ function drawPlannerChart(model) {
 function drawBreakdownChart(model) {
   const canvas = els("breakdownChart");
   const wrap = canvas.parentElement;
-  const W = Math.max(320, wrap.clientWidth), H = 360;
+  const W = Math.max(320, wrap.clientWidth), H = 420;
   const dpr = window.devicePixelRatio || 1;
   canvas.width = W * dpr; canvas.height = H * dpr;
   canvas.style.height = H + "px";
@@ -3499,9 +3529,9 @@ function drawBreakdownChart(model) {
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, W, H);
 
-  const { years, byYear } = householdSeries(model);
+  const { years, byYear, flags } = householdSeries(model);
   if (!years.length) return;
-  const padL = 62, padR = 14, padT = 26, padB = 34;
+  const padL = 62, padR = 14, padT = 84, padB = 34;
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const target = model.rlsTarget || 0;
 
@@ -3569,6 +3599,9 @@ function drawBreakdownChart(model) {
     ctx.moveTo(Math.max(padL, xf(retYear)), yPix(target)); ctx.lineTo(W - padR, yPix(target)); ctx.stroke();
     ctx.setLineDash([]);
   }
+
+  // major-event flags (same as the chart above), centred on each year's bar
+  drawEventFlags(ctx, flags, y => padL + slot * (idxOf(y) + 0.5), domainStart, domainEnd, padT, plotH);
 
   // x labels
   ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center"; ctx.font = "12px " + SANS;
