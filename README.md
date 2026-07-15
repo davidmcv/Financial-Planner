@@ -72,7 +72,13 @@ stay in pounds, as they are UK amounts.)
 
 **Usability**: a **Plain English / Expert** wording toggle and a separate **Simple / Adviser**
 detail-level toggle (Simple hides advanced fields like growth rates and the Monte Carlo panel), so
-the same tool serves a novice and a professional planner.
+the same tool serves a novice and a professional planner. The whole app uses a **dark theme**
+(black background, white text). Every editable number has a **slider** underneath it, so values
+can be swept while all tables and charts update live. On the Planner, the red target line is
+**draggable** — grab it to sweep your income target while savings are drawn to fill any gaps below
+it — and a **"Find my maximum sustainable income"** button solves for the largest spending level
+the household can fund in every year to life expectancy. Paying Out tables include a **Total
+assets** column (pension pot plus remaining cash and shares each year).
 
 **Ten demo profiles** (very low wealth through ultra-high-net-worth, singles and couples, all four
 countries, a Scottish DB-pension case) are seeded on first run so it can be explored immediately;
