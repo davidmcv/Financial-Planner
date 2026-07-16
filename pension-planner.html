@@ -960,12 +960,20 @@
           <span class="pill" id="plannerVerdict"></span>
         </div>
         <div class="chart-wrap"><canvas id="plannerChart" height="560"></canvas></div>
+        <div class="field" style="margin-top: 10px;">
+          <label for="targetSlider">Income target <b id="targetSliderVal"></b> <span class="hint-inline">(drag the red line, or slide here &mdash; easier on a tablet)</span></label>
+          <input type="range" id="targetSlider" class="fld-slider" min="0" max="200000" step="500">
+        </div>
         <div class="chart-legend" id="plannerLegend"></div>
         <p class="caption" id="plannerCaption"></p>
 
         <div class="divider" style="margin: 16px 0;"></div>
         <h3>Year-by-year breakdown <span class="hint-inline">(income sources vs your spending target)</span></h3>
         <div class="chart-wrap"><canvas id="breakdownChart" height="540"></canvas></div>
+        <div class="field" style="margin-top: 10px;">
+          <label for="targetSlider2">Income target <b id="targetSliderVal2"></b> <span class="hint-inline">(synced with the chart above)</span></label>
+          <input type="range" id="targetSlider2" class="fld-slider" min="0" max="200000" step="500">
+        </div>
         <div class="chart-legend" id="breakdownLegend"></div>
         <p class="caption" id="breakdownCaption"></p>
       </div>
@@ -3309,6 +3317,7 @@ let scenarios = [];    // {name, retireShift, growthDelta, spendDelta}
 let lastMc = null;     // cached Monte Carlo result for redraws
 let plannerTarget = null;   // £/yr override set by dragging the red target line
 let plannerXform = null;    // last events-chart transform, for drag hit-testing
+let breakdownXform = null;  // last breakdown-chart transform, same purpose
 
 function renderEventList() {
   els("eventList").innerHTML = planEvents.length ? planEvents.map((ev, i) => `
@@ -3686,6 +3695,7 @@ function drawPlannerChart(model) {
   // grab it anywhere to sweep the income target up and down.
   const baseTarget = plannerTarget != null ? plannerTarget : (model.rlsTarget || 0);
   const targetAt = y => targetForYear(model, baseTarget, y);
+  updateTargetSliders(baseTarget, maxV);
   if (baseTarget > 0) {
     const crit = themeColor("--critical", "#E88787");
     ctx.beginPath(); ctx.setLineDash([6, 4]); ctx.strokeStyle = crit; ctx.lineWidth = 2.5;
@@ -3813,6 +3823,8 @@ function drawBreakdownChart(model) {
   const slot = plotW / allYears.length;
   const idxOf = y => y - domainStart;
   const xf = y => padL + slot * idxOf(y); // left edge, for the phase divider
+  // remember the transform so the target line can be dragged on this chart too
+  breakdownXform = { padT, plotH, maxV };
 
   drawPhaseDecor(ctx, xf, retYear, domainEnd, padL, padR, padT, plotH, W);
 
@@ -3846,9 +3858,11 @@ function drawBreakdownChart(model) {
   });
 
   // spending-target line (stepped for go-go / no-go) across decumulation bars
+  // - draggable here too, mirroring the chart above
   if (baseTarget > 0) {
-    ctx.beginPath(); ctx.setLineDash([5, 4]); ctx.lineWidth = 2;
-    ctx.strokeStyle = themeColor("--critical", "#B23B3B");
+    const crit = themeColor("--critical", "#E88787");
+    ctx.beginPath(); ctx.setLineDash([5, 4]); ctx.lineWidth = 2.5;
+    ctx.strokeStyle = crit;
     let started = false;
     for (let y = retYear; y <= domainEnd; y++) {
       const cx = padL + slot * (idxOf(y) + 0.5), py = yPix(targetAt(y));
@@ -3856,6 +3870,11 @@ function drawBreakdownChart(model) {
     }
     ctx.lineTo(W - padR, yPix(targetAt(domainEnd)));
     ctx.stroke(); ctx.setLineDash([]);
+    const hy = yPix(baseTarget);
+    ctx.beginPath(); ctx.arc(W - padR - 8, hy, 7, 0, Math.PI * 2);
+    ctx.fillStyle = crit; ctx.fill();
+    ctx.fillStyle = "#0A0F0D"; ctx.font = "600 9px " + SANS; ctx.textAlign = "center";
+    ctx.fillText("↕", W - padR - 8, hy + 3);
   }
 
   // major-event flags (same as the chart above), centred on each year's bar
@@ -4331,40 +4350,48 @@ els("rlsSeg").addEventListener("click", e => {
   onUserChange();
 });
 
-/* Draggable target line: grab the red line on the events chart to sweep the
-   income target; savings smoothing turns on so gaps below it get filled. */
-(function wireTargetDrag() {
-  const canvas = els("plannerChart");
+/* Draggable target line on BOTH planner charts: grab the red line to sweep
+   the income target (one shared value, so moving it on either chart moves it
+   on the other); savings smoothing turns on so gaps below it get filled.
+   Touch-friendly for iPad: a generous hit zone, and non-passive touch
+   handlers that stop the page scrolling once a drag starts on the line. */
+function setPlannerTarget(v) {
+  plannerTarget = v;
+  if (v != null && !els("smoothOn").checked) els("smoothOn").checked = true; // fill gaps from savings
+}
+
+function makeTargetDrag(canvasId, getXform) {
+  const canvas = els(canvasId);
   let dragging = false, raf = null;
+  const HIT = 28; // generous for fingers
   const lineY = () => {
-    if (!plannerXform || !lastModel) return null;
+    const xf = getXform();
+    if (!xf || !lastModel) return null;
     const base = plannerTarget != null ? plannerTarget : (lastModel.rlsTarget || 0);
     if (base <= 0) return null;
-    return plannerXform.padT + plannerXform.plotH - base / plannerXform.maxV * plannerXform.plotH;
+    return xf.padT + xf.plotH - base / xf.maxV * xf.plotH;
   };
   const near = clientY => {
     const hy = lineY();
     if (hy == null) return false;
     const rect = canvas.getBoundingClientRect();
-    return Math.abs((clientY - rect.top) - hy) < 16;
+    return Math.abs((clientY - rect.top) - hy) < HIT;
   };
   const valueAt = clientY => {
     const rect = canvas.getBoundingClientRect();
-    const y = clientY - rect.top;
-    const xf = plannerXform;
-    const v = (xf.padT + xf.plotH - y) / xf.plotH * xf.maxV;
+    const xf = getXform();
+    const v = (xf.padT + xf.plotH - (clientY - rect.top)) / xf.plotH * xf.maxV;
     return Math.max(0, Math.round(v / 500) * 500);
   };
   canvas.addEventListener("pointerdown", e => {
     if (!near(e.clientY)) return;
     dragging = true;
-    canvas.setPointerCapture(e.pointerId);
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* touch may decline */ }
     e.preventDefault();
   });
   canvas.addEventListener("pointermove", e => {
     if (!dragging) { canvas.style.cursor = near(e.clientY) ? "ns-resize" : ""; return; }
-    plannerTarget = valueAt(e.clientY);
-    if (!els("smoothOn").checked) els("smoothOn").checked = true; // fill gaps from savings
+    setPlannerTarget(valueAt(e.clientY));
     if (raf) return;
     raf = requestAnimationFrame(() => { raf = null; renderAll(); });
   });
@@ -4378,11 +4405,50 @@ els("rlsSeg").addEventListener("click", e => {
   canvas.addEventListener("pointerup", finish);
   canvas.addEventListener("pointercancel", finish);
   canvas.addEventListener("dblclick", () => {
-    plannerTarget = null;
+    setPlannerTarget(null);
     renderAll();
     persistCurrentProfile();
   });
-})();
+  // iOS/iPadOS: prevent the browser turning the gesture into a page scroll.
+  // Must be non-passive; touch-action CSS alone can't be conditional on
+  // "started near the line".
+  canvas.addEventListener("touchstart", e => {
+    if (e.touches.length === 1 && near(e.touches[0].clientY)) e.preventDefault();
+  }, { passive: false });
+  canvas.addEventListener("touchmove", e => {
+    if (dragging) e.preventDefault();
+  }, { passive: false });
+}
+makeTargetDrag("plannerChart", () => plannerXform);
+makeTargetDrag("breakdownChart", () => breakdownXform);
+
+/* Income-target sliders under each chart: a precise, always-works control on
+   touch devices; kept in sync with the draggable line and each other. */
+function wireTargetSlider(id) {
+  const r = els(id);
+  if (!r) return;
+  let raf = null;
+  r.addEventListener("input", () => {
+    setPlannerTarget(Math.round(+r.value / 500) * 500);
+    if (raf) return;
+    raf = requestAnimationFrame(() => { raf = null; renderAll(); });
+  });
+  r.addEventListener("change", () => persistCurrentProfile());
+}
+wireTargetSlider("targetSlider");
+wireTargetSlider("targetSlider2");
+
+// Called from drawPlannerChart so both sliders track the line (and vice versa).
+function updateTargetSliders(base, maxV) {
+  [["targetSlider", "targetSliderVal"], ["targetSlider2", "targetSliderVal2"]].forEach(([sid, vid]) => {
+    const r = els(sid), out = els(vid);
+    if (!r) return;
+    const mx = Math.max(10000, Math.ceil(maxV / 1000) * 1000);
+    if (+r.max !== mx) r.max = mx;
+    if (Math.abs(+r.value - base) > 1) r.value = base;
+    if (out) out.textContent = base > 0 ? `${gbp0(base)}/yr` : "no target";
+  });
+}
 
 els("maxIncomeBtn").addEventListener("click", () => {
   const model = computeAll();
