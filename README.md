@@ -25,6 +25,15 @@ Everything is a simplified planning model - not financial or tax advice.
 - **spending phases** (go-go / slow-go / no-go): configurable percentages of the target by age, so
   you can plan higher spending in the active early travel years and less later — shown as a stepped
   target line;
+- the working years show **household income properly**: each person's salary (a spouse salary field
+  was added) until they retire, stacked with what's paid into pensions and investments — a spouse
+  still working after you retire keeps contributing to household income;
+- **retirement sliders** under both charts shift either person's retirement year in either
+  direction, live; a **flat / today's-money toggle** strips the inflation-style growth so every
+  year reads in constant purchasing power; and a **level income** option draws the pension pot as
+  needed (instead of a fixed %) and banks any above-target surplus, using later above-the-line
+  capacity to close earlier funding gaps — it typically raises the maximum sustainable income
+  materially;
 - a **funding view with smoothing**: turn on *use non-pension savings to smooth spending* and the
   breakdown bars show exactly where each year's money comes from — guaranteed income and pension
   drawdown first, then tax-free lump sums, cash, Cash ISA, GIA, S&S ISA and any **home-downsizing**
