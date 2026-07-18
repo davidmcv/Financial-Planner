@@ -82,7 +82,7 @@ stay in pounds, as they are UK amounts.) Country is set **per person**: a spouse
 different system, getting their own state-pension age and rate, private-access age, and tax
 treatment (the Tax tab then shows each person's regime side by side).
 
-**Usability**: a **Plain English / Expert** wording toggle and a separate **Simple / Adviser**
+**Usability**: a **Simple terms / Full jargon** wording toggle and a separate **Simple / Adviser**
 detail-level toggle (Simple hides advanced fields like growth rates and the Monte Carlo panel), so
 the same tool serves a novice and a professional planner. A **theme picker** (sidebar and
 Settings) offers **Night** (true black & white, the default), **Day** (white & black) and
@@ -140,7 +140,7 @@ React Native app isn't shippable as a single self-contained web file - RN compil
 iOS/Android binary requiring Xcode/Android Studio and app-store distribution - so this delivers the
 native *feel* as a mobile web app.)
 
-A **Plain English / Expert** toggle (top bar and sidebar) switches all jargon between novice-friendly
+A **Simple terms / Full jargon** toggle (top bar and sidebar) switches all jargon between novice-friendly
 phrasing and the accurate terms, so both a beginner and an expert can use it - e.g. "When you can
 take your private pension" vs "Normal Minimum Pension Age (NMPA)", "Today's £" vs "PV", "a gift
 that becomes tax-free once you survive 7 years" vs "Potentially Exempt Transfer (PET)". The Pension
