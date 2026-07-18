@@ -121,9 +121,10 @@
     background: var(--paper); color: var(--ink);
   }
   .profile-row .icon-btn {
-    border: 1px solid var(--border); border-radius: 8px; padding: 6px 9px;
+    border: 1px solid var(--border); border-radius: 8px; padding: 6px 9px; flex: 0 0 auto;
   }
-  .profile-row .icon-btn:hover { border-color: var(--critical); color: var(--critical); }
+  .profile-row .icon-btn:hover { border-color: var(--accent); color: var(--accent-strong, var(--accent)); }
+  .profile-row #deleteProfile:hover { border-color: var(--critical); color: var(--critical); }
   .tabs {
     display: flex;
     flex-direction: column;
@@ -160,14 +161,18 @@
   .content {
     flex: 1;
     min-width: 0;
-    padding: 32px 40px 64px;
-    max-width: 980px;
+    /* fluid padding + a width cap that centres on very wide screens, so the
+       app reads well from small tablets up to large desktops */
+    padding: clamp(16px, 2.5vw, 32px) clamp(14px, 3.2vw, 40px) 64px;
+    width: 100%;
+    max-width: 1040px;
+    margin: 0 auto;
   }
   .panel { display: none; flex-direction: column; gap: 22px; }
   .panel.active { display: flex; }
 
   .panel-head { display: flex; flex-direction: column; gap: 4px; margin-bottom: 4px; }
-  .panel-head h1 { font-size: 1.6rem; }
+  .panel-head h1 { font-size: clamp(1.35rem, 1.1rem + 1.1vw, 1.7rem); }
   .panel-head p { margin: 0; color: var(--ink-muted); font-size: 0.94rem; max-width: 62ch; }
 
   .card {
@@ -249,6 +254,50 @@
     font-size: 0.82rem; color: var(--ink-muted); padding: 7px 0 0; line-height: 1.35;
   }
   .prop-projection b { color: var(--ink); }
+  /* People timeline (above Key Dates) */
+  #timelineCard { overflow-x: auto; }
+  .timeline { min-width: 520px; }
+  .tl-track { display: flex; align-items: center; gap: 10px; min-height: 132px; }
+  .tl-name {
+    flex: 0 0 58px; font-size: 0.8rem; font-weight: 600; color: var(--ink-muted);
+    text-align: right;
+  }
+  .tl-line {
+    position: relative; flex: 1 1 auto; height: 3px; border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent) 0%, var(--border) 100%);
+    margin: 62px 26px;
+  }
+  .tl-marker { position: absolute; top: 50%; transform: translate(-50%, -50%); text-align: center; }
+  .tl-ico {
+    display: inline-block; font-size: 1.1rem; line-height: 1;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 50%;
+    width: 30px; height: 30px; line-height: 28px; position: relative; z-index: 2;
+  }
+  .tl-marker.now .tl-ico { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash, rgba(120,180,160,0.25)); }
+  .tl-flag {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    white-space: nowrap; font-size: 0.68rem; line-height: 1.2; color: var(--ink);
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 3px 6px; z-index: 3;
+  }
+  .tl-flag b { display: block; font-weight: 600; }
+  .tl-flag .tl-sub { color: var(--ink-muted); }
+  .tl-marker.up .tl-flag { bottom: 26px; }
+  .tl-marker.down .tl-flag { top: 26px; }
+  .tl-marker.edge-l .tl-flag { left: 0; transform: none; }
+  .tl-marker.edge-r .tl-flag { left: auto; right: 0; transform: none; }
+  .tl-marker.edge-l .tl-flag::after { left: 15px; }
+  .tl-marker.edge-r .tl-flag::after { left: auto; right: 15px; }
+  .tl-marker.up .tl-flag::after, .tl-marker.down .tl-flag::after {
+    content: ""; position: absolute; left: 50%; transform: translateX(-50%);
+    border: 5px solid transparent;
+  }
+  .tl-marker.up .tl-flag::after { top: 100%; border-top-color: var(--border); }
+  .tl-marker.down .tl-flag::after { bottom: 100%; border-bottom-color: var(--border); }
+  .tl-axis { position: relative; height: 18px; margin: 4px 26px 0 68px; }
+  .tl-axis span {
+    position: absolute; transform: translateX(-50%); font-size: 0.7rem; color: var(--ink-faint);
+  }
   .phase-line { align-items: flex-start; }
   .phase-tax {
     flex: 1 1 260px; min-width: 220px; background: var(--surface-2);
@@ -501,6 +550,10 @@
     background: var(--surface-2); border: 1px solid var(--border); border-left: none;
     border-radius: 0 9px 9px 0;
   }
+  .save-where {
+    font-size: 0.85rem; line-height: 1.4; padding: 10px 12px; border-radius: 8px;
+    background: var(--accent-wash, var(--surface-2)); border: 1px solid var(--border); color: var(--ink);
+  }
   .save-json-details summary { cursor: pointer; font-size: 0.85rem; color: var(--accent-strong); }
   .save-json-details textarea {
     width: 100%; margin-top: 8px; font-family: ui-monospace, Menlo, Consolas, monospace;
@@ -579,24 +632,21 @@
       </div>
 
       <div class="card">
-        <div class="field-row">
-          <div class="profile-box" style="padding: 0; flex: 1 1 200px;">
-            <label for="profileSelect" class="profile-label">Saved profile</label>
+        <div class="field-row settings-row">
+          <div class="field">
+            <label for="profileSelect">Saved profile</label>
             <div class="profile-row">
               <select id="profileSelect"></select>
+              <button class="icon-btn" id="profileExportBtn" title="Save this plan to a file" aria-label="Save to file">&#128190;</button>
+              <button class="icon-btn" id="profileImportBtn" title="Load a plan from a file" aria-label="Load from file">&#128193;</button>
               <button class="icon-btn" id="shareProfile" title="Share this profile with another account" aria-label="Share profile" style="display: none;">&#128101;</button>
               <button class="icon-btn" id="deleteProfile" title="Delete this profile" aria-label="Delete profile">&#128465;</button>
-            </div>
-            <div class="profile-row" style="margin-top: 0.5rem; gap: 0.5rem; flex-wrap: wrap;">
-              <button type="button" class="btn-ghost" id="profileExportBtn" style="flex: 1 1 130px;">&#11015; Save to file&hellip;</button>
-              <button type="button" class="btn-ghost" id="profileImportBtn" style="flex: 1 1 130px;">&#128194; Load from file&hellip;</button>
               <input type="file" id="profileImportInput" accept=".json,application/json" style="display: none;">
             </div>
-            <span class="hint">Save a plan as a file, or load one back &mdash; the file picker reaches local folders, Google&nbsp;Drive and iCloud&nbsp;Drive.</span>
             <span class="hint" id="profileFileMsg" style="display: none; font-weight: 600;"></span>
           </div>
-          <div class="field" style="flex: 1 1 160px;">
-            <label for="country">Country (tax &amp; state pension rules)</label>
+          <div class="field">
+            <label for="country">Country <span class="hint-inline">(tax &amp; state pension)</span></label>
             <select id="country">
               <option value="UK" selected>United Kingdom</option>
               <option value="US">United States</option>
@@ -604,13 +654,12 @@
               <option value="AU">Australia</option>
             </select>
           </div>
-          <div class="field" style="flex: 0 0 150px;" id="scotlandField">
+          <div class="field" id="scotlandField">
             <label for="scotland">UK region</label>
             <select id="scotland">
               <option value="ruk" selected>England / Wales / NI</option>
               <option value="scot">Scotland</option>
             </select>
-            <span class="hint">Scotland has different income-tax bands</span>
           </div>
         </div>
       </div>
@@ -722,6 +771,9 @@
       </div>
 
       <h2 style="margin-top: 4px;">Key dates</h2>
+      <div class="card" id="timelineCard">
+        <div id="ageTimeline"></div>
+      </div>
       <div id="ageCards"></div>
     </section>
 
@@ -1452,9 +1504,8 @@
       </div>
       <span class="hint">Name the file whatever you like &mdash; it doesn't have to match the saved-profile name.</span>
     </div>
-    <p class="hint" style="margin: 0;">Saving opens your device's file dialog, so you can pick a local folder,
-      <b>Google&nbsp;Drive</b> or <b>iCloud&nbsp;Drive</b>. If your browser blocks that, the file downloads instead &mdash;
-      or copy the plan text below and paste it into a file yourself.</p>
+    <div class="save-where" id="saveFileWhere"></div>
+    <p class="hint" style="margin: 0;">Can't save here? Copy the plan text below and paste it into a file yourself.</p>
     <details class="save-json-details">
       <summary>Show / copy plan text</summary>
       <textarea id="saveFileText" readonly rows="7" spellcheck="false"></textarea>
@@ -3401,6 +3452,69 @@ function renderAge(model) {
   };
   els("ageCards").innerHTML = card("You", you, model.inp.retireDate)
     + (spouse ? card("Your spouse", spouse, model.inp.spouseRetireDate) : "");
+  renderTimeline(model);
+}
+
+// A horizontal, responsive timeline above the Key Dates cards: one track per
+// person, with an icon marker for each milestone positioned by date so you can
+// see them relative to one another and to today.
+function renderTimeline(model) {
+  const host = els("ageTimeline");
+  if (!host) return;
+  const { you, spouse, today } = model;
+  const people = [["You", you, model.inp.retireDate]];
+  if (spouse) people.push(["Spouse", spouse, model.inp.spouseRetireDate]);
+
+  // Focus the timeline on today -> the future (birth is shown in the cards);
+  // this avoids a long empty stretch and spreads the milestones out.
+  const yearsOf = p => [p.nmpaDate.y, p.spaDate.y, p.lifeExpDate.y];
+  let lo = today.y, hi = today.y + 1;
+  people.forEach(([, p, ret]) => {
+    yearsOf(p).concat(ret ? [ret.y] : []).forEach(y => { hi = Math.max(hi, y); });
+  });
+  const span = Math.max(1, hi - lo);
+  const pct = y => ((y - lo) / span) * 100;
+
+  const trackHtml = (label, p, ret) => {
+    const curAge = ageAtDate(p.dob, today);
+    const marks = [
+      { y: today.y, ico: "&#128205;", name: "Today", age: curAge, cls: "now" },
+      { y: p.nmpaDate.y, ico: "&#128176;", name: term("privateShort"), age: p.nmpaAge },
+      { y: p.spaDate.y, ico: "&#127963;&#65039;", name: term("spaShort"), age: p.spaYears },
+      { y: p.lifeExpDate.y, ico: "&#127993;", name: "Life exp.", age: p.lifeExpAge },
+    ];
+    if (ret) marks.push({ y: ret.y, ico: "&#127958;&#65039;", name: "Retire", age: ageAtDate(p.dob, ret) });
+    marks.sort((a, b) => a.y - b.y);
+    // Stack labels into lanes when markers crowd together: consecutive close
+    // markers step further from the line, alternating above / below, so no two
+    // flags overlap.
+    let lastPct = -99, cluster = 0;
+    const markHtml = marks.map(m => {
+      const x = pct(m.y);
+      cluster = (x - lastPct < 13) ? cluster + 1 : 0;
+      lastPct = x;
+      const up = cluster % 2 === 0;
+      const dist = 26 + Math.floor(cluster / 2) * 34;
+      const edge = x < 12 ? " edge-l" : x > 88 ? " edge-r" : "";
+      const off = `${up ? "bottom" : "top"}:${dist}px`;
+      return `<div class="tl-marker ${m.cls || ""} ${up ? "up" : "down"}${edge}" style="left:${x}%">
+        <span class="tl-flag" style="${off}"><b>${m.name}</b><span class="tl-sub">age ${m.age} &middot; ${m.y}</span></span>
+        <span class="tl-ico">${m.ico}</span></div>`;
+    }).join("");
+    return `<div class="tl-track">
+      <span class="tl-name">${label}</span>
+      <div class="tl-line">${markHtml}</div>
+    </div>`;
+  };
+
+  const axis = [];
+  const axisStep = Math.max(1, Math.ceil(span / 8));
+  for (let y = lo; y <= hi; y += axisStep) axis.push(`<span style="left:${pct(y)}%">${y}</span>`);
+
+  host.innerHTML = `<div class="timeline">
+    ${people.map(([l, p, r]) => trackHtml(l, p, r)).join("")}
+    <div class="tl-axis">${axis.join("")}</div>
+  </div>`;
 }
 
 function renderSalary(model) {
@@ -5439,12 +5553,26 @@ function saveFileMsg(msg, isError) {
   el.style.color = isError ? "var(--critical, #E06666)" : "var(--accent-strong)";
 }
 
-// Open the Save-to-file dialog: seed the filename and the copyable plain text.
+// Is a real "choose where to save" dialog available (Chromium desktop, not in
+// a sandboxed iframe)? If so the file goes exactly where the user picks;
+// otherwise it lands in the browser's Downloads folder.
+function canPickSaveLocation() {
+  try { return !!window.showSaveFilePicker && window.self === window.top; }
+  catch (e) { return false; } // cross-origin iframe (e.g. the published artifact)
+}
+
+// Open the Save-to-file dialog: seed the filename, the copyable plain text, and
+// a clear note about where the file will end up.
 function openSaveFileModal() {
   const payload = currentPlanPayload();
   const base = (payload.name || "pension-plan").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-") || "pension-plan";
   els("saveFileName").value = base;
   els("saveFileText").value = JSON.stringify(payload, null, 2);
+  els("saveFileWhere").innerHTML = canPickSaveLocation()
+    ? `&#128193; A <b>&ldquo;Save as&rdquo; dialog will open</b> so you choose the folder &mdash; a local folder,
+       <b>Google&nbsp;Drive</b> or <b>iCloud&nbsp;Drive</b>. The file is written where you pick it.`
+    : `&#11015;&#65039; This will <b>download to your Downloads folder</b> (or wherever your browser saves downloads).
+       From there you can move it into <b>Google&nbsp;Drive</b> or <b>iCloud&nbsp;Drive</b>.`;
   saveFileMsg("");
   els("saveFileModal").classList.add("open");
   els("saveFileName").focus(); els("saveFileName").select();
@@ -5457,7 +5585,7 @@ async function doSaveFile() {
   let base = els("saveFileName").value.replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-") || "pension-plan";
   base = base.replace(/\.pension$/i, "").replace(/\.json$/i, "");
   const fname = base + ".pension.json";
-  if (window.showSaveFilePicker) {
+  if (canPickSaveLocation()) {
     try {
       const handle = await showSaveFilePicker({
         suggestedName: fname,
@@ -5465,12 +5593,12 @@ async function doSaveFile() {
       });
       const w = await handle.createWritable();
       await w.write(json); await w.close();
-      fileNotice(`Saved as ${handle.name}`);
+      fileNotice(`Saved ${handle.name} to the folder you chose`);
       closeSaveFileModal();
       return;
     } catch (e) {
       if (e && e.name === "AbortError") return; // user cancelled the picker - stay open
-      // otherwise (e.g. blocked in an iframe) fall through to a download
+      // otherwise (e.g. blocked) fall through to a download
     }
   }
   try {
@@ -5479,10 +5607,10 @@ async function doSaveFile() {
     a.download = fname;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    fileNotice(`Downloaded ${fname}`);
-    saveFileMsg(`Downloading ${fname}. If nothing arrives, copy the plan text below instead.`);
+    fileNotice(`Saved ${fname} to your Downloads folder`);
+    saveFileMsg(`✓ Saved as ${fname} in your Downloads folder. Not there? Copy the plan text below instead.`);
   } catch (e) {
-    saveFileMsg("Couldn't download here — copy the plan text below and paste it into a file.", true);
+    saveFileMsg("Couldn't save here — copy the plan text below and paste it into a file.", true);
   }
 }
 
@@ -5655,10 +5783,13 @@ const SLIDER_EXCLUDE = new Set([
   "mcRuns", "giftStartYear", "oneOffYear",
 ]);
 
+// A few money fields want a bigger slider ceiling than the generic default.
+const SLIDER_MAX_OVERRIDE = { retireSpend: 250000 };
 function sliderBoundsFor(inp) {
   if (inp.dataset.money !== undefined) {
     const v = parseMoney(inp.value) || 0;
-    const max = Math.max(v * 2, 100000);
+    const floor = SLIDER_MAX_OVERRIDE[inp.id] || 100000;
+    const max = Math.max(v * 2, floor);
     return { min: 0, max, step: Math.max(100, Math.round(max / 200 / 100) * 100) };
   }
   const min = inp.min !== "" ? parseFloat(inp.min) : 0;
