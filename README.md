@@ -160,6 +160,14 @@ wife"), so you can switch between saved scenarios later. Opened from disk, profi
 browser's local storage only; served by the backend below, an Account card appears and signed-in
 profiles also sync to the server - across devices, and shareable with an adviser.
 
+Profiles can also be **saved to and loaded from a file**: "Save to file" writes the current plan
+as a `.pension.json` file through the system save dialog (Chrome/Edge), which reaches local
+folders, **Google Drive** (via Drive for desktop) and **iCloud Drive** wherever the OS mounts
+them; on Safari/Firefox/iOS it downloads the file instead, and on an iPhone/iPad the share/Files
+sheet can put it straight into iCloud Drive or the Google Drive app. "Load from file" opens the
+same locations through the file picker, imports the plan under its saved name (never overwriting
+an existing profile - a numbered copy is created instead), and makes it the live profile.
+
 ## Server backend
 
 `server/` is an optional backend that turns the single file into a hosted, multi-user product. The
