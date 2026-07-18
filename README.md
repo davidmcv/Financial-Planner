@@ -56,7 +56,8 @@ Everything is a simplified planning model - not financial or tax advice.
   the chart with a lifetime-income comparison table.
 - **tax strategies** with an honest Inheritance Tax verdict: save more each year; take the 25%
   tax-free lump sum at pension access age into a GIA in the lower-tax spouse's name; or move a
-  pension into ISAs over time (default £20,000/person/year). Each shows its income-tax effect and
+  pension into ISAs over time (default £20,000/person/year, enabled by default). Each shows its
+  income-tax effect and
   estate impact. The key caveat is made plain: under current rules an unused pension is *outside*
   your estate while ISAs and GIAs are *inside* it, so these moves usually *increase* IHT rather
   than reduce it - the gain is income-tax efficiency. From 6 April 2027 unused pensions fall into
@@ -77,21 +78,35 @@ symbol **everywhere** (every field label, hint and table header, not just the ou
 the state-pension defaults and ages (Social Security 67, France 64, Age Pension 67; private access
 59½ / 64 / 60), and the whole tax engine. UK keeps the full SPA legislation including transitional
 bands. (UK-specific statutory figures - the £325,000 nil-rate band, the annual-allowance taper -
-stay in pounds, as they are UK amounts.)
+stay in pounds, as they are UK amounts.) Country is set **per person**: a spouse can live under a
+different system, getting their own state-pension age and rate, private-access age, and tax
+treatment (the Tax tab then shows each person's regime side by side).
 
 **Usability**: a **Plain English / Expert** wording toggle and a separate **Simple / Adviser**
 detail-level toggle (Simple hides advanced fields like growth rates and the Monte Carlo panel), so
-the same tool serves a novice and a professional planner. The whole app uses a **dark theme**
-(black background, white text). Every editable number has a **slider** underneath it, so values
-can be swept while all tables and charts update live. On the Planner, the red target line is
-**draggable** — grab it to sweep your income target while savings are drawn to fill any gaps below
-it — and a **"Find my maximum sustainable income"** button solves for the largest spending level
-the household can fund in every year to life expectancy. Paying Out tables include a **Total
-assets** column (pension pot plus remaining cash and shares each year).
+the same tool serves a novice and a professional planner. A **theme picker** (sidebar and
+Settings) offers **Night** (true black & white, the default), **Day** (white & black) and
+**Forest** (the original green accent); the choice persists, and chart data colours stay fixed
+across themes so the stacked layers always read the same. Every editable number has a **slider**
+underneath it, so values can be swept while all tables and charts update live. On the Planner, the
+red target line is **draggable** — grab it to sweep your income target while savings are drawn to
+fill any gaps below it — and a **"Find my maximum sustainable income"** button solves for the
+largest spending level the household can fund in every year to life expectancy. Paying Out tables
+include a **Total assets** column (pension pot plus remaining cash and shares each year). Every
+**significant event is movable via a slider** in its row, and **mirror sliders** on the People
+page (each person's retirement year) and the Tax page (each salary) drive the full model from
+those ultra-simple views — slide a salary on Tax and every chart, table and tax card updates.
 
-**Ten demo profiles** (very low wealth through ultra-high-net-worth, singles and couples, all four
-countries, a Scottish DB-pension case) are seeded on first run so it can be explored immediately;
-your own profiles persist in the browser alongside them, including events, scenarios and targets.
+**Care costs** are modelled by default: a nursing-home selector (state-funded ~£14,000/yr, or five
+private levels up to £150,000/yr) and a separate care/residential-home selector (state or five
+private levels) add their annual cost to the spending target from the no-go age onward, flagged on
+the events chart (🏥 "Care costs begin") so the late-life funding need is never silently ignored.
+
+**Ten demo profiles on a wealth ladder** are seeded on first run — from "01 · State Pension only"
+(no savings at all) through £25k, £75k, £150k (a Scottish DB case), £300k, £600k, £1m and £1.75m to
+"09 · £3m (high earner)" (£300k salary, bonus/RSU split, SAYE) and "10 · £10m wealth" — log-style
+increments, denser below £3m, each populated with sensible defaults for that wealth level; your own
+profiles persist in the browser alongside them, including events, scenarios and targets.
 
 **People** holds each person's date of birth, sex, and **planned retirement date**, plus the
 resulting timeline (private pension access, State Pension, life expectancy) in chronological order.
