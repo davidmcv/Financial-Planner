@@ -1316,6 +1316,27 @@
           </div>
         </div>
 
+        <label class="check-inline" data-glossary="recycle"><input type="checkbox" id="stratRecycleOn"> Tax-free cash recycling <span class="hint-inline">(only worth it if taxable income is below the &pound;12,570 personal allowance)</span></label>
+        <div class="field-row" id="stratRecycleFields" style="display:none;">
+          <div class="field" style="flex:1 1 100%;">
+            <span class="hint">A non-taxpayer can pay <b>&pound;2,880</b> a year into a pension and HMRC adds <b>20% basic-rate relief</b> &mdash;
+              &pound;720 &mdash; grossing it to &pound;3,600, even with no earnings. That &pound;720/yr is free money. <b>Only</b> while your
+              total taxable income stays under the &pound;12,570 personal allowance: above that, the tax you'd pay drawing it back
+              out cancels the relief, so the app won't count it.</span>
+          </div>
+        </div>
+
+        <label class="check-inline" data-glossary="recycle"><input type="checkbox" id="stratSpouseContribOn"> Fund your spouse's pension</label>
+        <div class="field-row" id="stratSpouseContribFields" style="display:none;">
+          <div class="field">
+            <label for="stratSpouseContribAmt">Pay into spouse's pension (<span class="cur">&pound;</span> / year, net)</label>
+            <input type="text" inputmode="decimal" data-money="0" id="stratSpouseContribAmt" value="2,880">
+            <span class="hint">Fully permitted &mdash; you can pay into your spouse's pension and HMRC adds <b>20% relief at source</b>.
+              Most effective when they're a <b>non-/basic-rate taxpayer</b> (the relief is free money). If they're a higher-rate
+              taxpayer they can claim <b>further relief via self-assessment</b>. A non-earner is capped at &pound;2,880 net (&pound;3,600 gross).</span>
+          </div>
+        </div>
+
         <div id="strategyCompare" style="margin-top:12px;"></div>
         <p class="caption" id="strategyIhtNote" style="margin-top:10px;"></p>
       </div>
@@ -2259,6 +2280,7 @@ const GLOSSARY = {
   montecarlo:    { url: "https://en.wikipedia.org/wiki/Monte_Carlo_method", label: "Monte Carlo method (Wikipedia)" },
   saye:          { url: "https://www.gov.uk/tax-employee-share-schemes/save-as-you-earn-saye", label: "Save As You Earn (gov.uk)" },
   rsu:           { url: "https://www.gov.uk/tax-employee-share-schemes", label: "Employee share schemes (gov.uk)" },
+  recycle:       { url: "https://www.gov.uk/tax-on-your-private-pension/pension-tax-relief", label: "Pension tax relief (gov.uk)" },
 };
 
 function glossaryLink(g) {
@@ -2691,7 +2713,7 @@ const PROFILE_FIELD_IDS = [
   "bonusAmount", "bonusDeferYears", "bonusCashPct", "bonusDeferredPct", "bonusRsuPct",
   "rsuHeld", "rsuHeldYears", "rsuAmount", "rsuVestYears",
   "sayeMonthly", "sayeTermYears", "sayeDiscount", "oneOffCash", "oneOffYear", "extraSave",
-  "stratSaveAmt", "stratIsaAmt",
+  "stratSaveAmt", "stratIsaAmt", "stratSpouseContribAmt",
   "goGoPct", "goGoUntilAge", "slowGoPct", "slowGoUntilAge", "noGoPct", "careNursing", "careHome",
   "yourIncome", "yourIncomeGrowth", "cashCurrent", "spouseCashCurrent", "spouseSalary",
   "spousePot", "spouseDrawdown", "spousePotGrowth", "spouseIncome", "spouseIncomeGrowth",
@@ -2725,6 +2747,8 @@ function collectProfileData() {
   data.stratSaveOn = els("stratSaveOn").checked;
   data.stratPclsOn = els("stratPclsOn").checked;
   data.stratIsaOn = els("stratIsaOn").checked;
+  data.stratRecycleOn = els("stratRecycleOn").checked;
+  data.stratSpouseContribOn = els("stratSpouseContribOn").checked;
   data.yourTakePcls = els("yourTakePcls").checked;
   data.spouseTakePcls = els("spouseTakePcls").checked;
   data.smoothOn = els("smoothOn").checked;
@@ -2789,9 +2813,13 @@ function applyProfileData(data) {
   els("stratSaveOn").checked = !!data.stratSaveOn;
   els("stratPclsOn").checked = !!data.stratPclsOn;
   els("stratIsaOn").checked = !!data.stratIsaOn;
+  els("stratRecycleOn").checked = !!data.stratRecycleOn;
+  els("stratSpouseContribOn").checked = !!data.stratSpouseContribOn;
   els("stratSaveFields").style.display = data.stratSaveOn ? "" : "none";
   els("stratPclsFields").style.display = data.stratPclsOn ? "" : "none";
   els("stratIsaFields").style.display = data.stratIsaOn ? "" : "none";
+  els("stratRecycleFields").style.display = data.stratRecycleOn ? "" : "none";
+  els("stratSpouseContribFields").style.display = data.stratSpouseContribOn ? "" : "none";
   els("yourTakePcls").checked = !!data.yourTakePcls;
   els("spouseTakePcls").checked = !!data.spouseTakePcls;
   els("smoothOn").checked = !!data.smoothOn;
@@ -2922,6 +2950,9 @@ function readInputs() {
     stratPclsOn: els("stratPclsOn").checked,
     stratIsaOn: els("stratIsaOn").checked,
     stratIsaAmt: money("stratIsaAmt"),
+    stratRecycleOn: els("stratRecycleOn").checked,
+    stratSpouseContribOn: els("stratSpouseContribOn").checked,
+    stratSpouseContribAmt: money("stratSpouseContribAmt"),
     yourTakePcls: els("yourTakePcls").checked,
     spouseTakePcls: els("spouseTakePcls").checked,
     spouseSalary: Math.min(1000000, Math.max(0, money("spouseSalary"))),
@@ -3058,6 +3089,54 @@ function analyzeStrategies(model) {
       `${gbp0(inp.stratIsaAmt)}/person/yr for ${years} yr`,
       `Tax-free ISA growth; ~${gbp0(perYearTaxNow)}/yr income tax to move it`,
       "Adds to the estate (see below)"]);
+  }
+
+  // Taxable retirement income per person (UK: State + DB fully taxable, 75% of
+  // pension drawdown taxable on the UFPLS basis) - used for the recycling
+  // strategies, which only pay off below the personal allowance.
+  const PA = TAXDATA.UK.pa; // £12,570
+  const taxableOf = r => r ? ((r.state || 0) + (r.db || 0) + (r.private || 0) * (1 - TAXDATA.UK.ufplsTaxFree)) : 0;
+  const yourTaxable = taxableOf(model.yourRows.find(r => !r.isBridge));
+  const spouseTaxable = model.spouse ? taxableOf(model.spouseRows.find(r => !r.isBridge)) : 0;
+  const recycleYears = Math.min(horizon, 30);
+
+  // 4. Tax-free cash / non-earner recycling: pay £2,880 net -> £3,600 gross,
+  //    pocketing £720 basic-rate relief. Only worthwhile below the personal
+  //    allowance; above it, drawing the money back out is taxed and cancels it.
+  if (inp.stratRecycleOn) {
+    if (currentCountry !== "UK") {
+      rows.push(["Tax-free cash recycling", "UK only", "This relief is a UK rule", "&mdash;"]);
+    } else if (yourTaxable < PA) {
+      rows.push(["Tax-free cash recycling", "£2,880 in &rarr; £3,600 gross",
+        `+£720/yr free relief (~${gbp0(720 * recycleYears)} over ${recycleYears} yr) &mdash; stays in your pension`,
+        "Pension (IHT-free before Apr 2027)"]);
+    } else {
+      rows.push(["Tax-free cash recycling", `Income ${gbp0(yourTaxable)} &ge; £12,570`,
+        "Not worth it &mdash; tax on drawing it back cancels the 20% relief", "&mdash;"]);
+    }
+  }
+
+  // 5. Fund the spouse's pension: fully permitted, 20% relief at source. Best
+  //    when the spouse is a non-/basic-rate taxpayer; a higher-rate spouse
+  //    claims the extra relief via self-assessment.
+  if (inp.stratSpouseContribOn && inp.stratSpouseContribAmt > 0) {
+    if (!model.spouse) {
+      rows.push(["Fund spouse's pension", "no spouse", "Add a spouse on the People tab first", "&mdash;"]);
+    } else if (currentCountry !== "UK") {
+      rows.push(["Fund spouse's pension", "UK only", "This relief is a UK rule", "&mdash;"]);
+    } else {
+      const net = inp.stratSpouseContribAmt;
+      const gross = net / 0.8;
+      const relief = gross - net; // 20% at source
+      const spHigher = spouseMr >= 0.4;
+      const effect = spouseTaxable < PA
+        ? `+${gbp0(relief)}/yr free 20% relief (spouse is a non-taxpayer)`
+        : spHigher
+          ? `+${gbp0(relief)}/yr at source, plus higher-rate relief via self-assessment`
+          : `+${gbp0(relief)}/yr basic-rate relief at source`;
+      rows.push(["Fund spouse's pension", `${gbp0(net)}/yr &rarr; ${gbp0(gross)} gross`, effect,
+        "Their pension (IHT-free before Apr 2027)"]);
+    }
   }
 
   // Honest IHT verdict.
@@ -4784,7 +4863,7 @@ function renderStrategies(model) {
   const compareEl = els("strategyCompare");
   const noteEl = els("strategyIhtNote");
   const inp = model.inp;
-  const any = inp.stratSaveOn || inp.stratPclsOn || inp.stratIsaOn;
+  const any = inp.stratSaveOn || inp.stratPclsOn || inp.stratIsaOn || inp.stratRecycleOn || inp.stratSpouseContribOn;
   if (!any) {
     compareEl.innerHTML = "";
     noteEl.innerHTML = `Tip: these strategies mostly improve <b>income-tax</b> efficiency. Whether they help ` +
@@ -5210,6 +5289,19 @@ function updateTargetSliders(base, maxV) {
     if (Math.abs(+r.value - base) > 1) r.value = base;
     if (out) out.textContent = base > 0 ? `${gbp0(base)}/yr` : "no target";
   });
+  // When you set the chart's income target (drag the red line or use its
+  // slider), mirror it into the "Spending target" field the Monte Carlo test
+  // uses, so the two agree. Only while an explicit chart target is active, so a
+  // separately-typed Monte Carlo target isn't clobbered on passive redraws.
+  const sp = els("mcSpend");
+  if (sp && plannerTarget != null && base > 0) {
+    const cur = parseMoney(sp.value) || 0;
+    if (Math.abs(cur - base) > 1) {
+      sp.value = Math.round(base).toLocaleString("en-GB");
+      const slider = sp.nextElementSibling;
+      if (slider && slider.classList.contains("fld-slider")) slider.value = Math.round(base);
+    }
+  }
 }
 
 els("maxIncomeBtn").addEventListener("click", () => {
@@ -5336,6 +5428,7 @@ els("extraSaveOn").addEventListener("change", e => {
   onUserChange();
 });
 [["stratSaveOn", "stratSaveFields"], ["stratPclsOn", "stratPclsFields"], ["stratIsaOn", "stratIsaFields"],
+ ["stratRecycleOn", "stratRecycleFields"], ["stratSpouseContribOn", "stratSpouseContribFields"],
  ["spendPhasesOn", "spendPhaseFields"]]
   .forEach(([cb, fields]) => els(cb).addEventListener("change", e => {
     els(fields).style.display = e.target.checked ? "" : "none";
@@ -5690,6 +5783,7 @@ function seedDemoProfiles() {
     rsuHeld: "0", rsuHeldYears: "2", rsuAmount: "0", rsuVestYears: "2",
     sayeMonthly: "0", sayeTermYears: "3", sayeDiscount: "20", oneOffCash: "0", oneOffYear: String(todayObj().y + 1), extraSave: "0",
     stratSaveAmt: "10,000", stratIsaAmt: "20,000", stratSaveOn: false, stratPclsOn: false, stratIsaOn: true,
+    stratRecycleOn: false, stratSpouseContribOn: false, stratSpouseContribAmt: "2,880",
     goGoPct: "120", goGoUntilAge: "75", slowGoPct: "100", slowGoUntilAge: "85", noGoPct: "80",
     careNursing: "state", careHome: "none",
     yourTakePcls: false, spouseTakePcls: false, smoothOn: false, spendPhasesOn: false,

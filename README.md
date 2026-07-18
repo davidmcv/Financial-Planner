@@ -56,13 +56,19 @@ Everything is a simplified planning model - not financial or tax advice.
 - **what-if scenarios** (retire earlier/later, markets better/worse, spend more/less) overlaid on
   the chart with a lifetime-income comparison table.
 - **tax strategies** with an honest Inheritance Tax verdict: save more each year; take the 25%
-  tax-free lump sum at pension access age into a GIA in the lower-tax spouse's name; or move a
-  pension into ISAs over time (default £20,000/person/year, enabled by default). Each shows its
-  income-tax effect and
-  estate impact. The key caveat is made plain: under current rules an unused pension is *outside*
-  your estate while ISAs and GIAs are *inside* it, so these moves usually *increase* IHT rather
-  than reduce it - the gain is income-tax efficiency. From 6 April 2027 unused pensions fall into
-  the estate, so for later retirements the verdict flips to broadly IHT-neutral.
+  tax-free lump sum at pension access age into a GIA in the lower-tax spouse's name; move a
+  pension into ISAs over time (default £20,000/person/year, enabled by default); **tax-free cash /
+  non-earner recycling** (pay £2,880 net into a pension, collect £720 basic-rate relief - the app
+  only counts it while taxable income is below the £12,570 personal allowance, since above that the
+  tax on drawing it back cancels the relief); and **funding your spouse's pension** (fully
+  permitted, 20% relief at source - most effective when they're a non-/basic-rate taxpayer, with a
+  note that a higher-rate spouse claims further relief via self-assessment). Each shows its
+  income-tax effect and estate impact. The key caveat is made plain: under current rules an unused
+  pension is *outside* your estate while ISAs and GIAs are *inside* it, so those moves usually
+  *increase* IHT rather than reduce it - the gain is income-tax efficiency. From 6 April 2027 unused
+  pensions fall into the estate, so for later retirements the verdict flips to broadly IHT-neutral.
+- Setting the **income target** on the planner chart (drag the red line or use its slider) now also
+  fills the Monte Carlo **spending target**, so the two stay in step.
 
 **Tax** models each country's headline 2025/26-era income tax per person, on salary today and on
 retirement income (a Net column also appears in Paying Out):
