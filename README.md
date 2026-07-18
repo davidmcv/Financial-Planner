@@ -114,6 +114,14 @@ profiles persist in the browser alongside them, including events, scenarios and 
 
 **People** holds each person's date of birth, sex, and **planned retirement date**, plus the
 resulting timeline (private pension access, State Pension, life expectancy) in chronological order.
+Above the Key Dates cards a **visual timeline** places every milestone (today, retirement, private
+pension access, State Pension, life expectancy) as an icon marker positioned by date - one track
+per person - so you can see them relative to one another at a glance. The Saved-profile row is a
+single compact line: the profile dropdown with **save-to-file** and **load-from-file** icon
+buttons, then country, then the UK region (shown only for the UK). The whole app is fluid and
+**responsive from small phones to large desktops** - the sidebar collapses to a bottom tab bar on
+narrow screens, grids reflow, wide tables and the timeline scroll within their own cards, and no
+view overflows horizontally.
 
 **Paying In** (accumulation) has each person's pension pot and contributions, plus their own asset
 sections. **Pension contributions** take the employer amount as either a **percentage of salary**
@@ -169,7 +177,8 @@ Profiles can also be **saved to and loaded from a file**. "Save to file" opens a
 the system save dialog (Chrome/Edge), which reaches local folders, **Google Drive** (via Drive for
 desktop) and **iCloud Drive** wherever the OS mounts them; on Safari/Firefox/iOS it downloads the
 file instead, and the dialog also shows the plan as copyable text as a guaranteed fallback if a
-browser blocks file writes. "Load from file" opens the same locations through the file picker,
+browser blocks file writes. The dialog **says up-front where the file will go** (a "Save as"
+folder picker, or the Downloads folder) and confirms the destination after saving. "Load from file" opens the same locations through the file picker,
 imports the plan under its saved name (never overwriting an existing profile - a numbered copy is
 created instead), and makes it the live profile.
 
