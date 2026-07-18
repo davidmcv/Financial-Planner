@@ -82,11 +82,14 @@ stay in pounds, as they are UK amounts.) Country is set **per person**: a spouse
 different system, getting their own state-pension age and rate, private-access age, and tax
 treatment (the Tax tab then shows each person's regime side by side).
 
-**Usability**: a **Simple terms / Full jargon** wording toggle and a separate **Simple / Adviser**
-detail-level toggle (Simple hides advanced fields like growth rates and the Monte Carlo panel), so
-the same tool serves a novice and a professional planner. A **theme picker** (sidebar and
-Settings) offers **Night** (true black & white, the default), **Day** (white & black) and
-**Forest** (the original green accent); the choice persists, and chart data colours stay fixed
+**Usability**: a single **View** toggle — **Simple** vs **Advanced** — sets both the vocabulary
+and the detail level at once. Simple uses plain-English wording and hides advanced fields (growth
+rates, the Monte Carlo panel); Advanced shows the precise industry terms and every field/panel, so
+the same tool serves a novice and a professional planner. A **theme picker** (sidebar and Settings)
+offers **Night** (true black & white), **Day** (white & black) and **Forest** (the original green
+accent). Until you pick one, the theme **defaults automatically** from your operating system's
+colour-scheme preference and the local time of day — light Day theme in daylight when the OS is set
+to light, Night otherwise; once you choose a theme it persists. Chart data colours stay fixed
 across themes so the stacked layers always read the same. Every editable number has a **slider**
 underneath it, so values can be swept while all tables and charts update live. On the Planner, the
 red target line is **draggable** — grab it to sweep your income target while savings are drawn to
@@ -140,7 +143,7 @@ React Native app isn't shippable as a single self-contained web file - RN compil
 iOS/Android binary requiring Xcode/Android Studio and app-store distribution - so this delivers the
 native *feel* as a mobile web app.)
 
-A **Simple terms / Full jargon** toggle (top bar and sidebar) switches all jargon between novice-friendly
+The **View** toggle (top bar and sidebar) switches all jargon between novice-friendly
 phrasing and the accurate terms, so both a beginner and an expert can use it - e.g. "When you can
 take your private pension" vs "Normal Minimum Pension Age (NMPA)", "Today's £" vs "PV", "a gift
 that becomes tax-free once you survive 7 years" vs "Potentially Exempt Transfer (PET)". The Pension
