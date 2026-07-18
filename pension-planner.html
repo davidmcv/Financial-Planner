@@ -501,17 +501,10 @@
     </nav>
     <div class="rail-footer">
       <div class="profile-box" style="padding: 0;">
-        <span class="profile-label">Wording</span>
-        <div class="wording-seg" style="width: 100%;">
-          <button data-wording="plain" style="flex:1;">Simple terms</button>
-          <button data-wording="expert" style="flex:1;">Full jargon</button>
-        </div>
-      </div>
-      <div class="profile-box" style="padding: 0;">
-        <span class="profile-label">Detail level</span>
-        <div class="wording-seg depth-seg" style="width: 100%;">
-          <button data-depth="simple" style="flex:1;">Simple</button>
-          <button data-depth="adviser" style="flex:1;">Adviser</button>
+        <span class="profile-label">View</span>
+        <div class="wording-seg level-seg" style="width: 100%;">
+          <button data-level="simple" style="flex:1;">Simple</button>
+          <button data-level="advanced" style="flex:1;">Advanced</button>
         </div>
       </div>
       <div class="profile-box" style="padding: 0;">
@@ -530,13 +523,9 @@
   <header class="mobilebar">
     <span class="mark">Ledger &amp; Later</span>
     <span class="spacer"></span>
-    <div class="wording-seg">
-      <button data-wording="plain">Plain</button>
-      <button data-wording="expert">Jargon</button>
-    </div>
-    <div class="wording-seg depth-seg">
-      <button data-depth="simple">Simple</button>
-      <button data-depth="adviser">Pro</button>
+    <div class="wording-seg level-seg">
+      <button data-level="simple">Simple</button>
+      <button data-level="advanced">Advanced</button>
     </div>
     <button class="icon-btn" id="openSettingsMobile" aria-label="Assumptions">&#9881;</button>
   </header>
@@ -2070,8 +2059,22 @@ let yourEmployerMode = "pct"; // "pct" (% of salary) | "fixed" (£ per month)
    is filled in by applyStaticTerms().
    ========================================================================= */
 
-const WORDING_STORAGE_KEY = "pensionPlanner.wording";
-let wordingMode = localStorage.getItem(WORDING_STORAGE_KEY) || "plain"; // novice default
+// A single "View" control drives both the vocabulary (plain vs technical
+// terms) and the detail level (which advanced fields/panels are shown).
+// "simple" = plain wording + hidden advanced fields; "advanced" = full jargon
+// + everything visible.
+const LEVEL_STORAGE_KEY = "pensionPlanner.level";
+function initialLevel() {
+  const saved = localStorage.getItem(LEVEL_STORAGE_KEY);
+  if (saved === "simple" || saved === "advanced") return saved;
+  // Migrate anyone who used the previous two separate toggles.
+  if (localStorage.getItem("pensionPlanner.wording") === "expert" ||
+      localStorage.getItem("pensionPlanner.depth") === "adviser") return "advanced";
+  return "simple"; // novice default
+}
+let experienceLevel = initialLevel();
+let wordingMode = experienceLevel === "advanced" ? "expert" : "plain";
+let depthMode = experienceLevel === "advanced" ? "adviser" : "simple";
 
 const TERMS = {
   spaAge:        { plain: "State Pension age",                  expert: "State Pension Age (SPA)" },
@@ -2106,8 +2109,8 @@ function applyStaticTerms() {
   document.querySelectorAll("[data-term-plain]").forEach(el => {
     el.innerHTML = wordingMode === "plain" ? el.dataset.termPlain : el.dataset.termExpert;
   });
-  document.querySelectorAll(".wording-seg button").forEach(b => {
-    b.classList.toggle("active", b.dataset.wording === wordingMode);
+  document.querySelectorAll(".level-seg button").forEach(b => {
+    b.classList.toggle("active", b.dataset.level === experienceLevel);
   });
 }
 
@@ -4614,29 +4617,23 @@ document.addEventListener("click", e => {
   if (btn) activateTab(btn.dataset.tab);
 });
 
-// Wording toggle (plain English vs expert terms), delegated across both bars.
-document.addEventListener("click", e => {
-  const btn = e.target.closest(".wording-seg button");
-  if (!btn || !btn.dataset.wording) return;
-  wordingMode = btn.dataset.wording;
-  localStorage.setItem(WORDING_STORAGE_KEY, wordingMode);
-  renderAll();
-});
-
-// Simple vs Adviser detail level.
-const DEPTH_STORAGE_KEY = "pensionPlanner.depth";
-let depthMode = localStorage.getItem(DEPTH_STORAGE_KEY) || "simple";
-function applyDepth() {
+// Single "View" control: Simple (plain wording + hidden advanced fields) vs
+// Advanced (full jargon + everything shown). Drives both wordingMode and
+// depthMode so the whole app switches together. Delegated across both bars.
+function applyLevel() {
+  wordingMode = experienceLevel === "advanced" ? "expert" : "plain";
+  depthMode = experienceLevel === "advanced" ? "adviser" : "simple";
   document.body.classList.toggle("depth-simple", depthMode === "simple");
-  document.querySelectorAll(".depth-seg button").forEach(b =>
-    b.classList.toggle("active", b.dataset.depth === depthMode));
+  document.querySelectorAll(".level-seg button").forEach(b =>
+    b.classList.toggle("active", b.dataset.level === experienceLevel));
 }
 document.addEventListener("click", e => {
-  const btn = e.target.closest(".depth-seg button");
-  if (!btn) return;
-  depthMode = btn.dataset.depth;
-  localStorage.setItem(DEPTH_STORAGE_KEY, depthMode);
-  applyDepth();
+  const btn = e.target.closest(".level-seg button");
+  if (!btn || !btn.dataset.level) return;
+  experienceLevel = btn.dataset.level;
+  localStorage.setItem(LEVEL_STORAGE_KEY, experienceLevel);
+  applyLevel();
+  renderAll();
 });
 
 // Country & living-standard target.
@@ -5369,7 +5366,17 @@ function syncSliders() {
 
 /* Theme (Night = black & white default, Day = white & black, Forest = green). */
 const THEME_STORAGE_KEY = "pensionPlanner.appTheme";
-let appTheme = localStorage.getItem(THEME_STORAGE_KEY) || "night";
+// Until the user picks a theme, choose automatically from the OS colour-scheme
+// preference and the local time of day: dark ("Night") if the OS asks for dark
+// or it's evening/night, otherwise the light "Day" theme during daylight hours.
+function autoTheme() {
+  const hour = new Date().getHours();
+  const daytime = hour >= 7 && hour < 19;
+  const prefersDark = window.matchMedia &&
+    window.matchMedia("(prefers-color-scheme: dark)").matches;
+  return (prefersDark || !daytime) ? "night" : "day";
+}
+let appTheme = localStorage.getItem(THEME_STORAGE_KEY) || autoTheme();
 function applyAppTheme() {
   if (appTheme === "night") delete document.documentElement.dataset.appTheme;
   else document.documentElement.dataset.appTheme = appTheme;
@@ -5394,7 +5401,7 @@ updateCurrencyLabels();
 renderAssetLists();
 renderEventList();
 renderScenarioList();
-applyDepth();
+applyLevel();
 applyAppTheme();
 formatAllMoneyInputs();
 attachSliders();
