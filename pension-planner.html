@@ -559,6 +559,13 @@
               <button class="icon-btn" id="shareProfile" title="Share this profile with another account" aria-label="Share profile" style="display: none;">&#128101;</button>
               <button class="icon-btn" id="deleteProfile" title="Delete this profile" aria-label="Delete profile">&#128465;</button>
             </div>
+            <div class="profile-row" style="margin-top: 0.4rem; gap: 0.4rem;">
+              <button type="button" class="btn-ghost" id="profileExportBtn" style="flex: 1;">&#11015; Save to file</button>
+              <button type="button" class="btn-ghost" id="profileImportBtn" style="flex: 1;">&#128194; Load from file</button>
+              <input type="file" id="profileImportInput" accept=".json,application/json" style="display: none;">
+            </div>
+            <span class="hint">Save or load a plan as a file &mdash; your device's file picker reaches local folders, Google Drive and iCloud Drive</span>
+            <span class="hint" id="profileFileMsg" style="display: none;"></span>
           </div>
           <div class="field" style="flex: 1 1 160px;">
             <label for="country">Country (tax &amp; state pension rules)</label>
@@ -5096,6 +5103,102 @@ els("profileModal").addEventListener("click", e => {
 });
 els("profileNameInput").addEventListener("keydown", e => {
   if (e.key === "Enter") els("profileModalConfirm").click();
+});
+
+/* -------------------------------------------------------------------------
+   Profile file export / import. The system file picker (or the download /
+   upload fallback on browsers without the File System Access API) reaches
+   local folders, Google Drive and iCloud Drive wherever the OS mounts them
+   (Drive for desktop, the iOS/iPadOS Files sheet, Android's Drive picker).
+   ------------------------------------------------------------------------- */
+
+const PROFILE_FILE_VERSION = 1;
+let fileMsgTimer = null;
+
+function fileNotice(msg, isError) {
+  const el = els("profileFileMsg");
+  el.textContent = msg;
+  el.style.display = "";
+  el.style.color = isError ? "var(--critical, #E06666)" : "";
+  clearTimeout(fileMsgTimer);
+  fileMsgTimer = setTimeout(() => { el.style.display = "none"; }, 8000);
+}
+
+function profileFileName(name) {
+  const safe = (name || "pension-plan").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-");
+  return (safe || "pension-plan") + ".pension.json";
+}
+
+async function exportProfileToFile() {
+  const name = currentShared ? currentShared.name : (currentProfileName || "Unsaved plan");
+  const payload = {
+    app: "pensionPlanner", kind: "profile", version: PROFILE_FILE_VERSION,
+    name, savedAt: new Date().toISOString(),
+    data: collectProfileData(),
+  };
+  const json = JSON.stringify(payload, null, 2);
+  const fname = profileFileName(name);
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await showSaveFilePicker({
+        suggestedName: fname,
+        types: [{ description: "Pension plan profile", accept: { "application/json": [".json"] } }],
+      });
+      const w = await handle.createWritable();
+      await w.write(json);
+      await w.close();
+      fileNotice(`Saved "${name}" as ${handle.name}`);
+      return;
+    } catch (e) {
+      if (e && e.name === "AbortError") return; // user cancelled the picker
+    }
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+  a.download = fname;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  fileNotice(`Downloaded ${fname} — from Downloads you can move it into Google Drive or iCloud Drive`);
+}
+
+async function importProfileFromFile(file) {
+  let payload;
+  try { payload = JSON.parse(await file.text()); }
+  catch (e) { fileNotice("That file isn't valid JSON", true); return; }
+  let name, data;
+  if (payload && payload.app === "pensionPlanner" && payload.data) {
+    name = payload.name; data = payload.data;
+  } else if (payload && payload.dob !== undefined) {
+    data = payload; // a bare profile object is accepted too
+  } else {
+    fileNotice("That file isn't a pension-planner profile", true);
+    return;
+  }
+  name = (name || file.name.replace(/\.pension\.json$|\.json$/i, "")).trim() || "Imported plan";
+  const profiles = loadProfiles();
+  if (profiles[name]) { // never silently overwrite an existing profile
+    let i = 2;
+    while (profiles[`${name} (${i})`]) i++;
+    name = `${name} (${i})`;
+  }
+  profiles[name] = data;
+  saveProfiles(profiles);
+  currentProfileName = name;
+  currentShared = null;
+  applyProfileData(data);
+  refreshProfileSelect();
+  API.saveProfile(name, data);
+  fileNotice(`Loaded "${name}" from ${file.name}`);
+}
+
+els("profileExportBtn").addEventListener("click", exportProfileToFile);
+els("profileImportBtn").addEventListener("click", () => els("profileImportInput").click());
+els("profileImportInput").addEventListener("change", () => {
+  const f = els("profileImportInput").files[0];
+  if (f) importProfileFromFile(f);
+  els("profileImportInput").value = "";
 });
 
 /* =========================================================================
