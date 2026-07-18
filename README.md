@@ -39,7 +39,8 @@ Everything is a simplified planning model - not financial or tax advice.
   drawdown first, then tax-free lump sums, cash, Cash ISA, GIA, S&S ISA and any **home-downsizing**
   proceeds, drawn to hold the target and flatten the later drop-off (with the year savings run out
   called out). The **25% tax-free lump sum** can be taken per person at access age, and **property
-  & vehicles** are recorded per person with an optional downsize year;
+  & vehicles** are recorded per person with an optional downsize year, releasing a configurable
+  percentage of the value projected to that year at an editable growth rate;
 - a **Longevity chart** (adviser mode): your chance of still being alive by age (either-alive for
   a couple, from a Gompertz survival curve anchored to life expectancy), the Monte Carlo portfolio
   success rate by age (money still lasts), and a **longevity-adjusted** success rate =
@@ -163,13 +164,25 @@ wife"), so you can switch between saved scenarios later. Opened from disk, profi
 browser's local storage only; served by the backend below, an Account card appears and signed-in
 profiles also sync to the server - across devices, and shareable with an adviser.
 
-Profiles can also be **saved to and loaded from a file**: "Save to file" writes the current plan
-as a `.pension.json` file through the system save dialog (Chrome/Edge), which reaches local
-folders, **Google Drive** (via Drive for desktop) and **iCloud Drive** wherever the OS mounts
-them; on Safari/Firefox/iOS it downloads the file instead, and on an iPhone/iPad the share/Files
-sheet can put it straight into iCloud Drive or the Google Drive app. "Load from file" opens the
-same locations through the file picker, imports the plan under its saved name (never overwriting
-an existing profile - a numbered copy is created instead), and makes it the live profile.
+Profiles can also be **saved to and loaded from a file**. "Save to file" opens a dialog where you
+**name the file** (independent of the saved-profile name) and then writes a `.pension.json` through
+the system save dialog (Chrome/Edge), which reaches local folders, **Google Drive** (via Drive for
+desktop) and **iCloud Drive** wherever the OS mounts them; on Safari/Firefox/iOS it downloads the
+file instead, and the dialog also shows the plan as copyable text as a guaranteed fallback if a
+browser blocks file writes. "Load from file" opens the same locations through the file picker,
+imports the plan under its saved name (never overwriting an existing profile - a numbered copy is
+created instead), and makes it the live profile.
+
+Throughout, **every named term links to its official source or definition** (a small &#9432; after
+the label - gov.uk for State Pension age, NMPA, the annual allowance, the 25% tax-free lump sum and
+IHT gifting rules; the ONS life-expectancy calculator; the PLSA Retirement Living Standards), in
+both wording modes. Assorted refinements: **Key dates** now lead with each person's date of birth,
+current age and planned retirement date; **property & vehicle downsizing** takes a *release
+percentage* of the asset's value grown to the downsize year at an editable growth rate (with a
+live projected-value readout) rather than a flat cash figure; the **bonus split** (immediate cash /
+deferred cash / RSUs) auto-balances to 100% as you drag; savings-account balances have sliders and
+new accounts default to a £20,000 Cash ISA; and the **spending-phase** rows show what each phase
+costs as gross / tax / net income and an effective rate, yearly and monthly.
 
 ## Server backend
 
