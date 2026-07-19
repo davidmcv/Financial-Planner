@@ -217,6 +217,18 @@
 
   /* ---------- Charts (planner + Monte Carlo) ---------- */
   .chart-wrap { width: 100%; overflow: hidden; border-radius: 10px; background: var(--surface-2); }
+  .chart-tip {
+    position: absolute; z-index: 5; pointer-events: none; max-width: 260px;
+    background: var(--surface); color: var(--ink); border: 1px solid var(--border);
+    border-radius: 10px; box-shadow: var(--shadow); padding: 9px 11px; font-size: 0.8rem;
+  }
+  .chart-tip .tip-head { font-weight: 600; margin-bottom: 5px; }
+  .chart-tip .tip-row { display: flex; align-items: center; gap: 6px; padding: 1px 0; }
+  .chart-tip .tip-sw { width: 10px; height: 10px; border-radius: 3px; flex: 0 0 auto; }
+  .chart-tip .tip-lbl { flex: 1 1 auto; color: var(--ink-muted); }
+  .chart-tip .tip-amt { font-variant-numeric: tabular-nums; }
+  .chart-tip .tip-total { margin-top: 5px; padding-top: 5px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; font-weight: 600; }
+  .chart-tip .tip-target { color: var(--ink-muted); display: flex; justify-content: space-between; }
   .chart-wrap canvas { display: block; width: 100%; }
   .chart-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; font-size: 0.76rem; color: var(--ink-muted); }
   .chart-legend .key { display: inline-flex; align-items: center; gap: 5px; }
@@ -235,10 +247,14 @@
   .list-label { font-size: 0.78rem; color: var(--ink-muted); margin-bottom: 8px; }
   .asset-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
   .asset-row {
-    display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end;
+    display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-start;
     background: var(--surface-2); border: 1px solid var(--border);
     border-radius: 10px; padding: 10px 12px;
   }
+  /* Reserve one label line so every field's input starts at the same height,
+     whether or not the label wraps - keeps the row's inputs on a straight line
+     even when some fields carry a slider underneath (e.g. Property & Vehicles). */
+  .asset-row .field > label { min-height: 1.9em; display: flex; align-items: flex-start; }
   .asset-row .field { flex: 1 1 120px; gap: 4px; }
   .asset-row .field label { font-size: 0.7rem; }
   .asset-row .field input, .asset-row .field select {
@@ -274,6 +290,9 @@
     width: 30px; height: 30px; line-height: 28px; position: relative; z-index: 2;
   }
   .tl-marker.now .tl-ico { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash, rgba(120,180,160,0.25)); }
+  .tl-marker.tl-move { cursor: grab; touch-action: none; }
+  .tl-marker.tl-move .tl-ico { border-color: var(--accent); border-style: dashed; }
+  .tl-marker.tl-move:active { cursor: grabbing; }
   .tl-flag {
     position: absolute; left: 50%; transform: translateX(-50%);
     white-space: nowrap; font-size: 0.68rem; line-height: 1.2; color: var(--ink);
@@ -995,6 +1014,7 @@
         <button type="button" class="add-btn" data-add="savings" data-owner="you">+ Add savings account</button>
         <div class="divider" style="margin: 12px 0;"></div>
         <h3>&#127963; Employer pensions</h3>
+        <p class="hint" style="margin:-6px 0 8px;">Add as many as you like &mdash; several <b>Defined Contribution</b> pots (each with its own value &amp; contribution) and several <b>Defined Benefit</b> pensions (each with its own income &amp; start age) can all run together.</p>
         <div id="employerPensionList_you" class="asset-list"></div>
         <button type="button" class="add-btn" data-add="employerPensions" data-owner="you">+ Add employer pension</button>
         <div class="divider" style="margin: 12px 0;"></div>
@@ -1071,6 +1091,7 @@
         <button type="button" class="add-btn" data-add="savings" data-owner="spouse">+ Add savings account</button>
         <div class="divider" style="margin: 12px 0;"></div>
         <h3>&#127963; Employer pensions</h3>
+        <p class="hint" style="margin:-6px 0 8px;">Add as many as you like &mdash; several <b>Defined Contribution</b> pots and several <b>Defined Benefit</b> pensions (each with its own income &amp; start age) can all run together.</p>
         <div id="employerPensionList_spouse" class="asset-list"></div>
         <button type="button" class="add-btn" data-add="employerPensions" data-owner="spouse">+ Add employer pension</button>
         <div class="divider" style="margin: 12px 0;"></div>
@@ -1127,6 +1148,7 @@
           </div>
         </div>
         <div class="field-row" style="margin-top: 4px;">
+          <label class="check-inline"><input type="checkbox" id="targetInflationOn" checked> Income target rises with inflation each year (keeps pace with the cost of living)</label>
           <label class="check-inline"><input type="checkbox" id="flatMoney"> Show flat, today's-money numbers (strip inflation-style growth)</label>
           <label class="check-inline"><input type="checkbox" id="levelOn"> Level income: draw the pension as needed &amp; bank surplus to close gaps</label>
         </div>
@@ -1135,7 +1157,8 @@
 
         <div class="divider" style="margin: 16px 0;"></div>
         <h3>Year-by-year breakdown <span class="hint-inline">(income sources vs your spending target)</span></h3>
-        <div class="chart-wrap"><canvas id="breakdownChart" height="540"></canvas></div>
+        <div class="chart-wrap" style="position:relative;"><canvas id="breakdownChart" height="540"></canvas>
+          <div id="breakdownTip" class="chart-tip" style="display:none;"></div></div>
         <div class="field" style="margin-top: 10px;">
           <label for="targetSlider2">Income target <b id="targetSliderVal2"></b> <span class="hint-inline">(synced with the chart above)</span></label>
           <input type="range" id="targetSlider2" class="fld-slider" min="0" max="200000" step="500">
@@ -2755,6 +2778,7 @@ function collectProfileData() {
   data.spendPhasesOn = els("spendPhasesOn").checked;
   data.flatMoneyOn = els("flatMoney").checked;
   data.levelIncomeOn = els("levelOn").checked;
+  data.targetInflationOn = els("targetInflationOn").checked;
   syncAssetsFromDOM();
   syncPlanListsFromDOM();
   data.assets = JSON.parse(JSON.stringify(assets));
@@ -2827,6 +2851,7 @@ function applyProfileData(data) {
   els("spendPhaseFields").style.display = data.spendPhasesOn ? "" : "none";
   els("flatMoney").checked = !!data.flatMoneyOn;
   els("levelOn").checked = !!data.levelIncomeOn;
+  els("targetInflationOn").checked = data.targetInflationOn !== false; // default on
 
   if (typeof syncSliders === "function") syncSliders();
   renderAll();
@@ -2960,6 +2985,7 @@ function readInputs() {
     spouseScottish: els("spouseScotland") && els("spouseScotland").value === "scot",
     flatOn: els("flatMoney").checked,
     levelOn: els("levelOn").checked,
+    targetInflationOn: els("targetInflationOn").checked,
     smoothOn: els("smoothOn").checked,
     spendPhasesOn: els("spendPhasesOn").checked,
     goGoUntilAge: parseInt(els("goGoUntilAge").value, 10) || 75,
@@ -3016,6 +3042,13 @@ function targetForYear(model, base, year) {
   }
   // care costs (nursing/care home) from the no-go age until life expectancy
   if (age >= inp.slowGoUntilAge) t += careCostAnnual(inp);
+  // By default the income target keeps pace with inflation, so it stays
+  // comparable to the (also-growing) income bars. Skipped in the flat /
+  // today's-money view, where everything is already deflated to constant £.
+  if (inp.targetInflationOn && !inp.flatOn) {
+    const infl = (inp.discount || 0) / 100;
+    t *= Math.pow(1 + infl, Math.max(0, year - model.today.y));
+  }
   return t;
 }
 
@@ -3554,7 +3587,7 @@ function renderTimeline(model) {
   const span = Math.max(1, hi - lo);
   const pct = y => ((y - lo) / span) * 100;
 
-  const trackHtml = (label, p, ret) => {
+  const trackHtml = (label, owner, p, ret) => {
     const curAge = ageAtDate(p.dob, today);
     const marks = [
       { y: today.y, ico: "&#128205;", name: "Today", age: curAge, cls: "now" },
@@ -3562,7 +3595,7 @@ function renderTimeline(model) {
       { y: p.spaDate.y, ico: "&#127963;&#65039;", name: term("spaShort"), age: p.spaYears },
       { y: p.lifeExpDate.y, ico: "&#127993;", name: "Life exp.", age: p.lifeExpAge },
     ];
-    if (ret) marks.push({ y: ret.y, ico: "&#127958;&#65039;", name: "Retire", age: ageAtDate(p.dob, ret) });
+    if (ret) marks.push({ y: ret.y, ico: "&#127958;&#65039;", name: "Retire", age: ageAtDate(p.dob, ret), move: true });
     marks.sort((a, b) => a.y - b.y);
     // Stack labels into lanes when markers crowd together: consecutive close
     // markers step further from the line, alternating above / below, so no two
@@ -3576,11 +3609,12 @@ function renderTimeline(model) {
       const dist = 26 + Math.floor(cluster / 2) * 34;
       const edge = x < 12 ? " edge-l" : x > 88 ? " edge-r" : "";
       const off = `${up ? "bottom" : "top"}:${dist}px`;
-      return `<div class="tl-marker ${m.cls || ""} ${up ? "up" : "down"}${edge}" style="left:${x}%">
+      const mv = m.move ? " tl-move" : "";
+      return `<div class="tl-marker ${m.cls || ""} ${up ? "up" : "down"}${edge}${mv}" style="left:${x}%"${m.move ? ` data-retire="${owner}"` : ""}>
         <span class="tl-flag" style="${off}"><b>${m.name}</b><span class="tl-sub">age ${m.age} &middot; ${m.y}</span></span>
         <span class="tl-ico">${m.ico}</span></div>`;
     }).join("");
-    return `<div class="tl-track">
+    return `<div class="tl-track" data-owner="${owner}">
       <span class="tl-name">${label}</span>
       <div class="tl-line">${markHtml}</div>
     </div>`;
@@ -3590,8 +3624,8 @@ function renderTimeline(model) {
   const axisStep = Math.max(1, Math.ceil(span / 8));
   for (let y = lo; y <= hi; y += axisStep) axis.push(`<span style="left:${pct(y)}%">${y}</span>`);
 
-  host.innerHTML = `<div class="timeline">
-    ${people.map(([l, p, r]) => trackHtml(l, p, r)).join("")}
+  host.innerHTML = `<div class="timeline" data-lo="${lo}" data-hi="${hi}">
+    ${people.map(([l, p, r], i) => trackHtml(l, i === 0 ? "you" : "spouse", p, r)).join("")}
     <div class="tl-axis">${axis.join("")}</div>
   </div>`;
 }
@@ -4006,17 +4040,17 @@ function householdSeries(model) {
   const you = model.you, spouse = model.spouse, inp = model.inp;
   const sub = (age, dObj) => `age ${age} · ${fmtDate(dObj)}`;
   flags.push({ year: inp.retireDate.y, label: "You retire", icon: "🏖️",
-    sub: sub(ageAtDate(you.dob, inp.retireDate), inp.retireDate) });
+    sub: sub(ageAtDate(you.dob, inp.retireDate), inp.retireDate), move: { type: "retire", who: "you" } });
   flags.push({ year: you.spaDate.y, label: `Your ${COUNTRIES[currentCountry].spName}`, icon: "🏛️",
     sub: sub(you.spaYears, you.spaDate) });
   if (spouse) {
     flags.push({ year: inp.spouseRetireDate.y, label: "Spouse retires", icon: "🏖️",
-      sub: sub(ageAtDate(spouse.dob, inp.spouseRetireDate), inp.spouseRetireDate) });
+      sub: sub(ageAtDate(spouse.dob, inp.spouseRetireDate), inp.spouseRetireDate), move: { type: "retire", who: "spouse" } });
     flags.push({ year: spouse.spaDate.y, label: `Spouse ${COUNTRIES[currentCountry].spName}`, icon: "🏛️",
       sub: sub(spouse.spaYears, spouse.spaDate) });
   }
-  planEvents.forEach(ev => flags.push({ year: ev.year, label: ev.label || "Event", custom: true,
-    icon: ev.dir === "in" ? "💰" : "🏡", sub: `age ${ev.year - you.dob.y} · ${ev.year}` }));
+  planEvents.forEach((ev, i) => flags.push({ year: ev.year, label: ev.label || "Event", custom: true,
+    icon: ev.dir === "in" ? "💰" : "🏡", sub: `age ${ev.year - you.dob.y} · ${ev.year}`, move: { type: "event", idx: i } }));
   const careAnnual = careCostAnnual(inp);
   if (careAnnual > 0) flags.push({ year: you.dob.y + inp.slowGoUntilAge, label: "Care costs begin", icon: "🏥",
     sub: `age ${inp.slowGoUntilAge} · ${gbp0(careAnnual)}/yr` });
@@ -4238,11 +4272,12 @@ function roundRect(ctx, x, y, w, h, r) {
 
 // Shared event-flag rendering (both charts): dashed line, icon, label and an
 // age/date sub-line, stacked into lanes so labels don't collide.
-function drawEventFlags(ctx, flags, xf, domainStart, domainEnd, padT, plotH) {
+function drawEventFlags(ctx, flags, xf, domainStart, domainEnd, padT, plotH, hitOut) {
   const inView = flags.filter(f => f.year >= domainStart && f.year <= domainEnd).sort((a, b) => a.year - b.year);
   const laneW = 100, rowH = 26, lanes = [];
   inView.forEach(f => {
     const px = xf(f.year);
+    const movable = !!f.move;
     ctx.strokeStyle = f.custom ? CHART.bridge : themeColor("--ink-faint", "#9aa39f");
     ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
     ctx.beginPath(); ctx.moveTo(px, padT); ctx.lineTo(px, padT + plotH); ctx.stroke(); ctx.setLineDash([]);
@@ -4251,11 +4286,17 @@ function drawEventFlags(ctx, flags, xf, domainStart, domainEnd, padT, plotH) {
     lanes[lane] = px;
     const topY = padT - 58 + lane * rowH;
     ctx.textAlign = "center"; ctx.font = "15px " + SANS;
+    // a subtle grip ring behind movable icons so it's clear they can be dragged
+    if (movable) {
+      ctx.beginPath(); ctx.arc(px, topY + 7, 11, 0, Math.PI * 2);
+      ctx.fillStyle = themeColor("--accent-wash", "rgba(120,180,160,0.18)"); ctx.fill();
+    }
     ctx.fillText(f.icon || "📌", px, topY + 12);
     ctx.textAlign = "left"; ctx.font = "600 10.5px " + SANS;
     ctx.fillStyle = f.custom ? CHART.bridge : themeColor("--ink", "#0F1D19");
     ctx.fillText(f.label, px + 10, topY + 6);
     if (f.sub) { ctx.font = "9px " + SANS; ctx.fillStyle = themeColor("--ink-faint", "#8A968F"); ctx.fillText(f.sub, px + 10, topY + 17); }
+    if (movable && hitOut) hitOut.push({ px, topY, move: f.move, year: f.year });
   });
 }
 
@@ -4283,16 +4324,20 @@ function drawPlannerChart(model) {
   const domainEnd = years[years.length - 1];
   const accMaxPay = accYears.length ? Math.max(...accYears.map(a => a.total)) : 0;
 
-  let maxV = Math.max(accMaxPay, ...stacks.map(s => Math.max(s.total + Math.max(0, s.event),
-    plannerTarget != null ? plannerTarget : (model.rlsTarget || 0))));
-  // include scenario overlays in scale
+  // Scale the axis to recurring income + the (inflation-growing) target, the
+  // same basis the breakdown chart uses - so the red target line sits at the
+  // same relative height on both. One-off event spikes and scenario overlays
+  // are NOT allowed to blow up the axis (they'd squash everything and push the
+  // target line around); a rare spike may clip at the top, which is fine.
+  const baseTgt0 = plannerTarget != null ? plannerTarget : (model.rlsTarget || 0);
+  const targetMax = baseTgt0 > 0 ? Math.max(...years.map(y => targetForYear(model, baseTgt0, y))) : 0;
+  let maxV = Math.max(accMaxPay, ...stacks.map(s => s.total), targetMax);
   const scenarioSeries = scenarios.map(sc => {
     const m = computeAll({ retireShift: sc.retireShift, growthDelta: sc.growthDelta, spendDelta: sc.spendDelta });
     const hs = householdSeries(m);
     return { name: sc.name || "What-if", years: hs.years, byYear: hs.byYear };
   });
-  scenarioSeries.forEach(ss => ss.years.forEach(y => { maxV = Math.max(maxV, ss.byYear[y].total); }));
-  maxV *= 1.08;
+  maxV *= 1.12;
 
   const x = y => padL + (y - domainStart) / Math.max(1, domainEnd - domainStart) * plotW;
   const yPix = v => padT + plotH - v / maxV * plotH;
@@ -4417,7 +4462,11 @@ function drawPlannerChart(model) {
   }
 
   // event flags: a vertical line, an emoji icon, a label and an age/date sub-line
-  drawEventFlags(ctx, flags, x, domainStart, domainEnd, padT, plotH);
+  const flagHits = [];
+  drawEventFlags(ctx, flags, x, domainStart, domainEnd, padT, plotH, flagHits);
+  plannerXform.flagHits = flagHits;
+  plannerXform.domainStart = domainStart; plannerXform.domainEnd = domainEnd;
+  plannerXform.xToYear = px => domainStart + Math.round((px - padL) / plotW * Math.max(1, domainEnd - domainStart));
 
   // x labels across the full (accumulation + decumulation) span
   ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center"; ctx.font = "12px " + SANS;
@@ -4525,8 +4574,9 @@ function drawBreakdownChart(model) {
   const slot = plotW / allYears.length;
   const idxOf = y => y - domainStart;
   const xf = y => padL + slot * idxOf(y); // left edge, for the phase divider
-  // remember the transform so the target line can be dragged on this chart too
-  breakdownXform = { padT, plotH, maxV };
+  // remember the transform so the target line can be dragged on this chart too,
+  // and enough geometry to hit-test a bar for the hover tooltip
+  breakdownXform = { padT, plotH, maxV, padL, slot, domainStart, domainEnd, retYear };
 
   drawPhaseDecor(ctx, xf, retYear, domainEnd, padL, padR, padT, plotH, W);
 
@@ -4541,10 +4591,24 @@ function drawBreakdownChart(model) {
 
   const bw = Math.max(3, Math.min(34, slot * 0.8));
   const accBarLayers = [
-    { key: "salYou", color: "#4a7ab5" },
-    { key: "salSpouse", color: "#8b7fd1" },
-    { key: "payIn", color: "#5b7fa6" },
+    { key: "salYou", color: "#4a7ab5", label: "Your salary" },
+    { key: "salSpouse", color: "#8b7fd1", label: "Spouse salary" },
+    { key: "payIn", color: "#5b7fa6", label: "Paid into pensions/investments" },
   ];
+  // Build the hover-tooltip content for a given year (accumulation vs decumulation).
+  breakdownXform.tip = year => {
+    const age = year - model.you.dob.y;
+    if (year < retYear) {
+      const a = accByYear[year]; if (!a) return null;
+      const segs = accBarLayers.map(l => ({ label: l.label, color: l.color, amt: a[l.key] || 0 }))
+        .filter(s => s.amt > 0);
+      return { year, age, phase: "Paying in", segs, total: a.total || 0, target: null };
+    }
+    const s = decYear(year); if (!s) return null;
+    const segs = layers.map(l => ({ label: l.label, color: l.color, amt: s[l.key] || 0 }))
+      .filter(s => s.amt > 0);
+    return { year, age, phase: "Retirement income", segs, total: s.total || 0, target: targetAt(year) };
+  };
   allYears.forEach((y, i) => {
     const cx = padL + slot * (i + 0.5);
     if (y < retYear) { // accumulation: salaries + paying-in, stacked
@@ -4597,7 +4661,10 @@ function drawBreakdownChart(model) {
   }
 
   // major-event flags (same as the chart above), centred on each year's bar
-  drawEventFlags(ctx, flags, y => padL + slot * (idxOf(y) + 0.5), domainStart, domainEnd, padT, plotH);
+  const flagHits2 = [];
+  drawEventFlags(ctx, flags, y => padL + slot * (idxOf(y) + 0.5), domainStart, domainEnd, padT, plotH, flagHits2);
+  breakdownXform.flagHits = flagHits2;
+  breakdownXform.xToYear = px => domainStart + Math.round((px - padL) / slot - 0.5);
 
   // x labels
   ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center"; ctx.font = "12px " + SANS;
@@ -5074,11 +5141,27 @@ els("spouseCountry").addEventListener("change", () => {
   els("spouseScotlandField").style.display = els("spouseCountry").value === "UK" ? "" : "none";
 });
 els("country").addEventListener("change", () => {
+  const prevCountry = currentCountry;
   currentCountry = els("country").value;
   els("statePensionWeekly").value = COUNTRIES[currentCountry].spWeeklyDefault.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   els("scotlandField").style.display = currentCountry === "UK" ? "" : "none";
+  // Default the spouse to the same country/region *while they were in sync* -
+  // so a couple usually share a country, but either can still be overridden.
+  if (els("spouseCountry").value === prevCountry) {
+    els("spouseCountry").value = currentCountry;
+    els("spouseScotlandField").style.display = currentCountry === "UK" ? "" : "none";
+    if (els("spouseScotland")) els("spouseScotland").value = els("scotland").value;
+  }
   updateCurrencyLabels();
   onUserChange();
+});
+// Primary region change carries over to a spouse who's in the same country and
+// currently shares the region (still overridable).
+els("scotland").addEventListener("change", () => {
+  // runs before the generic change handler below (which triggers the redraw)
+  if (els("spouseCountry").value === currentCountry && els("spouseScotland")) {
+    els("spouseScotland").value = els("scotland").value;
+  }
 });
 els("rlsSeg").addEventListener("click", e => {
   const btn = e.target.closest("button");
@@ -5160,6 +5243,146 @@ function makeTargetDrag(canvasId, getXform) {
 }
 makeTargetDrag("plannerChart", () => plannerXform);
 makeTargetDrag("breakdownChart", () => breakdownXform);
+
+/* Hover/tap tooltip on the year-by-year breakdown bars: a speech bubble
+   explaining what that year's bar totals and what each coloured segment is. */
+(function wireBreakdownTip() {
+  const canvas = els("breakdownChart"), tip = els("breakdownTip");
+  if (!canvas || !tip) return;
+  function show(clientX, clientY) {
+    const xf = breakdownXform;
+    if (!xf || !xf.tip || !xf.slot) { tip.style.display = "none"; return; }
+    const rect = canvas.getBoundingClientRect();
+    const px = clientX - rect.left, py = clientY - rect.top;
+    if (px < xf.padL || py < xf.padT || py > xf.padT + xf.plotH) { tip.style.display = "none"; return; }
+    const idx = Math.floor((px - xf.padL) / xf.slot);
+    const year = xf.domainStart + idx;
+    if (year < xf.domainStart || year > xf.domainEnd) { tip.style.display = "none"; return; }
+    const d = xf.tip(year);
+    if (!d || (!d.segs.length && !d.total)) { tip.style.display = "none"; return; }
+    const money = v => CUR() + Math.round(v).toLocaleString("en-GB");
+    tip.innerHTML = `<div class="tip-head">${year} &middot; age ${d.age} &mdash; ${d.phase}</div>` +
+      d.segs.map(s => `<div class="tip-row"><span class="tip-sw" style="background:${s.color}"></span>` +
+        `<span class="tip-lbl">${s.label}</span><span class="tip-amt">${money(s.amt)}</span></div>`).join("") +
+      `<div class="tip-total"><span>Total</span><span>${money(d.total)}/yr</span></div>` +
+      (d.target ? `<div class="tip-target"><span>Spending target</span><span>${money(d.target)}/yr</span></div>` : "");
+    tip.style.display = "";
+    // position within the chart-wrap, flipping left near the right edge
+    const wrapW = canvas.parentElement.clientWidth;
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    let left = px + 14; if (left + tw > wrapW - 4) left = px - tw - 14;
+    let top = py - th - 10; if (top < 4) top = py + 16;
+    tip.style.left = Math.max(4, left) + "px";
+    tip.style.top = top + "px";
+  }
+  canvas.addEventListener("mousemove", e => show(e.clientX, e.clientY));
+  canvas.addEventListener("mouseleave", () => { tip.style.display = "none"; });
+  canvas.addEventListener("touchstart", e => { const t = e.touches[0]; if (t) show(t.clientX, t.clientY); }, { passive: true });
+  canvas.addEventListener("touchend", () => setTimeout(() => { tip.style.display = "none"; }, 2500));
+})();
+
+/* Drag any *movable* event flag (retirements, custom in/out events) directly on
+   either chart to change its year. Statutory flags (State Pension) aren't
+   movable. The grab area is the icon/label band above the plot, so it never
+   clashes with dragging the red target line inside the plot. */
+function makeFlagDrag(canvasId, getXform) {
+  const canvas = els(canvasId);
+  if (!canvas) return;
+  const hitAt = (px, py, xf) => {
+    if (!xf || !xf.flagHits) return null;
+    for (const h of xf.flagHits) {
+      if (Math.abs(px - h.px) <= 16 && py >= h.topY - 8 && py <= h.topY + 22) return h;
+    }
+    return null;
+  };
+  const setYear = (move, year) => {
+    if (move.type === "retire") {
+      const id = move.who === "spouse" ? "spouseRetireDate" : "retireDate";
+      const cur = els(id).value && /^\d{4}-\d{2}-\d{2}$/.test(els(id).value) ? els(id).value : year + "-06-01";
+      els(id).value = year + cur.slice(4);
+    } else if (move.type === "event") {
+      syncPlanListsFromDOM();
+      if (planEvents[move.idx]) planEvents[move.idx].year = year;
+      renderEventList();
+    }
+  };
+  let active = null, raf = null, pendingYear = null;
+  canvas.addEventListener("pointerdown", e => {
+    const xf = getXform(), rect = canvas.getBoundingClientRect();
+    const h = hitAt(e.clientX - rect.left, e.clientY - rect.top, xf);
+    if (!h) return;
+    active = h.move;
+    try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+    canvas.style.cursor = "grabbing";
+    e.preventDefault();
+  });
+  canvas.addEventListener("pointermove", e => {
+    const xf = getXform(), rect = canvas.getBoundingClientRect();
+    if (!active) {
+      canvas.style.cursor = hitAt(e.clientX - rect.left, e.clientY - rect.top, xf) ? "grab" : "";
+      return;
+    }
+    if (!xf || !xf.xToYear) return;
+    pendingYear = Math.max(xf.domainStart, Math.min(xf.domainEnd, xf.xToYear(e.clientX - rect.left)));
+    const move = active;
+    if (raf) return;
+    raf = requestAnimationFrame(() => { raf = null; setYear(move, pendingYear); renderAll(); });
+    e.preventDefault();
+  });
+  const end = e => {
+    if (!active) return;
+    active = null; canvas.style.cursor = "";
+    try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+    persistCurrentProfile();
+  };
+  canvas.addEventListener("pointerup", end);
+  canvas.addEventListener("pointercancel", end);
+}
+makeFlagDrag("plannerChart", () => plannerXform);
+makeFlagDrag("breakdownChart", () => breakdownXform);
+
+/* Drag the Retire marker along the People timeline to change that person's
+   retirement year. Delegated on the persistent #ageTimeline container so it
+   survives the re-render each drag frame triggers. */
+(function wireTimelineDrag() {
+  const host = els("ageTimeline");
+  if (!host) return;
+  let who = null, raf = null, pending = null;
+  host.addEventListener("pointerdown", e => {
+    const marker = e.target.closest(".tl-marker.tl-move");
+    if (!marker) return;
+    who = marker.dataset.retire || "you";
+    try { host.setPointerCapture(e.pointerId); } catch (_) {}
+    e.preventDefault();
+  });
+  host.addEventListener("pointermove", e => {
+    if (!who) return;
+    const tl = host.querySelector(".timeline");
+    const line = host.querySelector(`.tl-track[data-owner="${who}"] .tl-line`);
+    if (!tl || !line) return;
+    const lo = +tl.dataset.lo, hi = +tl.dataset.hi;
+    const rect = line.getBoundingClientRect();
+    const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / Math.max(1, rect.width)));
+    pending = Math.round(lo + frac * (hi - lo));
+    if (raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = null;
+      const id = who === "spouse" ? "spouseRetireDate" : "retireDate";
+      const cur = els(id).value && /^\d{4}-\d{2}-\d{2}$/.test(els(id).value) ? els(id).value : pending + "-06-01";
+      els(id).value = pending + cur.slice(4);
+      renderAll();
+    });
+    e.preventDefault();
+  });
+  const end = e => {
+    if (!who) return;
+    who = null;
+    try { host.releasePointerCapture(e.pointerId); } catch (_) {}
+    persistCurrentProfile();
+  };
+  host.addEventListener("pointerup", end);
+  host.addEventListener("pointercancel", end);
+})();
 
 /* Income-target sliders under each chart: a precise, always-works control on
    touch devices; kept in sync with the draggable line and each other. */
