@@ -73,8 +73,17 @@ Everything is a simplified planning model - not financial or tax advice.
   pension is *outside* your estate while ISAs and GIAs are *inside* it, so those moves usually
   *increase* IHT rather than reduce it - the gain is income-tax efficiency. From 6 April 2027 unused
   pensions fall into the estate, so for later retirements the verdict flips to broadly IHT-neutral.
-- Setting the **income target** on the planner chart (drag the red line or use its slider) now also
-  fills the Monte Carlo **spending target**, so the two stay in step.
+- Setting the **income target** on the planner chart (drag the red line or use its slider) also
+  fills the Monte Carlo **spending target**, and editing the spending target (typing or its slider)
+  moves the chart target - a full two-way mirror, so the two can never disagree.
+- a **lightweight budget**: ~10 editable category rows (food, utilities, transport, holidays,
+  health, subscriptions, gifts, clothing, other), each with a *Now* and a *Retired* monthly amount
+  and a slider, plus a **mortgage/rent row with a payoff year**. Turn it on and the Retired column
+  *becomes* the income target (replacing the living-standard pick), with the mortgage added
+  per-year - un-inflated, as fixed payments are - until the payoff year, so the target steps down
+  when the mortgage ends. The summary line shows the retired total, and the working total against
+  **household take-home pay** with the **spare-to-save** figure that feeds the "Save more each
+  year" strategy. Defaults are broad UK household figures.
 
 **Tax** models each country's headline 2025/26-era income tax per person, on salary today and on
 retirement income (a Net column also appears in Paying Out):
