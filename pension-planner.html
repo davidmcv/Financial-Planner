@@ -4228,18 +4228,25 @@ function drawPhaseDecor(ctx, xf, retYear, domainEnd, padL, padR, padT, plotH, W)
   ctx.fillRect(padL, padT, Math.max(0, xRet - padL), plotH);
   ctx.fillStyle = CHART.private + "20";
   ctx.fillRect(xRet, padT, Math.max(0, xEnd - xRet), plotH);
-  // header pills labelling each phase, sitting just inside the top of the plot
-  const pill = (cx, text, bg, half) => {
-    if (half < 80) return;
-    ctx.font = "600 11px " + SANS; ctx.textAlign = "center";
-    const w = ctx.measureText(text).width + 18;
+  // Voyant-style phase band BELOW the plot: a slim horizontal bar split into a
+  // working segment and a retired segment, labelled inside each. Keeps the
+  // plot itself clear of the big phase bubbles.
+  const bandY = padT + plotH + 8, bandH = 20;
+  const seg = (x0, x1, bg, text) => {
+    const w = x1 - x0;
+    if (w <= 0) return;
     ctx.fillStyle = bg;
-    roundRect(ctx, cx - w / 2, padT + 6, w, 20, 10); ctx.fill();
-    ctx.fillStyle = "#FFFFFF"; ctx.fillText(text, cx, padT + 20);
+    roundRect(ctx, x0, bandY, w, bandH, 6); ctx.fill();
+    ctx.font = "600 10.5px " + SANS; ctx.textAlign = "center"; ctx.fillStyle = "#FFFFFF";
+    if (ctx.measureText(text).width + 14 < w) ctx.fillText(text, x0 + w / 2, bandY + 14);
+    else if (w > 40) { // narrow segment: short label only
+      const shortTxt = text.split(" ·")[0];
+      if (ctx.measureText(shortTxt).width + 10 < w) ctx.fillText(shortTxt, x0 + w / 2, bandY + 14);
+    }
   };
   const plain = typeof wordingMode !== "undefined" && wordingMode === "plain";
-  pill((padL + xRet) / 2, plain ? "WHILE WORKING · money going in" : "ACCUMULATION · paying in", "#5b7fa6", xRet - padL);
-  pill((xRet + xEnd) / 2, plain ? "RETIRED · money coming out" : "DECUMULATION · drawing down", CHART.private, xEnd - xRet);
+  seg(padL, xRet - 2, "#5b7fa6", plain ? "WHILE WORKING · money going in" : "ACCUMULATION · paying in");
+  seg(xRet + 2, xEnd, CHART.private, plain ? "RETIRED · money coming out" : "DECUMULATION · drawing down");
   drawRetireDivider(ctx, xRet, padT, plotH);
   ctx.restore();
 }
@@ -4274,17 +4281,25 @@ function roundRect(ctx, x, y, w, h, r) {
 // age/date sub-line, stacked into lanes so labels don't collide.
 function drawEventFlags(ctx, flags, xf, domainStart, domainEnd, padT, plotH, hitOut) {
   const inView = flags.filter(f => f.year >= domainStart && f.year <= domainEnd).sort((a, b) => a.year - b.year);
-  const laneW = 100, rowH = 26, lanes = [];
+  // Lanes track the real right edge of each flag's text block (measured, not a
+  // fixed width), so clustered flags stagger into stacked rows only when they
+  // genuinely overlap - and never collide.
+  const rowH = 25, lanes = []; // lanes[i] = rightmost pixel used in lane i
   inView.forEach(f => {
     const px = xf(f.year);
     const movable = !!f.move;
     ctx.strokeStyle = f.custom ? CHART.bridge : themeColor("--ink-faint", "#9aa39f");
     ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
     ctx.beginPath(); ctx.moveTo(px, padT); ctx.lineTo(px, padT + plotH); ctx.stroke(); ctx.setLineDash([]);
+    ctx.font = "600 10.5px " + SANS;
+    const wLabel = ctx.measureText(f.label).width;
+    ctx.font = "9px " + SANS;
+    const wSub = f.sub ? ctx.measureText(f.sub).width : 0;
+    const rightEdge = px + 10 + Math.max(wLabel, wSub);
     let lane = 0;
-    while (lanes[lane] !== undefined && px - lanes[lane] < laneW) lane++;
-    lanes[lane] = px;
-    const topY = padT - 58 + lane * rowH;
+    while (lanes[lane] !== undefined && px - 14 < lanes[lane]) lane++;
+    lanes[lane] = rightEdge + 8;
+    const topY = padT - 75 + lane * rowH;
     ctx.textAlign = "center"; ctx.font = "15px " + SANS;
     // a subtle grip ring behind movable icons so it's clear they can be dragged
     if (movable) {
@@ -4313,7 +4328,7 @@ function drawPlannerChart(model) {
 
   const { years, byYear, flags } = householdSeries(model);
   if (!years.length) return;
-  const padL = 62, padR = 14, padT = 84, padB = 40;
+  const padL = 62, padR = 14, padT = 84, padB = 68; // padB holds the phase band + year labels
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const stacks = years.map(y => byYear[y]);
 
@@ -4523,7 +4538,7 @@ function drawBreakdownChart(model) {
 
   const { years, byYear, flags } = householdSeries(model);
   if (!years.length) return;
-  const padL = 62, padR = 14, padT = 84, padB = 34;
+  const padL = 62, padR = 14, padT = 84, padB = 62; // padB holds the phase band + year labels
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const target = model.rlsTarget || 0;
 
