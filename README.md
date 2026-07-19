@@ -21,7 +21,13 @@ Everything is a simplified planning model - not financial or tax advice.
   split by income source, with your spending target drawn across so short years are obvious;
 - both charts span the whole life, splitting the **Accumulation** (what you pay in each year) and
   **Decumulation** (household income by source) phases with a labelled retirement divider; every
-  event flag shows the person's age and the date;
+  event flag shows the person's age and the date. **Movable event flags** (retirements and your own
+  one-off events) can be **dragged along either chart** to change their year; both charts scale
+  their axes the same way, so the red target line sits at the same height on each. Hovering a bar in
+  the year-by-year breakdown shows a **speech-bubble tooltip** with that year's total and every
+  income source. The **income target rises with inflation** by default so it stays comparable to the
+  (also-growing) income bars — switch it off, or use the flat/today's-money view, to hold it
+  constant;
 - **spending phases** (go-go / slow-go / no-go): configurable percentages of the target by age, so
   you can plan higher spending in the active early travel years and less later — shown as a stepped
   target line;
@@ -122,7 +128,9 @@ profiles persist in the browser alongside them, including events, scenarios and 
 resulting timeline (private pension access, State Pension, life expectancy) in chronological order.
 Above the Key Dates cards a **visual timeline** places every milestone (today, retirement, private
 pension access, State Pension, life expectancy) as an icon marker positioned by date - one track
-per person - so you can see them relative to one another at a glance. The Saved-profile row is a
+per person - so you can see them relative to one another at a glance; the **retirement marker is
+draggable** to change that person's retirement year. Country/region are set per person but a spouse
+**defaults to the same country and region** as the primary person (still overridable). The Saved-profile row is a
 single compact line: the profile dropdown with **save-to-file** and **load-from-file** icon
 buttons, then country, then the UK region (shown only for the UK). The whole app is fluid and
 **responsive from small phones to large desktops** - the sidebar collapses to a bottom tab bar on
