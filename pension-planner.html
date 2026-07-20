@@ -5996,6 +5996,15 @@ function canPickSaveLocation() {
   try { return !!window.showSaveFilePicker && window.self === window.top; }
   catch (e) { return false; } // cross-origin iframe (e.g. the published artifact)
 }
+// iPad/iPhone (and Android) have no "Save as" dialog, and inside an embedded
+// frame plain downloads are often blocked too - but the native SHARE SHEET can
+// share a file, and its "Save to Files" puts it in iCloud Drive or on-device.
+function canShareFile(fname, json) {
+  try {
+    if (!navigator.canShare || typeof File === "undefined") return false;
+    return navigator.canShare({ files: [new File([json], fname, { type: "application/json" })] });
+  } catch (e) { return false; }
+}
 
 // Open the Save-to-file dialog: seed the filename, the copyable plain text, and
 // a clear note about where the file will end up.
@@ -6003,10 +6012,14 @@ function openSaveFileModal() {
   const payload = currentPlanPayload();
   const base = (payload.name || "pension-plan").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-") || "pension-plan";
   els("saveFileName").value = base;
-  els("saveFileText").value = JSON.stringify(payload, null, 2);
+  const json = JSON.stringify(payload, null, 2);
+  els("saveFileText").value = json;
   els("saveFileWhere").innerHTML = canPickSaveLocation()
     ? `&#128193; A <b>&ldquo;Save as&rdquo; dialog will open</b> so you choose the folder &mdash; a local folder,
        <b>Google&nbsp;Drive</b> or <b>iCloud&nbsp;Drive</b>. The file is written where you pick it.`
+    : canShareFile(base + ".pension.json", json)
+    ? `&#128228; The <b>share sheet will open</b> &mdash; choose <b>&ldquo;Save to Files&rdquo;</b> to put the file in
+       <b>iCloud&nbsp;Drive</b> or on this device, or share it straight to the <b>Google&nbsp;Drive</b> app.`
     : `&#11015;&#65039; This will <b>download to your Downloads folder</b> (or wherever your browser saves downloads).
        From there you can move it into <b>Google&nbsp;Drive</b> or <b>iCloud&nbsp;Drive</b>.`;
   saveFileMsg("");
@@ -6034,7 +6047,20 @@ async function doSaveFile() {
       return;
     } catch (e) {
       if (e && e.name === "AbortError") return; // user cancelled the picker - stay open
-      // otherwise (e.g. blocked) fall through to a download
+      // otherwise (e.g. blocked) fall through to the share sheet / download
+    }
+  }
+  // iPad / iPhone / Android: the share sheet. Must be called straight from the
+  // tap (no awaits before it) or Safari drops the user-gesture and rejects.
+  if (canShareFile(fname, json)) {
+    try {
+      await navigator.share({ files: [new File([json], fname, { type: "application/json" })], title: fname });
+      fileNotice(`Shared ${fname} — "Save to Files" puts it in the folder you picked`);
+      closeSaveFileModal();
+      return;
+    } catch (e) {
+      if (e && e.name === "AbortError") return; // user closed the share sheet - stay open
+      // NotAllowedError etc: fall through to a plain download
     }
   }
   try {
