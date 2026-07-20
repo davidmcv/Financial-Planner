@@ -198,8 +198,10 @@ profiles also sync to the server - across devices, and shareable with an adviser
 Profiles can also be **saved to and loaded from a file**. "Save to file" opens a dialog where you
 **name the file** (independent of the saved-profile name) and then writes a `.pension.json` through
 the system save dialog (Chrome/Edge), which reaches local folders, **Google Drive** (via Drive for
-desktop) and **iCloud Drive** wherever the OS mounts them; on Safari/Firefox/iOS it downloads the
-file instead, and the dialog also shows the plan as copyable text as a guaranteed fallback if a
+desktop) and **iCloud Drive** wherever the OS mounts them. On an **iPad or iPhone** (and Android)
+the native **share sheet** opens instead - choose *Save to Files* to put the file in iCloud Drive
+or on the device, or share it straight to the Google Drive app. Elsewhere it falls back to a
+download, and the dialog also shows the plan as copyable text as a guaranteed fallback if a
 browser blocks file writes. The dialog **says up-front where the file will go** (a "Save as"
 folder picker, or the Downloads folder) and confirms the destination after saving. "Load from file" opens the same locations through the file picker,
 imports the plan under its saved name (never overwriting an existing profile - a numbered copy is
