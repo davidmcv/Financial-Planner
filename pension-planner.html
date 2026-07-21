@@ -1518,8 +1518,8 @@
         <div class="field-row">
           <div class="field">
             <label for="essentialSpending">Your essential annual spending (<span class="cur">&pound;</span>)</label>
-            <input type="text" inputmode="decimal" data-money="0" id="essentialSpending" value="30,000">
-            <span class="hint">What's left over is your gifting surplus</span>
+            <input type="text" inputmode="decimal" data-money="0" id="essentialSpending" value="">
+            <span class="hint">Blank = your income target from the Planner; what's left over is your gifting surplus</span>
           </div>
           <div class="field">
             <label for="plannedAnnualGift">What you actually plan to gift (<span class="cur">&pound;</span>/year, optional)</label>
@@ -3803,11 +3803,22 @@ function computeAll(overrides = {}) {
     yourRows = tr.yourRows; spouseRows = tr.spouseRows; transferNote = tr.note;
   }
 
+  // The budget (Retired column, ex-mortgage - that's added per-year until paid
+  // off) replaces the living-standard pick as the base target when enabled.
+  const rlsTarget = inp.budgetOn ? inp.budRetMonthly * 12
+    : rlsAmount(rlsChoice, spouse, rlsRegion);
+
+  // Essential spending left blank/0 defaults to the plan's own income target -
+  // the amount the rest of the tool says you need to live on.
+  const essentialAuto = !(inp.essentialSpending > 0);
+  const essentialSpending = essentialAuto ? (rlsTarget || 0) : inp.essentialSpending;
+
   const gifting = calculateGiftingSummary(
     inp.numChildren, inp.numGrandchildren, inp.smallGiftAmount, inp.annualExemption,
     inp.giftPerRecipient, yourRows.length ? yourRows[0].annual : 0,
-    inp.essentialSpending, inp.plannedAnnualGift
+    essentialSpending, inp.plannedAnnualGift
   );
+  gifting.essentialIsAuto = essentialAuto;
 
   let giftSchedule = null;
   if (gifting.plannedAnnualGift !== null && gifting.numRecipients > 0) {
@@ -3836,12 +3847,6 @@ function computeAll(overrides = {}) {
     });
     deflate(yourRows); deflate(spouseRows);
   }
-
-  // Household living-standard target (single vs couple).
-  // The budget (Retired column, ex-mortgage - that's added per-year until paid
-  // off) replaces the living-standard pick as the base target when enabled.
-  const rlsTarget = inp.budgetOn ? inp.budRetMonthly * 12
-    : rlsAmount(rlsChoice, spouse, rlsRegion);
 
   return { inp, today, you, spouse, yourRows, spouseRows, yourEffectivePot, yourContribution,
            employerContribution, uncappedContribution, equityAccrued, comp, workYears,
@@ -4251,6 +4256,7 @@ function renderGifting(model) {
         <div class="stat">
           <span class="label">Essential spending</span>
           <span class="value">${gbp0(g.essentialSpending)}</span>
+          ${g.essentialIsAuto ? `<span class="sub">auto: your income target</span>` : ""}
         </div>
         <div class="stat">
           <span class="label">Surplus</span>
@@ -6663,7 +6669,7 @@ function seedDemoProfiles() {
     spousePot: "0", spouseDrawdown: "4", spousePotGrowth: "6", spouseIncome: "0", spouseIncomeGrowth: "2",
     statePensionWeekly: "230.25", statePensionGrowth: "2.5", discountRate: "2.5",
     numChildren: "0", numGrandchildren: "0", smallGiftAmount: "250", annualExemption: "3,000",
-    giftPerRecipient: "", essentialSpending: "0", plannedAnnualGift: "", giftStartYear: String(todayObj().y),
+    giftPerRecipient: "", essentialSpending: "", plannedAnnualGift: "", giftStartYear: String(todayObj().y),
     country: "UK", scotland: "ruk", spouseCountry: "UK", spouseScotland: "ruk", mcSpend: "", mcRuns: "500",
     budgetOn: false, budMortgage: "1,000", budMortgageEnd: "",
     budFoodNow: "500", budFoodRet: "450", budUtilNow: "350", budUtilRet: "350",
