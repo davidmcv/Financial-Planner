@@ -1475,12 +1475,10 @@
     <section class="panel" id="tab-gifting">
       <div class="panel-head">
         <h1>Tax-free gifting</h1>
-        <p>How much you can gift each year to children and grandchildren without Inheritance Tax implications, and a recommended amount based on your surplus income.</p>
+        <p id="giftingIntro">How much you can gift each year to children and grandchildren without Inheritance Tax implications, and a recommended amount based on your surplus income.</p>
       </div>
 
-      <div class="notice info" id="giftingCountryNote" style="display:none; margin-bottom:14px;"></div>
-
-      <div class="card">
+      <div class="card" id="giftRecipientsCard">
         <h2>Recipients &amp; allowance</h2>
         <div class="field-row">
           <div class="field">
@@ -1492,29 +1490,30 @@
             <input type="number" id="numGrandchildren" value="3" min="0" step="1">
           </div>
         </div>
-        <div class="divider" style="margin: 14px 0;"></div>
-        <div class="field-row">
-          <div class="field adv">
-            <label for="smallGiftAmount">Small gifts exemption, per person (<span class="cur">&pound;</span>)</label>
+        <div class="divider" style="margin: 14px 0;" id="giftAllowanceDivider"></div>
+        <div class="field-row" id="giftAllowanceRow">
+          <div class="field adv" id="smallGiftField">
+            <label for="smallGiftAmount" id="smallGiftLabel">Small gifts exemption, per person (<span class="cur">&pound;</span>)</label>
             <input type="text" inputmode="decimal" data-money="0" id="smallGiftAmount" value="250">
-            <span class="hint">UK statutory rate &mdash; any number of recipients</span>
+            <span class="hint" id="smallGiftHint">UK statutory rate &mdash; any number of recipients</span>
           </div>
-          <div class="field adv">
-            <label for="annualExemption">Annual exemption, total pot (<span class="cur">&pound;</span>)</label>
+          <div class="field adv" id="annualExemptionField">
+            <label for="annualExemption" id="annualExemptionLabel">Annual exemption, total pot (<span class="cur">&pound;</span>)</label>
             <input type="text" inputmode="decimal" data-money="0" id="annualExemption" value="3,000">
             <span class="hint">One shared allowance, not per recipient</span>
           </div>
         </div>
-        <div class="field-row">
-          <div class="field adv">
+        <div class="field-row" id="giftPerRecipientRow">
+          <div class="field adv" id="giftPerRecipientField">
             <label for="giftPerRecipient">Custom rate per recipient (<span class="cur">&pound;</span>, optional)</label>
             <input type="text" inputmode="decimal" data-money="0" id="giftPerRecipient" value="">
             <span class="hint">Overrides the small gifts exemption above if set</span>
           </div>
         </div>
+        <p class="caption" id="giftAllowanceNote" style="display:none; margin:2px 0 0;"></p>
       </div>
 
-      <div class="card">
+      <div class="card" id="giftSpendCard">
         <h2>Your spend rate</h2>
         <div class="field-row">
           <div class="field">
@@ -2008,6 +2007,44 @@ const CHART = {
   salYou: "#4a7ab5", salSpouse: "#8b7fd1", payIn: "#5b7fa6", crit: "#E06666",
 };
 const SANS = 'system-ui, -apple-system, "Segoe UI", "Inter", "Helvetica Neue", Arial, sans-serif';
+
+// Gift / inheritance / estate tax, per country. The mechanisms differ a lot, so
+// each country carries its own parameters and a `mechanism` the gifting engine
+// branches on:
+//   uk - annual small-gifts + annual exemption; gifts in the 7 years before
+//        death are PETs, using the £325k nil-rate band then taper relief (40%).
+//   us - annual gift-tax exclusion per recipient (gifts under it are free and
+//        never touch the lifetime exemption); excess draws down a large lifetime
+//        estate/gift exemption, 40% only above it.
+//   fr - per-recipient allowance renewable every 15 years (child vs grandchild);
+//        gifts above it are taxed on the progressive direct-line barème (5-45%).
+//   none - no gift/estate/inheritance tax at all (Australia).
+const GIFT_TAX = {
+  UK: { hasTax: true, mechanism: "uk", period: "year",
+        perRecipientDefault: 250, annualPot: 3000, nilRateBand: 325000, rate: 0.40,
+        sourceName: "UK Inheritance Tax (gov.uk)", sourceUrl: "https://www.gov.uk/inheritance-tax" },
+  US: { hasTax: true, mechanism: "us", period: "year",
+        perRecipientDefault: 19000, annualPot: 0, lifetimeExemption: 15000000, rate: 0.40,
+        sourceName: "IRS gift & estate tax, 2026", sourceUrl: "https://www.irs.gov/businesses/small-businesses-self-employed/frequently-asked-questions-on-gift-taxes" },
+  FR: { hasTax: true, mechanism: "fr", period: "15 years",
+        childAllowance: 100000, grandchildAllowance: 31865,
+        // Direct-line barème (droits de donation), tax on the slice within each band.
+        scale: [[8072, 0.05], [12109, 0.10], [15932, 0.15], [552324, 0.20], [902838, 0.30], [1805677, 0.40], [Infinity, 0.45]],
+        sourceName: "Droits de donation (service-public.fr)", sourceUrl: "https://www.service-public.gouv.fr/particuliers/vosdroits/F14205" },
+  AU: { hasTax: false, mechanism: "none",
+        sourceName: "Australia has no inheritance/gift tax (ATO)", sourceUrl: "https://www.ato.gov.au/individuals-and-families/deceased-estates" },
+};
+function giftConfig(country) { return GIFT_TAX[country || currentCountry]; }
+// Progressive tax on `amount` using [threshold, rate] bands (tax per slice).
+function progressiveTax(amount, scale) {
+  let tax = 0, lower = 0;
+  for (const [upper, rate] of scale) {
+    if (amount <= lower) break;
+    tax += (Math.min(amount, upper) - lower) * rate;
+    lower = upper;
+  }
+  return tax;
+}
 
 // Maximum modelled age per country (a low-probability upper bound the plan is
 // stress-tested against, not an expectation).
@@ -3383,16 +3420,35 @@ function analyzeStrategies(model) {
 
 function calculateGiftingSummary(numChildren, numGrandchildren, smallGiftAmount, annualExemption,
                                   giftPerRecipient, availableIncome, essentialSpending, plannedAnnualGift) {
+  const cfg = giftConfig();
   const numRecipients = numChildren + numGrandchildren;
-  const perRecipientAmount = giftPerRecipient !== null ? giftPerRecipient : smallGiftAmount;
-  const smallGiftsTotal = perRecipientAmount * numRecipients;
-  const taxFreeCeiling = smallGiftsTotal + annualExemption;
+  const isCustomRate = giftPerRecipient !== null;
+  let perRecipientAmount, smallGiftsTotal, taxFreeCeiling;
+  const period = cfg.period || "year";
+  if (cfg.mechanism === "fr") {
+    // Children and grandchildren have different allowances, over a 15-year window.
+    const childTotal = cfg.childAllowance * numChildren;
+    const grandTotal = cfg.grandchildAllowance * numGrandchildren;
+    smallGiftsTotal = childTotal + grandTotal;
+    perRecipientAmount = numRecipients ? smallGiftsTotal / numRecipients : cfg.childAllowance;
+    taxFreeCeiling = smallGiftsTotal;
+    annualExemption = 0;
+  } else {
+    perRecipientAmount = isCustomRate ? giftPerRecipient : smallGiftAmount;
+    smallGiftsTotal = perRecipientAmount * numRecipients;
+    taxFreeCeiling = smallGiftsTotal + annualExemption;
+  }
+  // Annualise the ceiling for the surplus comparison (the FR allowance spans 15 yrs).
+  const periodYears = period === "15 years" ? 15 : 1;
+  const ceilingAnnual = taxFreeCeiling / periodYears;
   const surplus = Math.max(0, availableIncome - essentialSpending);
-  const recommendedGift = Math.min(taxFreeCeiling, surplus);
-  const excessOverCeiling = plannedAnnualGift !== null ? Math.max(0, plannedAnnualGift - taxFreeCeiling) : null;
+  const recommendedGift = Math.min(ceilingAnnual, surplus);
+  const excessOverCeiling = plannedAnnualGift !== null ? Math.max(0, plannedAnnualGift - ceilingAnnual) : null;
   return {
-    numRecipients, perRecipientAmount, isCustomRate: giftPerRecipient !== null,
-    smallGiftsTotal, annualExemption, taxFreeCeiling,
+    mechanism: cfg.mechanism, hasTax: cfg.hasTax !== false, period, periodYears,
+    numChildren, numGrandchildren,
+    numRecipients, perRecipientAmount, isCustomRate,
+    smallGiftsTotal, annualExemption, taxFreeCeiling, ceilingAnnual,
     availableIncome, essentialSpending, surplus, recommendedGift,
     plannedAnnualGift, excessOverCeiling,
   };
@@ -3414,7 +3470,72 @@ function taperedIhtRate(yearsSurvived) {
   return 40;
 }
 
-function buildGiftIhtSchedule(startYear, today, deathDate, plannedGift, taxFreeCeiling) {
+// Dispatch to the right country's gift-tax schedule (or null where there's none).
+function buildGiftSchedule(startYear, today, deathDate, plannedGift, gifting) {
+  const cfg = giftConfig();
+  if (!cfg.hasTax) return { mechanism: "none", deathDate, rows: [] };
+  if (cfg.mechanism === "us") return buildUsGiftSchedule(startYear, today, deathDate, plannedGift, gifting, cfg);
+  if (cfg.mechanism === "fr") return buildFrGiftSchedule(startYear, today, deathDate, plannedGift, gifting, cfg);
+  return buildUkGiftSchedule(startYear, today, deathDate, plannedGift, gifting.taxFreeCeiling);
+}
+
+// Rows of gifts on today's month/day from startYear up to (not past) deathDate.
+function giftRows(startYear, today, deathDate, plannedGift) {
+  const rows = [];
+  for (let year = startYear; ; year++) {
+    const giftDate = { y: year, m: today.m, d: Math.min(today.d, daysInMonth(year, today.m)) };
+    if (cmp(giftDate, deathDate) >= 0) break;
+    rows.push({ giftDate, gift: plannedGift, yearsSurvived: daysBetween(giftDate, deathDate) / 365.25 });
+    if (rows.length > 100) break; // safety
+  }
+  return rows;
+}
+
+// US: gifts up to the annual exclusion (per recipient) are free and never touch
+// the lifetime exemption; the excess draws it down, with 40% estate/gift tax due
+// only once cumulative taxable gifts exceed the (very large) lifetime exemption.
+function buildUsGiftSchedule(startYear, today, deathDate, plannedGift, gifting, cfg) {
+  const rows = giftRows(startYear, today, deathDate, plannedGift);
+  const freePerYear = gifting.ceilingAnnual;
+  let cumulativeTaxable = 0;
+  rows.forEach(r => {
+    r.taxFree = Math.min(r.gift, freePerYear);
+    r.taxable = Math.max(0, r.gift - freePerYear);
+    cumulativeTaxable += r.taxable;
+    r.cumulativeUsed = cumulativeTaxable;
+    r.status = r.taxable > 0 ? "uses lifetime exemption" : "within annual exclusion";
+  });
+  const estateTax = Math.max(0, cumulativeTaxable - cfg.lifetimeExemption) * cfg.rate;
+  return {
+    mechanism: "us", rows, deathDate,
+    totalGifted: rows.reduce((s, r) => s + r.gift, 0),
+    totalTaxable: cumulativeTaxable, lifetimeExemption: cfg.lifetimeExemption,
+    exemptionUsed: cumulativeTaxable, estateTax, rate: cfg.rate,
+  };
+}
+
+// France: gifts to each line are free up to the 15-year allowance; above it the
+// direct-line barème (5-45%) applies. Approximated in aggregate across the plan:
+// the allowance renews once per 15-year window, and tax is charged on the total
+// over all windows' allowances.
+function buildFrGiftSchedule(startYear, today, deathDate, plannedGift, gifting, cfg) {
+  const rows = giftRows(startYear, today, deathDate, plannedGift);
+  const years = rows.length;
+  const windows = Math.max(1, Math.ceil(years / 15));
+  const totalAllowance = gifting.taxFreeCeiling * windows;
+  let cumulative = 0;
+  rows.forEach(r => { cumulative += r.gift; r.cumulative = cumulative; r.withinAllowance = cumulative <= totalAllowance; });
+  const totalGifted = cumulative;
+  const taxable = Math.max(0, totalGifted - totalAllowance);
+  const tax = progressiveTax(taxable, cfg.scale);
+  return {
+    mechanism: "fr", rows, deathDate,
+    totalGifted, totalAllowance, windows, taxable, tax,
+    allowancePerWindow: gifting.taxFreeCeiling,
+  };
+}
+
+function buildUkGiftSchedule(startYear, today, deathDate, plannedGift, taxFreeCeiling) {
   /* One gift per year of plannedGift, on today's month/day, from startYear
      until (but not past) the assumed death date. The excess of each gift
      over the tax-free ceiling is a PET; PETs within 7 years of death eat
@@ -3456,7 +3577,7 @@ function buildGiftIhtSchedule(startYear, today, deathDate, plannedGift, taxFreeC
   });
 
   return {
-    rows, deathDate,
+    mechanism: "uk", rows, deathDate,
     totalGifted: rows.reduce((s, r) => s + r.gift, 0),
     totalPets, exemptPets, atRiskPets,
     nrbUsed: NIL_RATE_BAND - nrbRemaining,
@@ -3690,9 +3811,8 @@ function computeAll(overrides = {}) {
 
   let giftSchedule = null;
   if (gifting.plannedAnnualGift !== null && gifting.numRecipients > 0) {
-    giftSchedule = buildGiftIhtSchedule(
-      inp.giftStartYear, today, you.lifeExpDate,
-      gifting.plannedAnnualGift, gifting.taxFreeCeiling
+    giftSchedule = buildGiftSchedule(
+      inp.giftStartYear, today, you.lifeExpDate, gifting.plannedAnnualGift, gifting
     );
   }
 
@@ -4071,17 +4191,37 @@ function renderHousehold(model) {
 
 function renderGifting(model) {
   const g = model.gifting;
+
+  // Australia (and any country with no transfer tax): nothing to plan around.
+  if (!g.hasTax) {
+    els("giftingCards").innerHTML = `<div class="card">
+      <h2>No gift or inheritance tax</h2>
+      <p><b>${COUNTRIES[currentCountry].name}</b> has no inheritance, estate or gift tax &mdash; you can give as much as you like, whenever you like, with no transfer-tax ceiling to plan around. Australia abolished death duties in 1979.</p>
+      <p class="caption" style="margin-top:8px;">Watch-outs that still apply: gifting an <b>asset</b> (not cash) can trigger <b>capital gains tax</b> for you at the time of the gift, inherited assets keep their cost base for the beneficiary, and large gifts can affect <b>Age Pension</b> means-testing (gifting/deprivation rules). Cash gifts themselves are tax-free.</p>
+    </div>`;
+    return;
+  }
+
   if (g.numRecipients === 0) {
     els("giftingCards").innerHTML = `<div class="notice empty"><span class="icon">&#9432;</span>Add at least one child or grandchild above to see the tax-free gifting ceiling.</div>`;
     return;
   }
-  const rateLabel = g.isCustomRate
-    ? `custom rate of ${gbp2(g.perRecipientAmount)} each`
-    : `small gifts exemption of ${gbp2(g.perRecipientAmount)} each`;
+
+  const perName = g.mechanism === "us" ? "annual exclusion" : g.mechanism === "fr" ? "15-year allowance" : "small gifts exemption";
+  const rateLabel = g.mechanism === "fr"
+    ? `€100k per child + €31,865 per grandchild, per 15 years`
+    : g.isCustomRate ? `custom rate of ${gbp2(g.perRecipientAmount)} each` : `${perName} of ${gbp2(g.perRecipientAmount)} each`;
+  const perYr = g.mechanism === "fr" ? "per 15 years" : "per year";
+  // The middle stat differs by country.
+  const midStat = g.mechanism === "uk"
+    ? `<div class="stat"><span class="label">Annual exemption</span><span class="value">${gbp0(g.annualExemption)}</span><span class="sub">total pot, not per person</span></div>`
+    : g.mechanism === "us"
+      ? `<div class="stat"><span class="label">Per recipient</span><span class="value">${gbp0(g.perRecipientAmount)}</span><span class="sub">annual exclusion, each</span></div>`
+      : `<div class="stat"><span class="label">Children / grandchildren</span><span class="value">${g.numChildren} / ${g.numGrandchildren}</span><span class="sub">different allowances</span></div>`;
 
   let html = `
     <div class="card">
-      <h2>Tax-free ceiling this year</h2>
+      <h2>Tax-free ceiling ${perYr}</h2>
       <div class="stat-row">
         <div class="stat">
           <span class="label">Recipients</span>
@@ -4089,18 +4229,14 @@ function renderGifting(model) {
           <span class="sub">${rateLabel}</span>
         </div>
         <div class="stat">
-          <span class="label">Small gifts total</span>
+          <span class="label">Allowances total</span>
           <span class="value">${gbp0(g.smallGiftsTotal)}</span>
         </div>
-        <div class="stat">
-          <span class="label">Annual exemption</span>
-          <span class="value">${gbp0(g.annualExemption)}</span>
-          <span class="sub">total pot, not per person</span>
-        </div>
+        ${midStat}
         <div class="stat">
           <span class="label">Maximum tax-free</span>
           <span class="value">${gbp0(g.taxFreeCeiling)}</span>
-          <span class="sub">per year</span>
+          <span class="sub">${perYr}${g.mechanism === "fr" ? ` (≈${gbp0(g.ceilingAnnual)}/yr)` : ""}</span>
         </div>
       </div>
     </div>
@@ -4123,35 +4259,41 @@ function renderGifting(model) {
         <div class="stat">
           <span class="label">Recommended gift</span>
           <span class="value">${gbp0(g.recommendedGift)}</span>
-          <span class="sub">${g.recommendedGift < g.taxFreeCeiling ? "capped by surplus" : "full tax-free ceiling"}</span>
+          <span class="sub">${g.recommendedGift < g.ceilingAnnual ? "capped by surplus" : `full tax-free ${g.mechanism === "fr" ? "annual-equivalent" : "ceiling"}`}</span>
         </div>
       </div>
     </div>`;
 
   if (g.plannedAnnualGift !== null) {
+    const excessMsg = g.mechanism === "us"
+      ? `That excess is a reportable gift that draws down your lifetime estate/gift exemption (${gbp0(giftConfig().lifetimeExemption)}); tax is only due once cumulative gifts exceed it.`
+      : g.mechanism === "fr"
+        ? `That excess is taxed on the direct-line barème (5&ndash;45%); the allowance renews every 15 years.`
+        : `That excess is a Potentially Exempt Transfer (PET): free of Inheritance Tax only if you survive 7 years from the gift date.`;
     html += g.excessOverCeiling > 0
       ? `<div class="notice"><span class="icon">&#9888;</span><span>You plan to gift ${gbp2(g.plannedAnnualGift)}/year &mdash;
-           <strong>${gbp2(g.excessOverCeiling)} OVER</strong> the tax-free ceiling. That excess is a
-           Potentially Exempt Transfer (PET): free of Inheritance Tax only if you survive 7 years
-           from the gift date.</span></div>`
+           <strong>${gbp2(g.excessOverCeiling)} OVER</strong> the tax-free ${g.mechanism === "fr" ? "annual-equivalent" : "ceiling"}. ${excessMsg}</span></div>`
       : `<div class="notice info"><span class="icon">&#10003;</span><span>You plan to gift ${gbp2(g.plannedAnnualGift)}/year &mdash;
-           within the tax-free ceiling, no excess.</span></div>`;
+           within the tax-free ${g.mechanism === "fr" ? "annual-equivalent allowance" : "ceiling"}, no excess.</span></div>`;
   }
 
   html += renderGiftIhtSchedule(model);
 
-  html += `<p class="caption">Simplified planning estimate, not tax advice: assumes no unused prior-year carry-forward on the annual exemption, and that small gifts don't go to the same people who received a share of it.</p>`;
+  const cfg = giftConfig();
+  html += `<p class="caption">Simplified planning estimate, not tax advice. Source: <a href="${cfg.sourceUrl}" target="_blank" rel="noopener">${cfg.sourceName}</a>.</p>`;
   els("giftingCards").innerHTML = html;
 }
 
 function renderGiftIhtSchedule(model) {
   const s = model.giftSchedule;
   if (!s) {
-    return `<div class="notice empty"><span class="icon">&#9432;</span>Enter a planned annual gift above to track gifts over time and see the Inheritance Tax due if you die at your average life expectancy.</div>`;
+    return `<div class="notice empty"><span class="icon">&#9432;</span>Enter a planned annual gift above to track gifts over time and see any transfer tax due if you die at your average life expectancy.</div>`;
   }
   if (!s.rows.length) {
     return `<div class="notice empty"><span class="icon">&#9432;</span>The gifting start year is at or after your assumed life expectancy (${fmtDate(s.deathDate)}) &mdash; no gifts to track.</div>`;
   }
+  if (s.mechanism === "us") return renderUsGiftSchedule(s);
+  if (s.mechanism === "fr") return renderFrGiftSchedule(s);
 
   const head = `<tr><th>Gift date</th><th>Gift</th><th>Tax-free</th><th>PET</th><th>Yrs before death</th><th>IHT rate</th><th>IHT due</th></tr>`;
   const body = s.rows.map(r => {
@@ -4209,6 +4351,64 @@ function renderGiftIhtSchedule(model) {
         the rest is taxed at 40% with taper relief (3&ndash;4&nbsp;yrs&nbsp;32%, 4&ndash;5&nbsp;24%, 5&ndash;6&nbsp;16%,
         6&ndash;7&nbsp;8%). Simplified: ignores the estate itself sharing the nil-rate band, spousal transfers,
         and the residence nil-rate band.</p>
+    </div>`;
+}
+
+function renderUsGiftSchedule(s) {
+  const head = `<tr><th>Gift date</th><th>Gift</th><th>Excluded</th><th>Uses exemption</th><th>Cumulative used</th></tr>`;
+  const body = s.rows.map(r => `<tr class="${r.taxable > 0 ? "spa-row" : ""}">
+      <td>${fmtDate(r.giftDate)}</td><td>${gbp0(r.gift)}</td><td>${gbp0(r.taxFree)}</td>
+      <td>${gbp0(r.taxable)}</td><td>${gbp0(r.cumulativeUsed)}</td></tr>`).join("");
+  const verdict = s.estateTax > 0
+    ? `<div class="notice"><span class="icon">&#9888;</span><span>Cumulative reportable gifts of <strong>${gbp0(s.totalTaxable)}</strong> exceed your
+         ${gbp0(s.lifetimeExemption)} lifetime exemption &mdash; roughly <strong>${gbp0(s.estateTax)}</strong> of gift/estate tax could apply on the excess (40%).</span></div>`
+    : s.totalTaxable > 0
+      ? `<div class="notice info"><span class="icon">&#10003;</span><span>Gifts above the annual exclusion total ${gbp0(s.totalTaxable)}, which draws down your
+           ${gbp0(s.lifetimeExemption)} lifetime exemption &mdash; well within it, so <strong>no gift or estate tax is due</strong>. (You'd still file Form 709 to report them.)</span></div>`
+      : `<div class="notice info"><span class="icon">&#10003;</span><span>Every gift is at or under the annual exclusion (${gbp0(s.rows[0] ? s.rows[0].taxFree : 0)}/yr) &mdash;
+           completely tax-free, and none of your lifetime exemption is used.</span></div>`;
+  return `
+    <div class="card">
+      <h2>Gift tracker &amp; estate tax</h2>
+      <div class="stat-row" style="margin-bottom: 14px;">
+        <div class="stat"><span class="label">Assumed death</span><span class="value">${s.deathDate.y}</span><span class="sub">avg life expectancy, ${fmtDate(s.deathDate)}</span></div>
+        <div class="stat"><span class="label">Total gifted</span><span class="value">${gbp0(s.totalGifted)}</span><span class="sub">over ${s.rows.length} year${s.rows.length !== 1 ? "s" : ""}</span></div>
+        <div class="stat"><span class="label">Lifetime exemption used</span><span class="value">${gbp0(s.exemptionUsed)}</span><span class="sub">of ${gbp0(s.lifetimeExemption)}</span></div>
+        <div class="stat"><span class="label">Estate/gift tax</span><span class="value">${gbp0(s.estateTax)}</span></div>
+      </div>
+      ${verdict}
+      <div class="table-scroll" style="margin-top: 14px;"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>
+      <p class="caption">US federal rules: gifts up to the annual exclusion per recipient are completely free and never touch your lifetime
+        exemption; larger gifts are reportable and draw it down, with 40% tax only once cumulative gifts exceed the exemption. Simplified:
+        ignores your taxable estate at death, state estate/inheritance taxes, and gift-splitting between spouses.</p>
+    </div>`;
+}
+
+function renderFrGiftSchedule(s) {
+  const head = `<tr><th>Gift date</th><th>Gift</th><th>Cumulative</th><th>Within allowance?</th></tr>`;
+  const body = s.rows.map(r => `<tr class="${r.withinAllowance ? "" : "spa-row"}">
+      <td>${fmtDate(r.giftDate)}</td><td>${gbp0(r.gift)}</td><td>${gbp0(r.cumulative)}</td>
+      <td>${r.withinAllowance ? "yes" : "over"}</td></tr>`).join("");
+  const verdict = s.tax > 0
+    ? `<div class="notice"><span class="icon">&#9888;</span><span>Planned gifts of <strong>${gbp0(s.totalGifted)}</strong> exceed the renewable allowance
+         (${gbp0(s.allowancePerWindow)} per 15 years &times; ${s.windows} window${s.windows !== 1 ? "s" : ""} = ${gbp0(s.totalAllowance)}) &mdash;
+         about <strong>${gbp0(s.tax)}</strong> of gift tax on the ${gbp0(s.taxable)} excess, on the direct-line barème (5&ndash;45%).</span></div>`
+    : `<div class="notice info"><span class="icon">&#10003;</span><span>Planned gifts of ${gbp0(s.totalGifted)} stay within the renewable allowance
+         (${gbp0(s.allowancePerWindow)} per recipient-group per 15 years) &mdash; <strong>no gift tax is due</strong>.</span></div>`;
+  return `
+    <div class="card">
+      <h2>Gift tracker &amp; gift tax</h2>
+      <div class="stat-row" style="margin-bottom: 14px;">
+        <div class="stat"><span class="label">Assumed death</span><span class="value">${s.deathDate.y}</span><span class="sub">avg life expectancy, ${fmtDate(s.deathDate)}</span></div>
+        <div class="stat"><span class="label">Total gifted</span><span class="value">${gbp0(s.totalGifted)}</span><span class="sub">over ${s.rows.length} year${s.rows.length !== 1 ? "s" : ""}</span></div>
+        <div class="stat"><span class="label">Allowance (${s.windows}&times;15yr)</span><span class="value">${gbp0(s.totalAllowance)}</span></div>
+        <div class="stat"><span class="label">Gift tax</span><span class="value">${gbp0(s.tax)}</span></div>
+      </div>
+      ${verdict}
+      <div class="table-scroll" style="margin-top: 14px;"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>
+      <p class="caption">French rules (ligne directe): each parent can give €100,000 per child and each grandparent €31,865 per grandchild,
+        free of tax and renewable every 15 years; gifts above the allowance are taxed on the progressive barème (5&ndash;45%). Simplified,
+        aggregate approximation: doesn't model per-recipient windows individually, the separate <i>don familial</i> cash allowance, or succession (death) duties.</p>
     </div>`;
 }
 
@@ -5479,18 +5679,51 @@ function updatePclsUI() {
   if (!uk) { if (els("yourTakePcls")) els("yourTakePcls").checked = false; if (els("spouseTakePcls")) els("spouseTakePcls").checked = false; }
 }
 
-// The gifting tab models UK Inheritance Tax (nil-rate band, 7-year rule, 40%).
-// Other countries' estate/succession regimes differ hugely (Australia has none;
-// the US federal exemption is very large; France taxes by relationship), so for
-// non-UK countries we flag that these are UK rules rather than mislead.
-function updateGiftingCountryNote() {
-  const note = els("giftingCountryNote");
-  if (!note) return;
-  if (currentCountry === "UK") { note.style.display = "none"; return; }
-  note.style.display = "";
-  note.innerHTML = `These figures use <b>UK Inheritance Tax</b> rules (nil-rate band, the 7-year gift rule, 40%). ` +
-    `${COUNTRIES[currentCountry].name}'s estate / succession rules differ and aren't modelled here &mdash; ` +
-    `treat this tab as UK-only guidance.`;
+// Reshape the Gifting tab's inputs for the selected country's transfer-tax
+// regime: UK small-gift + annual exemption, US annual exclusion (no shared pot),
+// France's fixed per-child/grandchild 15-year allowances (no editable rate), and
+// Australia which has no gift/inheritance tax at all (inputs hidden).
+function updateGiftingUI() {
+  const cfg = giftConfig();
+  const set = (id, disp) => { const el = els(id); if (el) el.style.display = disp; };
+  const setText = (id, html) => { const el = els(id); if (el) el.innerHTML = html; };
+
+  if (!cfg.hasTax) {                       // Australia: nothing to plan around
+    set("giftRecipientsCard", "none");
+    set("giftSpendCard", "none");
+    setText("giftingIntro", `${COUNTRIES[currentCountry].name} has no inheritance, estate or gift tax &mdash; there's no tax-free ceiling to plan around.`);
+    return;
+  }
+  set("giftRecipientsCard", "");
+  set("giftSpendCard", "");
+
+  if (cfg.mechanism === "us") {
+    setText("giftingIntro", `How much you can gift each year without touching your lifetime estate/gift exemption, and a recommended amount based on your surplus income. US federal rules.`);
+    setText("smallGiftLabel", `Annual gift-tax exclusion, per recipient (<span class="cur">${CUR()}</span>)`);
+    setText("smallGiftHint", `Gifts up to this per person are completely free`);
+    set("annualExemptionField", "none");   // no separate shared pot in the US
+    set("giftPerRecipientRow", "");
+    set("giftAllowanceRow", "");
+    set("giftAllowanceDivider", "");
+    set("giftAllowanceNote", "none");
+  } else if (cfg.mechanism === "fr") {
+    setText("giftingIntro", `How much you can gift free of French gift tax (droits de donation) and a recommended amount based on your surplus income. Allowances are fixed by law and renew every 15 years.`);
+    set("giftAllowanceRow", "none");        // allowances are fixed per child/grandchild
+    set("giftPerRecipientRow", "none");
+    set("giftAllowanceDivider", "none");
+    set("giftAllowanceNote", "");
+    setText("giftAllowanceNote", `France: <b>€100,000 per child</b> (per parent) and <b>€31,865 per grandchild</b> (per grandparent), tax-free and renewable every 15 years. Amounts above are taxed on the 5&ndash;45% direct-line scale.`);
+  } else {                                  // UK
+    setText("giftingIntro", `How much you can gift each year to children and grandchildren without Inheritance Tax implications, and a recommended amount based on your surplus income.`);
+    setText("smallGiftLabel", `Small gifts exemption, per person (<span class="cur">${CUR()}</span>)`);
+    setText("smallGiftHint", `UK statutory rate &mdash; any number of recipients`);
+    setText("annualExemptionLabel", `Annual exemption, total pot (<span class="cur">${CUR()}</span>)`);
+    set("annualExemptionField", "");
+    set("giftAllowanceRow", "");
+    set("giftPerRecipientRow", "");
+    set("giftAllowanceDivider", "");
+    set("giftAllowanceNote", "none");
+  }
 }
 
 function updateCurrencyLabels() {
@@ -5498,7 +5731,7 @@ function updateCurrencyLabels() {
   updateLivingStandardUI();
   updatePersonalContribUI();
   updatePclsUI();
-  updateGiftingCountryNote();
+  updateGiftingUI();
 }
 
 els("spouseCountry").addEventListener("change", () => {
@@ -5508,6 +5741,13 @@ els("country").addEventListener("change", () => {
   const prevCountry = currentCountry;
   currentCountry = els("country").value;
   els("statePensionWeekly").value = COUNTRIES[currentCountry].spWeeklyDefault.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // Reset the editable gift allowances to the new country's statutory defaults.
+  const gc = giftConfig();
+  if (gc && gc.mechanism !== "fr" && gc.hasTax) {
+    els("smallGiftAmount").value = (gc.perRecipientDefault || 0).toLocaleString("en-GB");
+    els("annualExemption").value = (gc.annualPot || 0).toLocaleString("en-GB");
+    els("giftPerRecipient").value = "";
+  }
   els("scotlandField").style.display = currentCountry === "UK" ? "" : "none";
   // Default the spouse to the same country/region *while they were in sync* -
   // so a couple usually share a country, but either can still be overridden.

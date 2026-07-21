@@ -192,12 +192,22 @@ Age tab lists events chronologically (private pension access before the State Pe
 heading adapts to singular when no spouse is included. The Salary & Pot and Projection tabs label
 the **accumulation** (paying in) and **decumulation** (drawing down) phases explicitly.
 
-The Gifting tab also tracks planned gifts year by year until your average life expectancy and
-estimates the Inheritance Tax due at death: each year's excess over the tax-free ceiling is a
-Potentially Exempt Transfer (PET); PETs made within 7 years of death use the £325,000 nil-rate
-band in date order, and the remainder is taxed at 40% with taper relief (3-4 yrs 32%, 4-5 24%,
-5-6 16%, 6-7 8%; 7+ years fully exempt). This is a simplified planning estimate - it ignores the
-estate itself sharing the nil-rate band, spousal transfers, and the residence nil-rate band.
+The Gifting tab tracks planned gifts year by year until your average life expectancy and adapts to
+the selected country's gift/estate/inheritance-tax regime:
+
+- **UK** — Inheritance Tax: each year's excess over the tax-free ceiling (small-gifts exemption +
+  £3,000 annual exemption) is a Potentially Exempt Transfer (PET); PETs within 7 years of death use
+  the £325,000 nil-rate band in date order, remainder taxed at 40% with taper relief (3-4 yrs 32%,
+  4-5 24%, 5-6 16%, 6-7 8%; 7+ exempt).
+- **US** — federal gift/estate tax: gifts up to the annual exclusion ($19,000 per recipient) are
+  free and never touch the lifetime exemption ($15M, 2026); larger gifts draw it down, with 40% tax
+  only once cumulative gifts exceed it.
+- **France** — droits de donation: €100,000 per child (per parent) and €31,865 per grandchild (per
+  grandparent), tax-free and renewable every 15 years; excess taxed on the 5-45% direct-line barème.
+- **Australia** — no inheritance, estate or gift tax at all (abolished 1979); the tab shows this and
+  the CGT / Age-Pension means-test watch-outs instead.
+
+Each is a simplified planning estimate, not tax advice, with the official source linked in-tab.
 
 A "Profile" picker on the People tab saves your inputs under a name you choose (e.g. "David &
 wife"), so you can switch between saved scenarios later. Opened from disk, profiles live in the
