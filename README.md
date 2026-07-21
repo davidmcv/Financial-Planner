@@ -53,9 +53,10 @@ Everything is a simplified planning model - not financial or tax advice.
   `1 − (1 − success) × survival` (it only "fails" if the pot runs out *and* you're alive to see
   it), with 50%/10%-survival age markers. The People tab shows each person's **maximum modelled
   age** for the country and the odds of reaching given ages;
-- **living-standard targets** from the PLSA / Loughborough University Retirement Living Standards
-  (Low = Minimum, Medium = Moderate, High = Comfortable; single and couple amounts), with a
-  years-below-target verdict;
+- **living-standard targets** from the Pensions UK (formerly PLSA) / Loughborough University
+  Retirement Living Standards (Low = Minimum, Medium = Moderate, High = Comfortable; single and
+  couple amounts), with a **rest-of-UK vs London** toggle that applies the published London
+  higher-cost uplift, and a years-below-target verdict;
 - a **Monte Carlo market stress test** (adviser mode): your household pots replayed against an
   *approximate* 1925-2024 UK/global-equity real-return history, resampled in 5-year blocks, giving
   a "% of runs where the money lasts" score and a 10th-90th percentile fan chart;
@@ -149,7 +150,11 @@ view overflows horizontally.
 **Paying In** (accumulation) has each person's pension pot and contributions, plus their own asset
 sections. **Pension contributions** take the employer amount as either a **percentage of salary**
 or a **fixed £/month**, capped at the **annual allowance** (default £60,000) with a warning when
-exceeded and a high-earner **taper** note (adjusted income over £260,000). **Bonus, equity & other
+exceeded and a high-earner **taper** note (adjusted income over £260,000). **Your own contribution**
+(PensionBee-style, relief-at-source) is entered from take-home pay as a percentage of salary or a
+fixed £/month: 20% **basic-rate tax relief** is added automatically (you pay £8,000, the government
+adds £2,000, £10,000 lands in the pot), and higher/additional-rate taxpayers see the further amount
+they can **reclaim via self-assessment**. **Bonus, equity & other
 savings** (optional) covers an annual **bonus** with a configurable immediate-cash / deferred-cash /
 RSU split and vesting years, **RSUs** already held plus ongoing grants, a **Sharesave / SAYE**
 scheme (monthly, term, discount), one-off upcoming cash, and extra regular saving - each added net

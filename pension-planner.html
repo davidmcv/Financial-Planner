@@ -877,6 +877,28 @@
               <div class="num" id="yourContributionAmount" style="padding: 9px 0; font-size: 0.94rem;"><span class="cur">&pound;</span>0.00 / year</div>
             </div>
           </div>
+          <div class="field-row" style="align-items: flex-start;">
+            <div class="field">
+              <label>Your contribution <span class="hint-inline">(from take-home pay)</span></label>
+              <div class="segmented" id="yourPersonalModeSeg" style="max-width: 320px;">
+                <button type="button" data-pmode="pct" class="active">% of salary</button>
+                <button type="button" data-pmode="fixed"><span class="cur">&pound;</span> per month</button>
+              </div>
+            </div>
+            <div class="field" id="yourPersonalRateField">
+              <label for="yourPersonalRate">Rate (%)</label>
+              <input type="number" id="yourPersonalRate" value="0" min="0" max="100" step="0.5">
+            </div>
+            <div class="field" id="yourPersonalMonthlyField" style="display: none;">
+              <label for="yourPersonalMonthly">You pay (<span class="cur">&pound;</span> / month)</label>
+              <input type="text" inputmode="decimal" data-money="0" id="yourPersonalMonthly" value="0">
+            </div>
+            <div class="field">
+              <label>+ tax relief added</label>
+              <div class="num" id="yourReliefAmount" style="padding: 9px 0; font-size: 0.94rem; color: var(--accent-strong);"><span class="cur">&pound;</span>0 / year</div>
+            </div>
+          </div>
+          <p class="caption" id="reliefNote" style="margin: 2px 0 0;"></p>
           <div class="field-row">
             <div class="field adv">
               <label for="annualAllowance" data-glossary="annualAllowance">Annual allowance cap (<span class="cur">&pound;</span>)</label>
@@ -1229,12 +1251,16 @@
           <div id="budgetSummary" class="notice info" style="margin-top: 12px;"></div>
         </div>
         <div class="divider" style="margin: 14px 0;"></div>
-        <h3 data-glossary="rls">Living standard target <span class="hint-inline">(PLSA / Loughborough University Retirement Living Standards)</span></h3>
+        <h3 data-glossary="rls">Living standard target <span class="hint-inline">(Pensions UK, formerly PLSA / Loughborough University Retirement Living Standards)</span></h3>
         <div class="segmented" id="rlsSeg">
           <button data-rls="none">No target</button>
           <button data-rls="min">Low (Minimum)</button>
           <button data-rls="mod" class="active">Medium (Moderate)</button>
           <button data-rls="comf">High (Comfortable)</button>
+        </div>
+        <div class="segmented" id="rlsRegionSeg" style="margin-top: 8px; max-width: 340px;">
+          <button data-rlsregion="uk" class="active">Rest of UK</button>
+          <button data-rlsregion="london">London</button>
         </div>
         <p class="caption" id="rlsCaption" style="margin-top:10px;"></p>
 
@@ -2177,11 +2203,30 @@ const CARE_COSTS = {
 const careCostAnnual = inp =>
   (CARE_COSTS.nursing[inp.careNursing] || 0) + (CARE_COSTS.home[inp.careHome] || 0);
 
+// Pensions UK (formerly PLSA) / Loughborough University Retirement Living
+// Standards - the latest published set (2024 research). The base figures are
+// the "outside London" costs; London needs a bit more, applied as the
+// published London uplift below (the single genuinely-different regional
+// variant Pensions UK publishes).
 const RLS = {
   min:  { single: 13400, couple: 21600, label: "Low (Minimum)" },
   mod:  { single: 31700, couple: 43900, label: "Medium (Moderate)" },
   comf: { single: 43900, couple: 60600, label: "High (Comfortable)" },
 };
+// Approximate London uplift per level (single / couple), as published.
+const RLS_LONDON = {
+  min:  { single: 2000, couple: 4000 },
+  mod:  { single: 4000, couple: 4000 },
+  comf: { single: 3000, couple: 2000 },
+};
+function rlsAmount(choice, couple, region) {
+  if (choice === "none" || !RLS[choice]) return null;
+  const key = couple ? "couple" : "single";
+  const base = RLS[choice][key];
+  const up = (region === "london" && RLS_LONDON[choice]) ? RLS_LONDON[choice][key] : 0;
+  return base + up;
+}
+let rlsRegion = "uk";
 let rlsChoice = "mod";
 
 /* =========================================================================
@@ -2280,6 +2325,7 @@ const els = id => document.getElementById(id);
 let yourMode = "pot";
 let spouseMode = "income";
 let yourEmployerMode = "pct"; // "pct" (% of salary) | "fixed" (£ per month)
+let yourPersonalMode = "pct"; // your own contribution: "pct" of salary | "fixed" £/month
 
 /* =========================================================================
    WORDING: plain English (novice) vs accurate terms (expert)
@@ -2783,7 +2829,7 @@ const PROFILE_STORAGE_KEY = "pensionPlanner.profiles";
 const PROFILE_FIELD_IDS = [
   "dob", "sex", "retireDate", "retireSpend", "spouseDob", "spouseSex", "spouseRetireDate",
   "yourPot", "yourDrawdown", "yourPotGrowth", "yourSalary", "yourEmployerRate",
-  "yourEmployerMonthly", "annualAllowance",
+  "yourEmployerMonthly", "yourPersonalRate", "yourPersonalMonthly", "annualAllowance",
   "bonusAmount", "bonusDeferYears", "bonusCashPct", "bonusDeferredPct", "bonusRsuPct",
   "rsuHeld", "rsuHeldYears", "rsuAmount", "rsuVestYears",
   "sayeMonthly", "sayeTermYears", "sayeDiscount", "oneOffCash", "oneOffYear", "extraSave",
@@ -2818,6 +2864,7 @@ function collectProfileData() {
   data.yourMode = yourMode;
   data.spouseMode = spouseMode;
   data.yourEmployerMode = yourEmployerMode;
+  data.yourPersonalMode = yourPersonalMode;
   data.bonusOn = els("bonusOn").checked;
   data.rsuOn = els("rsuOn").checked;
   data.sayeOn = els("sayeOn").checked;
@@ -2841,6 +2888,7 @@ function collectProfileData() {
   data.planEvents = JSON.parse(JSON.stringify(planEvents));
   data.scenarios = JSON.parse(JSON.stringify(scenarios));
   data.rlsChoice = rlsChoice;
+  data.rlsRegion = rlsRegion;
   data.plannerTarget = plannerTarget;
   return data;
 }
@@ -2852,8 +2900,10 @@ function applyProfileData(data) {
   scenarios = data.scenarios ? JSON.parse(JSON.stringify(data.scenarios)) : [];
   renderEventList(); renderScenarioList();
   rlsChoice = data.rlsChoice || "mod";
+  rlsRegion = data.rlsRegion || "uk";
   plannerTarget = (typeof data.plannerTarget === "number") ? data.plannerTarget : null;
   els("rlsSeg").querySelectorAll("button").forEach(b => b.classList.toggle("active", b.dataset.rls === rlsChoice));
+  els("rlsRegionSeg").querySelectorAll("button").forEach(b => b.classList.toggle("active", b.dataset.rlsregion === rlsRegion));
   currentCountry = els("country").value || "UK";
   els("scotlandField").style.display = currentCountry === "UK" ? "" : "none";
   els("spouseScotlandField").style.display = (els("spouseCountry").value || "UK") === "UK" ? "" : "none";
@@ -2882,6 +2932,11 @@ function applyProfileData(data) {
     b => b.classList.toggle("active", b.dataset.emode === yourEmployerMode));
   els("yourEmployerRateField").style.display = yourEmployerMode === "pct" ? "" : "none";
   els("yourEmployerMonthlyField").style.display = yourEmployerMode === "fixed" ? "" : "none";
+  yourPersonalMode = data.yourPersonalMode || "pct";
+  document.querySelectorAll("#yourPersonalModeSeg button").forEach(
+    b => b.classList.toggle("active", b.dataset.pmode === yourPersonalMode));
+  els("yourPersonalRateField").style.display = yourPersonalMode === "pct" ? "" : "none";
+  els("yourPersonalMonthlyField").style.display = yourPersonalMode === "fixed" ? "" : "none";
   els("bonusOn").checked = !!data.bonusOn;
   els("rsuOn").checked = !!data.rsuOn;
   els("sayeOn").checked = !!data.sayeOn;
@@ -2988,6 +3043,9 @@ function readInputs() {
     yourEmployerMode,
     yourEmployerRate: parseFloat(els("yourEmployerRate").value) || 0,
     yourEmployerMonthly: money("yourEmployerMonthly"),
+    yourPersonalMode,
+    yourPersonalRate: parseFloat(els("yourPersonalRate").value) || 0,
+    yourPersonalMonthly: money("yourPersonalMonthly"),
     annualAllowance: money("annualAllowance") || Infinity,
     bonusOn: els("bonusOn").checked,
     bonusAmount: money("bonusAmount"),
@@ -3518,9 +3576,21 @@ function computeAll(overrides = {}) {
   const employerContribution = inp.yourMode !== "pot" ? 0
     : (inp.yourEmployerMode === "fixed" ? inp.yourEmployerMonthly * 12
                                         : inp.yourSalary * inp.yourEmployerRate / 100);
+  // Your own contribution, PensionBee-style relief at source: you pay this from
+  // take-home pay; the provider reclaims 20% basic-rate relief and adds it, so
+  // the gross into the pot is what-you-pay / 0.8. Higher-/additional-rate
+  // taxpayers can reclaim the difference via self-assessment (shown as a note;
+  // it comes back to them, it doesn't go into the pot).
+  const personalNet = inp.yourMode !== "pot" ? 0
+    : (inp.yourPersonalMode === "fixed" ? inp.yourPersonalMonthly * 12
+                                        : inp.yourSalary * inp.yourPersonalRate / 100);
+  const personalGross = personalNet / 0.8;      // net + 20% basic-rate relief
+  const personalRelief = personalGross - personalNet;
+  const marginal = currentCountry === "UK" ? marginalRate(inp.yourSalary) : 0;
+  const personalHigherReclaim = Math.max(0, (marginal - 0.20)) * personalGross; // via self-assessment
   // What actually lands in the pot after the annual-allowance cap (employer +
-  // any DC employer-pension-list contributions).
-  const uncappedContribution = employerContribution + at.dcContribution;
+  // your grossed-up contribution + any DC employer-pension-list contributions).
+  const uncappedContribution = employerContribution + personalGross + at.dcContribution;
   const yourContribution = Math.min(uncappedContribution, inp.annualAllowance);
 
   // Bonus, equity & other savings: net-of-tax additions to investable assets
@@ -3598,10 +3668,11 @@ function computeAll(overrides = {}) {
   // The budget (Retired column, ex-mortgage - that's added per-year until paid
   // off) replaces the living-standard pick as the base target when enabled.
   const rlsTarget = inp.budgetOn ? inp.budRetMonthly * 12
-    : rlsChoice === "none" ? null : RLS[rlsChoice][spouse ? "couple" : "single"];
+    : rlsAmount(rlsChoice, spouse, rlsRegion);
 
   return { inp, today, you, spouse, yourRows, spouseRows, yourEffectivePot, yourContribution,
            employerContribution, uncappedContribution, equityAccrued, comp, workYears,
+           personalNet, personalGross, personalRelief, personalHigherReclaim,
            transferNote, gifting, giftSchedule, assetTotals: at, assetTotalsSpouse: atSpouse,
            yourMeta: yourBuilt.meta, spouseMeta: spouseBuilt.meta, rlsTarget, spouseSpWeekly };
 }
@@ -3737,9 +3808,25 @@ function renderTimeline(model) {
 function renderSalary(model) {
   els("yourContributionAmount").textContent =
     `${gbp2(model.yourContribution)} / year (${gbp2(model.yourContribution / 12)} / month)`;
+  const inp = model.inp;
+
+  // Personal-contribution tax-relief readout (PensionBee-style): what you pay,
+  // plus the 20% relief added, and the higher-rate reclaim if any.
+  els("yourReliefAmount").textContent = `${gbp0(model.personalRelief || 0)} / year`;
+  const rn = els("reliefNote");
+  if ((model.personalNet || 0) > 0) {
+    let msg = `You pay <b>${gbp0(model.personalNet)}/yr</b> (${gbp0(model.personalNet / 12)}/mo); basic-rate relief adds ` +
+      `<b>${gbp0(model.personalRelief)}</b>, so <b>${gbp0(model.personalGross)}/yr</b> goes into your pot`;
+    if ((model.personalHigherReclaim || 0) > 1) {
+      msg += `. As a higher-rate taxpayer you can reclaim a further <b>~${gbp0(model.personalHigherReclaim)}/yr</b> via self-assessment (that comes back to you, it doesn't add to the pot)`;
+    }
+    rn.innerHTML = msg + ". Employer + your contribution together are shown in “Goes into your pot” above.";
+    rn.style.display = "";
+  } else {
+    rn.style.display = "none";
+  }
 
   // Contribution note: annual-allowance cap and high-earner taper.
-  const inp = model.inp;
   const aa = inp.annualAllowance;
   const notes = [];
   if (isFinite(aa) && model.uncappedContribution > aa + 0.5) {
@@ -4622,9 +4709,11 @@ function drawPlannerChart(model) {
     ? `The tinted left band is <b>while you're working</b> - salaries plus what you pay into pensions and savings each year. The right band is <b>after retirement</b>, showing where your income comes from. `
     : `The tinted left band is the <b>accumulation</b> phase (salaries + contributions per year); the right band is <b>decumulation</b>, with household income by source. `) +
     `The dashed vertical line is retirement. Flags mark major events; the solid pale line includes your one-off events; dashed lines are what-if scenarios.`;
-  els("rlsCaption").innerHTML = rlsChoice === "none" ? "No target selected." :
-    `${RLS[rlsChoice].label}: ${CUR()}${RLS[rlsChoice][model.spouse ? "couple" : "single"].toLocaleString("en-GB")}/yr for a ${model.spouse ? "couple" : "single person"} ` +
-    `(PLSA Retirement Living Standards, 2025, developed with Loughborough University; UK-based figures shown in your currency unadjusted).`;
+  const rlsAmt = rlsAmount(rlsChoice, model.spouse, rlsRegion);
+  els("rlsCaption").innerHTML = rlsChoice === "none" || rlsAmt == null ? "No target selected." :
+    `${RLS[rlsChoice].label}: ${CUR()}${rlsAmt.toLocaleString("en-GB")}/yr for a ${model.spouse ? "couple" : "single person"} ` +
+    `${rlsRegion === "london" ? "<b>in London</b> (incl. the higher-cost uplift) " : "<b>outside London</b> "}` +
+    `(Pensions UK, formerly PLSA, Retirement Living Standards developed with Loughborough University; latest figures shown in your currency unadjusted).`;
 }
 
 // Voyant Go-style year-by-year stacked bar chart: each year's income sources
@@ -5291,6 +5380,14 @@ els("rlsSeg").addEventListener("click", e => {
   els("rlsSeg").querySelectorAll("button").forEach(b => b.classList.toggle("active", b.dataset.rls === rlsChoice));
   onUserChange();
 });
+els("rlsRegionSeg").addEventListener("click", e => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  rlsRegion = btn.dataset.rlsregion;
+  plannerTarget = null; // region changes the living-standard figure
+  els("rlsRegionSeg").querySelectorAll("button").forEach(b => b.classList.toggle("active", b.dataset.rlsregion === rlsRegion));
+  onUserChange();
+});
 
 /* Draggable target line on BOTH planner charts: grab the red line to sweep
    the income target (one shared value, so moving it on either chart moves it
@@ -5732,6 +5829,16 @@ els("yourEmployerModeSeg").addEventListener("click", e => {
   els("yourEmployerMonthlyField").style.display = yourEmployerMode === "fixed" ? "" : "none";
   onUserChange();
 });
+els("yourPersonalModeSeg").addEventListener("click", e => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  yourPersonalMode = btn.dataset.pmode;
+  els("yourPersonalModeSeg").querySelectorAll("button").forEach(
+    b => b.classList.toggle("active", b === btn));
+  els("yourPersonalRateField").style.display = yourPersonalMode === "pct" ? "" : "none";
+  els("yourPersonalMonthlyField").style.display = yourPersonalMode === "fixed" ? "" : "none";
+  onUserChange();
+});
 els("bonusOn").addEventListener("change", e => {
   els("bonusFields").style.display = e.target.checked ? "" : "none";
   onUserChange();
@@ -6147,7 +6254,7 @@ function seedDemoProfiles() {
     dob: "1973-03-01", sex: "M", retireDate: "2028-03-01", retireSpend: "0",
     spouseDob: "1976-04-01", spouseSex: "F", spouseRetireDate: "2033-04-01",
     yourPot: "0", yourDrawdown: "4", yourPotGrowth: "6", yourSalary: "0", yourEmployerRate: "15",
-    yourEmployerMonthly: "2,500", annualAllowance: "60,000",
+    yourEmployerMonthly: "2,500", yourPersonalRate: "0", yourPersonalMonthly: "0", annualAllowance: "60,000",
     bonusAmount: "0", bonusDeferYears: "2", bonusCashPct: "0", bonusDeferredPct: "50", bonusRsuPct: "50",
     rsuHeld: "0", rsuHeldYears: "2", rsuAmount: "0", rsuVestYears: "2",
     sayeMonthly: "0", sayeTermYears: "3", sayeDiscount: "20", oneOffCash: "0", oneOffYear: String(todayObj().y + 1), extraSave: "0",
@@ -6169,9 +6276,9 @@ function seedDemoProfiles() {
     budHealthNow: "150", budHealthRet: "250", budSubsNow: "150", budSubsRet: "150",
     budGiftNow: "100", budGiftRet: "150", budClothNow: "150", budClothRet: "100",
     budOtherNow: "200", budOtherRet: "200",
-    spouseOn: true, yourMode: "pot", spouseMode: "income", yourEmployerMode: "pct", bonusOn: false, rsuOn: false,
+    spouseOn: true, yourMode: "pot", spouseMode: "income", yourEmployerMode: "pct", yourPersonalMode: "pct", bonusOn: false, rsuOn: false,
     assets: { savings: [], employerPensions: [], shares: [] },
-    planEvents: [], scenarios: [], rlsChoice: "mod",
+    planEvents: [], scenarios: [], rlsChoice: "mod", rlsRegion: "uk",
   };
   const mk = o => Object.assign(JSON.parse(JSON.stringify(base)), o);
   // Wealth ladder: £0 (State Pension only) up to £10m in log-ish steps,
