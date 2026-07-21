@@ -607,7 +607,7 @@
   <aside class="rail">
     <div class="brand">
       <span class="mark">Ledger &amp; Later</span>
-      <span class="sub">UK Pension Planner</span>
+      <span class="sub">Retirement &amp; Pension Planner</span>
     </div>
     <nav class="tabs" id="tabs">
       <button class="tab-btn active" data-tab="people"><span class="icon">&#128100;</span>People</button>
@@ -845,8 +845,10 @@
               <span class="hint">% you take out each year in retirement</span>
             </div>
           </div>
-          <label class="check-inline" data-glossary="pcls"><input type="checkbox" id="yourTakePcls"> Take the 25% tax-free lump sum at your access age</label>
-          <span class="hint" style="display:block; margin:-4px 0 4px;">Reduces the drawdown pot to 75% and adds the tax-free cash to your savings, available to fund/smooth retirement.</span>
+          <div id="yourPclsRow">
+            <label class="check-inline" data-glossary="pcls"><input type="checkbox" id="yourTakePcls"> Take the 25% tax-free lump sum at your access age</label>
+            <span class="hint" style="display:block; margin:-4px 0 4px;">Reduces the drawdown pot to 75% and adds the tax-free cash to your savings, available to fund/smooth retirement.</span>
+          </div>
           <div class="divider" style="margin: 14px 0;"></div>
           <h3><span class="phase-chip accum" data-term="accumulationShort">Paying in</span> Pension contributions (until you can access this pot)</h3>
           <div class="field-row">
@@ -879,7 +881,7 @@
           </div>
           <div class="field-row" style="align-items: flex-start;">
             <div class="field">
-              <label>Your contribution <span class="hint-inline">(from take-home pay)</span></label>
+              <label id="personalContribLabel">Your contribution <span class="hint-inline">(from take-home pay)</span></label>
               <div class="segmented" id="yourPersonalModeSeg" style="max-width: 320px;">
                 <button type="button" data-pmode="pct" class="active">% of salary</button>
                 <button type="button" data-pmode="fixed"><span class="cur">&pound;</span> per month</button>
@@ -894,7 +896,7 @@
               <input type="text" inputmode="decimal" data-money="0" id="yourPersonalMonthly" value="0">
             </div>
             <div class="field">
-              <label>+ tax relief added</label>
+              <label id="reliefLabel">+ tax relief added</label>
               <div class="num" id="yourReliefAmount" style="padding: 9px 0; font-size: 0.94rem; color: var(--accent-strong);"><span class="cur">&pound;</span>0 / year</div>
             </div>
           </div>
@@ -1086,7 +1088,9 @@
               <input type="number" id="spousePotGrowth" value="6" min="-20" step="0.1">
             </div>
           </div>
-          <label class="check-inline" data-glossary="pcls"><input type="checkbox" id="spouseTakePcls"> Take the 25% tax-free lump sum at access age</label>
+          <div id="spousePclsRow">
+            <label class="check-inline" data-glossary="pcls"><input type="checkbox" id="spouseTakePcls"> Take the 25% tax-free lump sum at access age</label>
+          </div>
         </div>
 
         <div id="spouseIncomeFields">
@@ -1251,7 +1255,7 @@
           <div id="budgetSummary" class="notice info" style="margin-top: 12px;"></div>
         </div>
         <div class="divider" style="margin: 14px 0;"></div>
-        <h3 data-glossary="rls">Living standard target <span class="hint-inline">(Pensions UK, formerly PLSA / Loughborough University Retirement Living Standards)</span></h3>
+        <h3 data-glossary="rls">Living standard target <span class="hint-inline" id="rlsSourceHint">(Pensions UK, formerly PLSA / Loughborough University Retirement Living Standards)</span></h3>
         <div class="segmented" id="rlsSeg">
           <button data-rls="none">No target</button>
           <button data-rls="min">Low (Minimum)</button>
@@ -1473,6 +1477,8 @@
         <h1>Tax-free gifting</h1>
         <p>How much you can gift each year to children and grandchildren without Inheritance Tax implications, and a recommended amount based on your surplus income.</p>
       </div>
+
+      <div class="notice info" id="giftingCountryNote" style="display:none; margin-bottom:14px;"></div>
 
       <div class="card">
         <h2>Recipients &amp; allowance</h2>
@@ -2203,28 +2209,58 @@ const CARE_COSTS = {
 const careCostAnnual = inp =>
   (CARE_COSTS.nursing[inp.careNursing] || 0) + (CARE_COSTS.home[inp.careHome] || 0);
 
-// Pensions UK (formerly PLSA) / Loughborough University Retirement Living
-// Standards - the latest published set (2024 research). The base figures are
-// the "outside London" costs; London needs a bit more, applied as the
-// published London uplift below (the single genuinely-different regional
-// variant Pensions UK publishes).
-const RLS = {
-  min:  { single: 13400, couple: 21600, label: "Low (Minimum)" },
-  mod:  { single: 31700, couple: 43900, label: "Medium (Moderate)" },
-  comf: { single: 43900, couple: 60600, label: "High (Comfortable)" },
+// Retirement living-standard benchmarks, per country. Each country that has an
+// official national standard gets its own tiers (keyed by the same slugs the
+// segmented control uses: min / mod / comf); countries without one are null and
+// the tool falls back to the Budget planner / a custom target instead.
+//   - UK: Pensions UK (formerly PLSA) / Loughborough Retirement Living Standards
+//     (2024 research), with the published London higher-cost uplift.
+//   - AU: ASFA Retirement Standard (Modest / Comfortable), ~Feb 2026 figures,
+//     assumes you own your home. ASFA publishes no "minimum" tier, so only two.
+//   - US / FR: no official national living-standard dataset, so no preset tiers.
+const LIVING_STANDARDS = {
+  UK: {
+    source: "Pensions UK (formerly PLSA) / Loughborough University Retirement Living Standards",
+    url: "https://www.retirementlivingstandards.org.uk/",
+    note: "Pensions UK, formerly PLSA, Retirement Living Standards developed with Loughborough University",
+    hasRegion: true,
+    tiers: {
+      min:  { single: 13400, couple: 21600, label: "Low (Minimum)" },
+      mod:  { single: 31700, couple: 43900, label: "Medium (Moderate)" },
+      comf: { single: 43900, couple: 60600, label: "High (Comfortable)" },
+    },
+    london: { min: { single: 2000, couple: 4000 }, mod: { single: 4000, couple: 4000 }, comf: { single: 3000, couple: 2000 } },
+  },
+  AU: {
+    source: "ASFA Retirement Standard (Association of Superannuation Funds of Australia)",
+    url: "https://www.superannuation.asn.au/consumers/retirement-standard/",
+    note: "ASFA Retirement Standard (~Feb 2026), assumes you own your home outright",
+    hasRegion: false,
+    tiers: {
+      min:  { single: 36700, couple: 52800, label: "Modest" },
+      comf: { single: 54840, couple: 77375, label: "Comfortable" },
+    },
+  },
+  US: null,
+  FR: null,
 };
-// Approximate London uplift per level (single / couple), as published.
-const RLS_LONDON = {
-  min:  { single: 2000, couple: 4000 },
-  mod:  { single: 4000, couple: 4000 },
-  comf: { single: 3000, couple: 2000 },
-};
+function standardsFor(country) { return LIVING_STANDARDS[country || currentCountry]; }
 function rlsAmount(choice, couple, region) {
-  if (choice === "none" || !RLS[choice]) return null;
+  const std = standardsFor();
+  if (!std || choice === "none" || !std.tiers[choice]) return null;
   const key = couple ? "couple" : "single";
-  const base = RLS[choice][key];
-  const up = (region === "london" && RLS_LONDON[choice]) ? RLS_LONDON[choice][key] : 0;
+  const base = std.tiers[choice][key];
+  const up = (region === "london" && std.hasRegion && std.london && std.london[choice]) ? std.london[choice][key] : 0;
   return base + up;
+}
+// Sensible fallback target when none is set: the moderate tier where a standard
+// exists, else 0 (no target line) for countries without one.
+function defaultLivingTarget(couple) {
+  const std = standardsFor();
+  if (!std) return 0;
+  const key = couple ? "couple" : "single";
+  const t = std.tiers.mod || std.tiers.comf || std.tiers.min;
+  return t ? t[key] : 0;
 }
 let rlsRegion = "uk";
 let rlsChoice = "mod";
@@ -3131,7 +3167,7 @@ function renderPhaseTax(model) {
   const wrap = els("spendPhaseFields");
   if (!wrap) return;
   const base = plannerTarget != null ? plannerTarget
-    : (model.rlsTarget || RLS.mod[model.spouse ? "couple" : "single"]);
+    : (model.rlsTarget || defaultLivingTarget(model.spouse));
   const retAge = ageAtDate(model.you.dob, inp.retireDate);
   const rows = [
     ["goGoTax", inp.goGoPct, Math.max(retAge + 1, Math.min(inp.goGoUntilAge - 1, inp.goGoUntilAge))],
@@ -3456,7 +3492,7 @@ function buildPersonProjection(p, o) {
     meta.accumulatedPot = accumulatePensionPot(effToday, o.today, decumStartDate, contrib, o.potGrowth);
     // 25% tax-free lump sum taken at access: pot drops to 75%, the cash is
     // recorded for the funding model to draw on.
-    if (o.takePcls) {
+    if (o.takePcls && o.pclsCountry === "UK") {   // 25% tax-free lump sum is a UK rule
       meta.pclsCash = meta.accumulatedPot * 0.25;
       meta.pclsYear = decumStartDate.y;
       meta.accumulatedPot *= 0.75;
@@ -3576,20 +3612,37 @@ function computeAll(overrides = {}) {
   const employerContribution = inp.yourMode !== "pot" ? 0
     : (inp.yourEmployerMode === "fixed" ? inp.yourEmployerMonthly * 12
                                         : inp.yourSalary * inp.yourEmployerRate / 100);
-  // Your own contribution, PensionBee-style relief at source: you pay this from
-  // take-home pay; the provider reclaims 20% basic-rate relief and adds it, so
-  // the gross into the pot is what-you-pay / 0.8. Higher-/additional-rate
-  // taxpayers can reclaim the difference via self-assessment (shown as a note;
-  // it comes back to them, it doesn't go into the pot).
-  const personalNet = inp.yourMode !== "pot" ? 0
+  // Your own (employee) contribution. The mechanism is country-specific:
+  //   UK   - relief at source (PensionBee-style): paid from take-home pay, the
+  //          provider adds 20% basic-rate relief so gross-into-pot = pay / 0.8;
+  //          higher-/additional-rate taxpayers reclaim the rest via self-assessment.
+  //   US/FR- pre-tax (401k/IRA, PER): the whole amount goes into the pot and
+  //          comes off your taxable income, saving tax at your marginal rate.
+  //   AU   - salary sacrifice (concessional): taxed 15% on the way in, so 85%
+  //          lands in super.
+  const personalElected = inp.yourMode !== "pot" ? 0
     : (inp.yourPersonalMode === "fixed" ? inp.yourPersonalMonthly * 12
                                         : inp.yourSalary * inp.yourPersonalRate / 100);
-  const personalGross = personalNet / 0.8;      // net + 20% basic-rate relief
-  const personalRelief = personalGross - personalNet;
-  const marginal = currentCountry === "UK" ? marginalRate(inp.yourSalary) : 0;
-  const personalHigherReclaim = Math.max(0, (marginal - 0.20)) * personalGross; // via self-assessment
+  let personalNet = personalElected, personalGross = personalElected;
+  let personalRelief = 0, personalHigherReclaim = 0, personalTaxSaving = 0, personalContribTax = 0;
+  if (personalElected > 0) {
+    if (currentCountry === "UK") {
+      personalNet = personalElected;
+      personalGross = personalElected / 0.8;                 // + 20% basic-rate relief
+      personalRelief = personalGross - personalNet;
+      personalHigherReclaim = Math.max(0, marginalRate(inp.yourSalary) - 0.20) * personalGross;
+    } else if (currentCountry === "AU") {
+      personalContribTax = personalElected * 0.15;           // concessional contributions tax
+      personalGross = personalElected - personalContribTax;  // 85% into super
+    } else {                                                 // US / FR pre-tax
+      const t0 = taxOnSalary(inp.yourSalary, currentCountry);
+      const t1 = taxOnSalary(Math.max(0, inp.yourSalary - personalElected), currentCountry);
+      personalTaxSaving = Math.max(0, (t0.tax + t0.ni) - (t1.tax + t1.ni));
+      personalGross = personalElected;                       // full amount into the pot
+    }
+  }
   // What actually lands in the pot after the annual-allowance cap (employer +
-  // your grossed-up contribution + any DC employer-pension-list contributions).
+  // your contribution into the pot + any DC employer-pension-list contributions).
   const uncappedContribution = employerContribution + personalGross + at.dcContribution;
   const yourContribution = Math.min(uncappedContribution, inp.annualAllowance);
 
@@ -3604,7 +3657,7 @@ function computeAll(overrides = {}) {
 
   const yourBuilt = buildPersonProjection(you, {
     mode: inp.yourMode, potToday: inp.yourPot, drawdown: inp.yourDrawdown, potGrowth: inp.yourPotGrowth,
-    employerContribution, annualAllowance: inp.annualAllowance, takePcls: inp.yourTakePcls,
+    employerContribution, annualAllowance: inp.annualAllowance, takePcls: inp.yourTakePcls, pclsCountry: currentCountry,
     startIncome: inp.yourIncome, incomeGrowth: inp.yourIncomeGrowth,
     retireDate: inp.retireDate, retireSpend: inp.retireSpend, assets: atYou,
     spWeekly: inp.spWeekly, spGrowth: inp.spGrowth, discount: inp.discount, today,
@@ -3617,7 +3670,7 @@ function computeAll(overrides = {}) {
   if (spouse) {
     spouseBuilt = buildPersonProjection(spouse, {
       mode: inp.spouseMode, potToday: inp.spousePot, drawdown: inp.spouseDrawdown, potGrowth: inp.spousePotGrowth,
-      employerContribution: 0, annualAllowance: Infinity, takePcls: inp.spouseTakePcls,
+      employerContribution: 0, annualAllowance: Infinity, takePcls: inp.spouseTakePcls, pclsCountry: inp.spouseCountry,
       startIncome: inp.spouseIncome, incomeGrowth: inp.spouseIncomeGrowth,
       retireDate: inp.spouseRetireDate, retireSpend: 0, assets: atSpouse,
       spWeekly: spouseSpWeekly, spGrowth: inp.spGrowth, discount: inp.discount, today,
@@ -3672,7 +3725,7 @@ function computeAll(overrides = {}) {
 
   return { inp, today, you, spouse, yourRows, spouseRows, yourEffectivePot, yourContribution,
            employerContribution, uncappedContribution, equityAccrued, comp, workYears,
-           personalNet, personalGross, personalRelief, personalHigherReclaim,
+           personalNet, personalGross, personalRelief, personalHigherReclaim, personalTaxSaving, personalContribTax,
            transferNote, gifting, giftSchedule, assetTotals: at, assetTotalsSpouse: atSpouse,
            yourMeta: yourBuilt.meta, spouseMeta: spouseBuilt.meta, rlsTarget, spouseSpWeekly };
 }
@@ -3810,15 +3863,29 @@ function renderSalary(model) {
     `${gbp2(model.yourContribution)} / year (${gbp2(model.yourContribution / 12)} / month)`;
   const inp = model.inp;
 
-  // Personal-contribution tax-relief readout (PensionBee-style): what you pay,
-  // plus the 20% relief added, and the higher-rate reclaim if any.
-  els("yourReliefAmount").textContent = `${gbp0(model.personalRelief || 0)} / year`;
+  // Personal-contribution readout, country-aware: UK relief-at-source, US/FR
+  // pre-tax (tax saved), AU salary sacrifice (15% contributions tax).
+  const cc = currentCountry;
+  const readoutVal = cc === "UK" ? (model.personalRelief || 0)
+    : cc === "AU" ? (model.personalContribTax || 0)
+    : (model.personalTaxSaving || 0);
+  els("yourReliefAmount").innerHTML = `${gbp0(readoutVal)} / year`;
   const rn = els("reliefNote");
   if ((model.personalNet || 0) > 0) {
-    let msg = `You pay <b>${gbp0(model.personalNet)}/yr</b> (${gbp0(model.personalNet / 12)}/mo); basic-rate relief adds ` +
-      `<b>${gbp0(model.personalRelief)}</b>, so <b>${gbp0(model.personalGross)}/yr</b> goes into your pot`;
-    if ((model.personalHigherReclaim || 0) > 1) {
-      msg += `. As a higher-rate taxpayer you can reclaim a further <b>~${gbp0(model.personalHigherReclaim)}/yr</b> via self-assessment (that comes back to you, it doesn't add to the pot)`;
+    let msg;
+    if (cc === "UK") {
+      msg = `You pay <b>${gbp0(model.personalNet)}/yr</b> (${gbp0(model.personalNet / 12)}/mo) from take-home pay; basic-rate relief adds ` +
+        `<b>${gbp0(model.personalRelief)}</b>, so <b>${gbp0(model.personalGross)}/yr</b> goes into your pot`;
+      if ((model.personalHigherReclaim || 0) > 1) {
+        msg += `. As a higher-rate taxpayer you can reclaim a further <b>~${gbp0(model.personalHigherReclaim)}/yr</b> via self-assessment (that comes back to you, it doesn't add to the pot)`;
+      }
+    } else if (cc === "AU") {
+      msg = `You salary-sacrifice <b>${gbp0(model.personalNet)}/yr</b> (${gbp0(model.personalNet / 12)}/mo) pre-tax; 15% contributions tax ` +
+        `(<b>${gbp0(model.personalContribTax)}</b>) applies, so <b>${gbp0(model.personalGross)}/yr</b> lands in your super`;
+    } else {
+      const plan = cc === "US" ? "401(k) / IRA" : "PER";
+      msg = `You contribute <b>${gbp0(model.personalNet)}/yr</b> (${gbp0(model.personalNet / 12)}/mo) pre-tax; the full <b>${gbp0(model.personalGross)}/yr</b> ` +
+        `goes into your ${plan} and comes off your taxable income, saving about <b>${gbp0(model.personalTaxSaving)}/yr</b> in tax`;
     }
     rn.innerHTML = msg + ". Employer + your contribution together are shown in “Goes into your pot” above.";
     rn.style.display = "";
@@ -4314,7 +4381,7 @@ function householdFunding(model, targetOverride) {
   const custom = parseMoney(els("mcSpend").value);
   const baseTarget = targetOverride != null ? targetOverride
     : plannerTarget != null ? plannerTarget
-    : (custom && custom > 0) ? custom : (model.rlsTarget || RLS.mod[spouse ? "couple" : "single"]);
+    : (custom && custom > 0) ? custom : (model.rlsTarget || defaultLivingTarget(spouse));
 
   // Level-income mode: hold the pension pot(s) and draw exactly what's needed
   // each year (instead of the fixed %-drawdown rows), and bank any income
@@ -4690,7 +4757,7 @@ function drawPlannerChart(model) {
     `<span class="key"><span class="swatch" style="background:#4a90a4"></span>DB pension</span>`,
     `<span class="key"><span class="swatch" style="background:${CHART.state}"></span>${COUNTRIES[currentCountry].spName}</span>`,
     smooth ? `<span class="key"><span class="swatch" style="background:#8a5cd0"></span>Funded income (smoothed)</span>` : "",
-    model.rlsTarget ? `<span class="key"><span class="swatch" style="background:${CHART.crit}"></span>Target (${model.inp.budgetOn ? "Budget" : RLS[rlsChoice].label})</span>` : "",
+    model.rlsTarget ? `<span class="key"><span class="swatch" style="background:${CHART.crit}"></span>Target (${model.inp.budgetOn ? "Budget" : (function(){ const s = standardsFor(); return s && s.tiers[rlsChoice] ? s.tiers[rlsChoice].label : "Living standard"; })()})</span>` : "",
     ...scenarioSeries.map((ss, si) => `<span class="key"><span class="swatch" style="background:${scColors[si % scColors.length]}"></span>${ss.name}</span>`),
   ].filter(Boolean).join("");
 
@@ -4709,11 +4776,20 @@ function drawPlannerChart(model) {
     ? `The tinted left band is <b>while you're working</b> - salaries plus what you pay into pensions and savings each year. The right band is <b>after retirement</b>, showing where your income comes from. `
     : `The tinted left band is the <b>accumulation</b> phase (salaries + contributions per year); the right band is <b>decumulation</b>, with household income by source. `) +
     `The dashed vertical line is retirement. Flags mark major events; the solid pale line includes your one-off events; dashed lines are what-if scenarios.`;
+  const std = standardsFor();
   const rlsAmt = rlsAmount(rlsChoice, model.spouse, rlsRegion);
-  els("rlsCaption").innerHTML = rlsChoice === "none" || rlsAmt == null ? "No target selected." :
-    `${RLS[rlsChoice].label}: ${CUR()}${rlsAmt.toLocaleString("en-GB")}/yr for a ${model.spouse ? "couple" : "single person"} ` +
-    `${rlsRegion === "london" ? "<b>in London</b> (incl. the higher-cost uplift) " : "<b>outside London</b> "}` +
-    `(Pensions UK, formerly PLSA, Retirement Living Standards developed with Loughborough University; latest figures shown in your currency unadjusted).`;
+  if (!std) {
+    // No official national standard for this country (US / FR): direct users to
+    // the Budget planner / a custom target rather than showing UK figures.
+    els("rlsCaption").innerHTML = `${COUNTRIES[currentCountry].name} has no official national retirement living standard. ` +
+      `Set your income target with the <b>Budget planner</b> above, or drag the target line on the chart.`;
+  } else {
+    const tier = std.tiers[rlsChoice];
+    els("rlsCaption").innerHTML = rlsChoice === "none" || rlsAmt == null || !tier ? "No target selected." :
+      `${tier.label}: ${CUR()}${rlsAmt.toLocaleString("en-GB")}/yr for a ${model.spouse ? "couple" : "single person"} ` +
+      (std.hasRegion ? `${rlsRegion === "london" ? "<b>in London</b> (incl. the higher-cost uplift) " : "<b>outside London</b> "}` : "") +
+      `(${std.note}; latest figures in ${CUR()}, unadjusted).`;
+  }
 }
 
 // Voyant Go-style year-by-year stacked bar chart: each year's income sources
@@ -4929,7 +5005,7 @@ function runMonteCarlo(model) {
   const custom = parseMoney(els("mcSpend").value);
   const targetSpend = plannerTarget != null ? plannerTarget
     : (custom && custom > 0) ? custom
-    : (model.rlsTarget || RLS.mod[model.spouse ? "couple" : "single"]);
+    : (model.rlsTarget || defaultLivingTarget(model.spouse));
   const runs = parseInt(els("mcRuns").value, 10) || 500;
 
   lastMc = { ...mcSimulate({ startPot, years, guaranteed, targetSpend, runs }),
@@ -5009,7 +5085,7 @@ function longevityData(model) {
   }
   const custom = parseMoney(els("mcSpend").value);
   const targetSpend = plannerTarget != null ? plannerTarget
-    : (custom && custom > 0) ? custom : (model.rlsTarget || RLS.mod[model.spouse ? "couple" : "single"]);
+    : (custom && custom > 0) ? custom : (model.rlsTarget || defaultLivingTarget(model.spouse));
   const runs = parseInt(els("mcRuns").value, 10) || 500;
   const sim = mcSimulate({ startPot, years, guaranteed, targetSpend, runs });
   const solvent = sim.solventByYear;
@@ -5342,8 +5418,87 @@ document.addEventListener("click", e => {
 
 // Country & living-standard target.
 // Reflect the selected country's currency symbol in every static label/hint.
+// Show the right living-standard benchmark for the active country: PLSA tiers +
+// London for the UK, ASFA Modest/Comfortable for Australia, and for countries
+// with no official standard (US / France) hide the presets and lean on the
+// Budget planner / a custom target.
+function updateLivingStandardUI() {
+  const std = standardsFor();
+  const seg = els("rlsSeg"), regionSeg = els("rlsRegionSeg"), hint = els("rlsSourceHint");
+  if (!std) {
+    seg.style.display = "none";
+    regionSeg.style.display = "none";
+    if (hint) hint.textContent = `(no national standard for ${COUNTRIES[currentCountry].name})`;
+    return;
+  }
+  seg.style.display = "";
+  if (hint) hint.textContent = `(${std.source})`;
+  // Show/label only the tiers this country publishes; keep "No target".
+  seg.querySelectorAll("button[data-rls]").forEach(btn => {
+    const key = btn.dataset.rls;
+    if (key === "none") { btn.style.display = ""; return; }
+    const tier = std.tiers[key];
+    btn.style.display = tier ? "" : "none";
+    if (tier) btn.textContent = tier.label;
+  });
+  // If the current choice isn't offered here, fall back to a sensible tier.
+  if (rlsChoice !== "none" && !std.tiers[rlsChoice]) {
+    rlsChoice = std.tiers.mod ? "mod" : std.tiers.comf ? "comf" : "min";
+  }
+  seg.querySelectorAll("button[data-rls]").forEach(b => b.classList.toggle("active", b.dataset.rls === rlsChoice));
+  // London/rest-of-UK region toggle only where a country publishes regional figures.
+  regionSeg.style.display = std.hasRegion ? "" : "none";
+  if (!std.hasRegion) rlsRegion = "uk";
+}
+
+// How a personal (employee) contribution works differs by country, so the
+// field wording and the readout label adapt: UK is relief-at-source (paid from
+// take-home, government adds 20%); the US (401k/IRA) and France (PER) take it
+// pre-tax so the whole amount lands in the pot and it comes off taxable income;
+// Australian salary sacrifice is a pre-tax "concessional" contribution taxed 15%
+// on the way in.
+function personalContribLabels(country) {
+  switch (country) {
+    case "US": return { field: `Your 401(k) / IRA contribution <span class="hint-inline">(pre-tax)</span>`, readout: "tax saved (off taxable income)" };
+    case "AU": return { field: `Salary sacrifice into super <span class="hint-inline">(pre-tax, concessional)</span>`, readout: "&minus; 15% contributions tax" };
+    case "FR": return { field: `Your PER contribution <span class="hint-inline">(pre-tax, d&eacute;ductible)</span>`, readout: "tax saved (d&eacute;duction)" };
+    default:   return { field: `Your contribution <span class="hint-inline">(from take-home pay)</span>`, readout: "+ tax relief added" };
+  }
+}
+function updatePersonalContribUI() {
+  const l = personalContribLabels(currentCountry);
+  const fl = els("personalContribLabel"); if (fl) fl.innerHTML = l.field;
+  const rl = els("reliefLabel"); if (rl) rl.innerHTML = l.readout;
+}
+
+// The 25% tax-free lump sum is a UK rule; hide the toggle (and clear it) for
+// other countries so nobody accidentally models a lump sum that doesn't exist.
+function updatePclsUI() {
+  const uk = currentCountry === "UK";
+  ["yourPclsRow", "spousePclsRow"].forEach(id => { const el = els(id); if (el) el.style.display = uk ? "" : "none"; });
+  if (!uk) { if (els("yourTakePcls")) els("yourTakePcls").checked = false; if (els("spouseTakePcls")) els("spouseTakePcls").checked = false; }
+}
+
+// The gifting tab models UK Inheritance Tax (nil-rate band, 7-year rule, 40%).
+// Other countries' estate/succession regimes differ hugely (Australia has none;
+// the US federal exemption is very large; France taxes by relationship), so for
+// non-UK countries we flag that these are UK rules rather than mislead.
+function updateGiftingCountryNote() {
+  const note = els("giftingCountryNote");
+  if (!note) return;
+  if (currentCountry === "UK") { note.style.display = "none"; return; }
+  note.style.display = "";
+  note.innerHTML = `These figures use <b>UK Inheritance Tax</b> rules (nil-rate band, the 7-year gift rule, 40%). ` +
+    `${COUNTRIES[currentCountry].name}'s estate / succession rules differ and aren't modelled here &mdash; ` +
+    `treat this tab as UK-only guidance.`;
+}
+
 function updateCurrencyLabels() {
   document.querySelectorAll("span.cur").forEach(s => { s.textContent = CUR(); });
+  updateLivingStandardUI();
+  updatePersonalContribUI();
+  updatePclsUI();
+  updateGiftingCountryNote();
 }
 
 els("spouseCountry").addEventListener("change", () => {
