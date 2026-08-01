@@ -928,9 +928,13 @@
               <label for="yourPot">Pension pot today (<span class="cur">&pound;</span>)</label>
               <input type="text" inputmode="decimal" data-money="0" id="yourPot" value="1,000,000">
             </div>
-            <div class="field adv">
-              <label for="yourPotGrowth">Assumed pot growth (%)</label>
-              <input type="number" id="yourPotGrowth" value="6" min="-20" step="0.1">
+            <div class="field">
+              <label for="yourPotGrowth">Average pot growth (% a year)</label>
+              <input type="number" id="yourPotGrowth" value="8" min="-20" max="30" step="0.1">
+              <label class="check-inline" style="margin: 6px 0 0; font-weight: 400;">
+                <input type="checkbox" id="yourIndexGrowth" checked> Use the global index fund average
+              </label>
+              <span class="hint" id="yourGrowthHint"></span>
             </div>
             <div class="field adv">
               <label for="yourDrawdown"><span class="phase-chip decum tiny" data-term="decumulationShort">Taking out</span> Annual drawdown (%)</label>
@@ -1177,8 +1181,12 @@
               <input type="number" id="spouseDrawdown" value="4" min="0" step="0.1">
             </div>
             <div class="field adv">
-              <label for="spousePotGrowth">Assumed pot growth (%)</label>
-              <input type="number" id="spousePotGrowth" value="6" min="-20" step="0.1">
+              <label for="spousePotGrowth">Average pot growth (% a year)</label>
+              <input type="number" id="spousePotGrowth" value="8" min="-20" max="30" step="0.1">
+              <label class="check-inline" style="margin: 6px 0 0; font-weight: 400;">
+                <input type="checkbox" id="spouseIndexGrowth" checked> Use the global index fund average
+              </label>
+              <span class="hint" id="spouseGrowthHint"></span>
             </div>
           </div>
           <div id="spousePclsRow">
@@ -1401,13 +1409,14 @@
         </div>
 
         <div class="divider" style="margin: 14px 0;"></div>
-        <h3>Care costs in later life <span class="hint-inline">(added from your no-go age)</span></h3>
-        <p class="caption" style="margin:-2px 0 8px;">Representative UK 2025 costs, added to the spending target from your no-go age
-          until life expectancy and flagged on the charts (&#127973;). State options are the means-tested contribution most
-          self-funders still pay; these are broad planning figures, not quotes.</p>
+        <h3>Care costs in later life <span class="hint-inline">(set per person, from each one's no-go age)</span></h3>
+        <p class="caption" style="margin:-2px 0 8px;">Representative UK 2025 costs. Each person's care is added to the spending target
+          from <b>their own</b> no-go age until <b>their own</b> life expectancy, and flagged on the charts (&#127973;) &mdash; so a couple
+          who both need care cost roughly twice as much, starting in different years. State options are the means-tested contribution
+          most self-funders still pay; these are broad planning figures, not quotes.</p>
         <div class="field-row">
           <div class="field">
-            <label for="careNursing">Nursing home</label>
+            <label for="careNursing"><b id="careYouLabel">You</b> &mdash; nursing home</label>
             <select id="careNursing">
               <option value="none">None</option>
               <option value="state" selected>State-funded (&pound;14,000/yr contribution)</option>
@@ -1419,7 +1428,7 @@
             </select>
           </div>
           <div class="field">
-            <label for="careHome">Care home (residential)</label>
+            <label for="careHome"><b>You</b> &mdash; care home (residential)</label>
             <select id="careHome">
               <option value="none" selected>None</option>
               <option value="state">State-funded (&pound;12,000/yr contribution)</option>
@@ -1429,9 +1438,60 @@
               <option value="p4">Private &middot; level 4 (&pound;90,000/yr)</option>
               <option value="p5">Private &middot; level 5 (&pound;120,000/yr)</option>
             </select>
-            <span class="hint">Pick one setting or both if planning for a couple</span>
+            <span class="hint">Pick either, or both, if you expect nursing care after residential care</span>
           </div>
         </div>
+        <label class="check-inline"><input type="checkbox" id="careStayOn" checked> Only pay for an average <b>length of stay</b>, ending in death
+          <span class="hint-inline">(instead of every year from the no-go age)</span></label>
+        <div class="field-row" id="careStayFields">
+          <div class="field">
+            <label for="careHomeYears">You &mdash; years in residential care</label>
+            <input type="number" id="careHomeYears" value="2.5" min="0" max="30" step="0.5">
+          </div>
+          <div class="field">
+            <label for="careNursingYears">You &mdash; years in nursing care</label>
+            <input type="number" id="careNursingYears" value="1.5" min="0" max="30" step="0.5">
+            <span class="hint">Nursing care is modelled as the <b>final</b> years, after any residential stay</span>
+          </div>
+        </div>
+        <div class="field-row" id="spouseCareStayFields">
+          <div class="field">
+            <label for="spouseCareHomeYears">Your spouse &mdash; years in residential care</label>
+            <input type="number" id="spouseCareHomeYears" value="2.5" min="0" max="30" step="0.5">
+          </div>
+          <div class="field">
+            <label for="spouseCareNursingYears">Your spouse &mdash; years in nursing care</label>
+            <input type="number" id="spouseCareNursingYears" value="1.5" min="0" max="30" step="0.5">
+          </div>
+        </div>
+        <div class="field-row" id="spouseCareFields" style="margin-top: 10px;">
+          <div class="field">
+            <label for="spouseCareNursing"><b>Your spouse</b> &mdash; nursing home</label>
+            <select id="spouseCareNursing">
+              <option value="none">None</option>
+              <option value="state" selected>State-funded (&pound;14,000/yr contribution)</option>
+              <option value="p1">Private &middot; level 1 (&pound;55,000/yr)</option>
+              <option value="p2">Private &middot; level 2 (&pound;70,000/yr)</option>
+              <option value="p3">Private &middot; level 3 (&pound;90,000/yr)</option>
+              <option value="p4">Private &middot; level 4 (&pound;115,000/yr)</option>
+              <option value="p5">Private &middot; level 5 (&pound;150,000/yr)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="spouseCareHome"><b>Your spouse</b> &mdash; care home (residential)</label>
+            <select id="spouseCareHome">
+              <option value="none" selected>None</option>
+              <option value="state">State-funded (&pound;12,000/yr contribution)</option>
+              <option value="p1">Private &middot; level 1 (&pound;45,000/yr)</option>
+              <option value="p2">Private &middot; level 2 (&pound;55,000/yr)</option>
+              <option value="p3">Private &middot; level 3 (&pound;70,000/yr)</option>
+              <option value="p4">Private &middot; level 4 (&pound;90,000/yr)</option>
+              <option value="p5">Private &middot; level 5 (&pound;120,000/yr)</option>
+            </select>
+            <span class="hint">Can differ from yours &mdash; different needs, different timing</span>
+          </div>
+        </div>
+        <p class="caption" id="careSummary" style="margin: 8px 0 0;"></p>
 
         <div class="divider" style="margin: 14px 0;"></div>
         <h3>Funding &amp; smoothing</h3>
@@ -2360,8 +2420,78 @@ const CARE_COSTS = {
   nursing: { none: 0, state: 14000, p1: 55000, p2: 70000, p3: 90000, p4: 115000, p5: 150000 },
   home:    { none: 0, state: 12000, p1: 45000, p2: 55000, p3: 70000, p4: 90000,  p5: 120000 },
 };
-const careCostAnnual = inp =>
-  (CARE_COSTS.nursing[inp.careNursing] || 0) + (CARE_COSTS.home[inp.careHome] || 0);
+/* Long-run average annual growth of a global equity index fund, in NOMINAL
+   terms to match everything else in this file (the flat/today's-money view
+   deflates by the discount rate). Global equities have returned roughly 5% a
+   year above inflation over the last ~125 years (Dimson-Marsh-Staunton, the
+   basis of the UBS Global Investment Returns Yearbook); adding long-run
+   inflation of about 3% gives ~8% nominal. It is a long-run average, not a
+   forecast - hence the tick box, so anyone can substitute their own number. */
+const GLOBAL_INDEX_GROWTH = 8;
+
+// Lock a person's growth field to the index average while their tick box is on;
+// otherwise leave it as a plain editable percentage.
+function applyIndexGrowth(who) {
+  const isSpouse = who === "spouse";
+  const cb = els(isSpouse ? "spouseIndexGrowth" : "yourIndexGrowth");
+  const box = els(isSpouse ? "spousePotGrowth" : "yourPotGrowth");
+  const hint = els(isSpouse ? "spouseGrowthHint" : "yourGrowthHint");
+  if (!cb || !box) return;
+  if (cb.checked) {
+    box.value = GLOBAL_INDEX_GROWTH;
+    box.readOnly = true;
+    box.style.opacity = "0.72";
+  } else {
+    box.readOnly = false;
+    box.style.opacity = "";
+  }
+  if (hint) hint.innerHTML = cb.checked
+    ? `<b>${GLOBAL_INDEX_GROWTH}%/yr</b> &mdash; the long-run global equity average (about 5% a year above inflation since 1900, plus long-run inflation). Untick to set your own.`
+    : `Your own assumption, before inflation is stripped out. Lower it for a cautious or bond-heavy pot, raise it for a higher-risk one.`;
+}
+
+// One person's annual care cost, from their own choices.
+const carePerPerson = (nursing, home) =>
+  (CARE_COSTS.nursing[nursing] || 0) + (CARE_COSTS.home[home] || 0);
+const careCostYou = inp => carePerPerson(inp.careNursing, inp.careHome);
+const careCostSpouse = inp => carePerPerson(inp.spouseCareNursing, inp.spouseCareHome);
+
+/* Household care cost in a given year. Care is a PER-PERSON cost: each person
+   pays their own from their own no-go age until their own life expectancy, so
+   a couple who both need care cost roughly twice as much, and their costs
+   start (and stop) in different years. The previous version charged a single
+   household amount keyed off one person's age, which understated a couple. */
+function careCostForYear(model, year) {
+  const inp = model.inp;
+  let total = 0;
+  const add = (person, nursing, home, nursingYears, homeYears) => {
+    if (!person) return;
+    const nAnnual = CARE_COSTS.nursing[nursing] || 0;
+    const hAnnual = CARE_COSTS.home[home] || 0;
+    if (nAnnual + hAnnual <= 0) return;
+    if (person.lifeExpDate && year > person.lifeExpDate.y) return;  // no longer alive
+    if (!inp.careStayOn) {
+      // Whole-of-later-life basis: every year from their own no-go age.
+      if (year - person.dob.y < inp.slowGoUntilAge) return;
+      total += nAnnual + hAnnual;
+      return;
+    }
+    // Average-length-of-stay basis: they move in late and die there, so the
+    // cost sits at the END of life - nursing care last (higher dependency,
+    // shorter stay), any residential stay immediately before it.
+    const before = (person.lifeExpDate ? person.lifeExpDate.y : year) - year; // years until death
+    if (before < 0) return;
+    // Pro-rate the calendar year against each stay window, so a 1.5-year stay
+    // costs exactly 1.5 years rather than being rounded up to 2.
+    const overlap = (from, to) => Math.max(0, Math.min(before + 1, to) - Math.max(before, from));
+    if (nAnnual > 0) total += nAnnual * overlap(0, nursingYears);
+    if (hAnnual > 0) total += hAnnual * overlap(nursingYears, nursingYears + homeYears);
+  };
+  add(model.you, inp.careNursing, inp.careHome, inp.careNursingYears, inp.careHomeYears);
+  if (model.spouse) add(model.spouse, inp.spouseCareNursing, inp.spouseCareHome,
+                        inp.spouseCareNursingYears, inp.spouseCareHomeYears);
+  return total;
+}
 
 // Retirement living-standard benchmarks, per country. Each country that has an
 // official national standard gets its own tiers (keyed by the same slugs the
@@ -3029,6 +3159,8 @@ const PROFILE_FIELD_IDS = [
   "budSubsNow", "budSubsRet", "budGiftNow", "budGiftRet", "budClothNow", "budClothRet",
   "budOtherNow", "budOtherRet",
   "goGoPct", "goGoUntilAge", "slowGoPct", "slowGoUntilAge", "noGoPct", "careNursing", "careHome",
+  "spouseCareNursing", "spouseCareHome", "careNursingYears", "careHomeYears",
+  "spouseCareNursingYears", "spouseCareHomeYears",
   "yourIncome", "yourIncomeGrowth", "cashCurrent", "spouseCashCurrent", "spouseSalary",
   "spousePot", "spouseDrawdown", "spousePotGrowth", "spouseIncome", "spouseIncomeGrowth",
   "statePensionWeekly", "statePensionGrowth", "discountRate",
@@ -3054,6 +3186,9 @@ function collectProfileData() {
   data.yourMode = yourMode;
   data.spouseMode = spouseMode;
   data.yourEmployerMode = yourEmployerMode;
+  data.careStayOn = els("careStayOn").checked;
+  data.yourIndexGrowth = els("yourIndexGrowth").checked;
+  data.spouseIndexGrowth = els("spouseIndexGrowth").checked;
   data.yourPersonalMode = yourPersonalMode;
   data.bonusOn = els("bonusOn").checked;
   data.rsuOn = els("rsuOn").checked;
@@ -3122,6 +3257,10 @@ function applyProfileData(data) {
     b => b.classList.toggle("active", b.dataset.emode === yourEmployerMode));
   els("yourEmployerRateField").style.display = yourEmployerMode === "pct" ? "" : "none";
   els("yourEmployerMonthlyField").style.display = yourEmployerMode === "fixed" ? "" : "none";
+  els("careStayOn").checked = data.careStayOn !== false;
+  els("yourIndexGrowth").checked = data.yourIndexGrowth !== false;
+  els("spouseIndexGrowth").checked = data.spouseIndexGrowth !== false;
+  applyIndexGrowth("you"); applyIndexGrowth("spouse");
   yourPersonalMode = data.yourPersonalMode || "pct";
   document.querySelectorAll("#yourPersonalModeSeg button").forEach(
     b => b.classList.toggle("active", b.dataset.pmode === yourPersonalMode));
@@ -3214,11 +3353,17 @@ function persistCurrentProfile() {
 // different name is a "save as" that leaves the original untouched.
 function saveAsProfile(name) {
   if (!name) return false;
+  const previous = currentProfileName;
   currentShared = null;
   const profiles = loadProfiles();
   const data = collectProfileData();
+  // The file name IS the plan's name: saving under a different one RENAMES the
+  // plan rather than leaving the old profile behind as a duplicate, so the
+  // dropdown always matches the file you last saved.
+  if (previous && previous !== name && profiles[previous]) delete profiles[previous];
   profiles[name] = data;
   saveProfiles(profiles);
+  if (previous && previous !== name) API.deleteProfile(previous);
   currentProfileName = name;
   API.saveProfile(name, data);
   refreshProfileSelect();
@@ -3294,6 +3439,13 @@ function readInputs() {
     giftStartYear: parseInt(els("giftStartYear").value, 10) || todayObj().y,
     careNursing: els("careNursing").value,
     careHome: els("careHome").value,
+    spouseCareNursing: els("spouseCareNursing").value,
+    spouseCareHome: els("spouseCareHome").value,
+    careStayOn: els("careStayOn").checked,
+    careNursingYears: parseFloat(els("careNursingYears").value) || 0,
+    careHomeYears: parseFloat(els("careHomeYears").value) || 0,
+    spouseCareNursingYears: parseFloat(els("spouseCareNursingYears").value) || 0,
+    spouseCareHomeYears: parseFloat(els("spouseCareHomeYears").value) || 0,
     stratSaveOn: els("stratSaveOn").checked,
     stratSaveAmt: money("stratSaveAmt"),
     stratPclsOn: els("stratPclsOn").checked,
@@ -3350,7 +3502,9 @@ function renderPhaseTax(model) {
     const el = els(id);
     if (!el) return;
     let gross = base * (pct || 0) / 100;
-    if (id === "noGoTax") gross += careCostAnnual(inp); // care costs land in no-go
+    // care costs land in the no-go years - the household total once both are
+    // past their no-go age, which is what this row illustrates
+    if (id === "noGoTax") gross += careCostYou(inp) + (model.spouse ? careCostSpouse(inp) : 0);
     const net = taxOnRetirement(gross, 0, age, inp.country, inp.scotland === "scot");
     const tax = gross - net;
     const rate = gross > 0 ? tax / gross * 100 : 0;
@@ -3360,6 +3514,52 @@ function renderPhaseTax(model) {
       <div class="pt-line net"><span>Net</span><b>${gbp0(net)}/yr</b><span class="pt-mo">${gbp0(net / 12)}/mo</span></div>
       <div class="pt-rate">Effective rate ${rate.toFixed(1)}%</div>` : "";
   });
+
+  // Show/hide the length-of-stay inputs with their toggle.
+  ["careStayFields", "spouseCareStayFields"].forEach(id => {
+    const el = els(id); if (!el) return;
+    const spouseOnly = id.startsWith("spouse");
+    el.style.display = inp.careStayOn && (!spouseOnly || model.spouse) ? "" : "none";
+  });
+
+  // Spell out the care arithmetic - it's per person, and easy to misread.
+  const cs = els("careSummary");
+  if (cs) {
+    const cy = careCostYou(inp), csp = model.spouse ? careCostSpouse(inp) : 0;
+    const lifetimeCare = y => {
+      let t = 0;
+      for (let yr = model.today.y; yr <= model.today.y + 80; yr++) t += y(yr);
+      return t;
+    };
+    const total = lifetimeCare(yr => careCostForYear(model, yr));
+    if (cy + csp <= 0) {
+      cs.innerHTML = `No care costs included.`;
+    } else if (inp.careStayOn) {
+      const span = (p, nY, hY, label) => {
+        const die = p.lifeExpDate.y;
+        const parts = [];
+        if (hY > 0 && (CARE_COSTS.home[label === "you" ? inp.careHome : inp.spouseCareHome] || 0) > 0)
+          parts.push(`residential ${die - nY - hY}&ndash;${die - nY}`);
+        if (nY > 0 && (CARE_COSTS.nursing[label === "you" ? inp.careNursing : inp.spouseCareNursing] || 0) > 0)
+          parts.push(`nursing ${die - nY}&ndash;${die}`);
+        return parts.join(", ");
+      };
+      const yourSpan = span(model.you, inp.careNursingYears, inp.careHomeYears, "you");
+      const spSpan = model.spouse ? span(model.spouse, inp.spouseCareNursingYears, inp.spouseCareHomeYears, "spouse") : "";
+      cs.innerHTML = `Costed as an <b>average length of stay ending in death</b>: you ${yourSpan || "&mdash;"}` +
+        (model.spouse ? `; your spouse ${spSpan || "&mdash;"}` : "") +
+        `. Total care cost across the plan: <b>${gbp0(total)}</b> (today's money if the flat view is on).`;
+    } else if (!model.spouse) {
+      cs.innerHTML = `<b>${gbp0(cy)}/yr</b> added to your target every year from age ${inp.slowGoUntilAge} ` +
+        `(${model.you.dob.y + inp.slowGoUntilAge}) to your life expectancy &mdash; total <b>${gbp0(total)}</b>. ` +
+        `Tick the box above to cost an average length of stay instead.`;
+    } else {
+      const yStart = model.you.dob.y + inp.slowGoUntilAge, sStart = model.spouse.dob.y + inp.slowGoUntilAge;
+      cs.innerHTML = `You <b>${gbp0(cy)}/yr</b> from ${yStart}; your spouse <b>${gbp0(csp)}/yr</b> from ${sStart}. ` +
+        `While both are in care that's <b>${gbp0(cy + csp)}/yr</b> on top of your target; each share stops at their own ` +
+        `life expectancy. Total across the plan: <b>${gbp0(total)}</b>.`;
+    }
+  }
 }
 
 // Budget summary: retired total (the target), working total, and how much of
@@ -3399,8 +3599,8 @@ function targetForYear(model, base, year) {
     else if (age < inp.slowGoUntilAge) pct = inp.slowGoPct;
     t = base * pct / 100;
   }
-  // care costs (nursing/care home) from the no-go age until life expectancy
-  if (age >= inp.slowGoUntilAge) t += careCostAnnual(inp);
+  // care costs (nursing/care home) - per person, each from their own no-go age
+  t += careCostForYear(model, year);
   // By default the income target keeps pace with inflation, so it stays
   // comparable to the (also-growing) income bars. Skipped in the flat /
   // today's-money view, where everything is already deflated to constant £.
@@ -4652,9 +4852,20 @@ function householdSeries(model) {
   }
   planEvents.forEach((ev, i) => flags.push({ year: ev.year, label: ev.label || "Event", custom: true,
     icon: ev.dir === "in" ? "💰" : "🏡", sub: `age ${ev.year - you.dob.y} · ${ev.year}`, move: { type: "event", idx: i } }));
-  const careAnnual = careCostAnnual(inp);
-  if (careAnnual > 0) flags.push({ year: you.dob.y + inp.slowGoUntilAge, label: "Care costs begin", icon: "🏥",
-    sub: `age ${inp.slowGoUntilAge} · ${gbp0(careAnnual)}/yr` });
+  // one flag per person, at the year THEIR care actually starts - the no-go age
+  // on the whole-of-later-life basis, or the start of their stay otherwise
+  const careFlag = (person, annual, nY, hY, label) => {
+    if (annual <= 0) return;
+    const start = inp.careStayOn
+      ? person.lifeExpDate.y - (nY + hY)
+      : person.dob.y + inp.slowGoUntilAge;
+    flags.push({ year: start, label, icon: "🏥",
+      sub: `age ${start - person.dob.y} · ${gbp0(annual)}/yr` });
+  };
+  careFlag(you, careCostYou(inp), inp.careNursingYears, inp.careHomeYears,
+           spouse ? "Your care begins" : "Care costs begin");
+  if (spouse) careFlag(spouse, careCostSpouse(inp), inp.spouseCareNursingYears, inp.spouseCareHomeYears,
+                       "Spouse care begins");
   return { years, byYear, flags };
 }
 
@@ -5960,7 +6171,7 @@ function renderAll() {
   renderPhaseTax(model);
   renderBudget(model);
   // spouse-specific controls must never show when no spouse is included
-  ["spouseRetireField", "spouseRetireField2"].forEach(id => {
+  ["spouseRetireField", "spouseRetireField2", "spouseCareFields", "spouseCareStayFields"].forEach(id => {
     const el = els(id); if (el) el.style.display = model.spouse ? "" : "none";
   });
   lastModel = model;
@@ -6691,6 +6902,11 @@ function wireSegmented(segId, potFieldsId, incomeFieldsId, setMode) {
 wireSegmented("yourModeSeg", "yourPotFields", "yourIncomeFields", m => yourMode = m);
 wireSegmented("spouseModeSeg", "spousePotFields", "spouseIncomeFields", m => spouseMode = m);
 
+["you", "spouse"].forEach(who => {
+  const cb = els(who === "spouse" ? "spouseIndexGrowth" : "yourIndexGrowth");
+  if (cb) cb.addEventListener("change", () => { applyIndexGrowth(who); onUserChange(); });
+});
+
 els("yourEmployerModeSeg").addEventListener("click", e => {
   const btn = e.target.closest("button");
   if (!btn) return;
@@ -7082,13 +7298,13 @@ async function importProfileFromFile(file) {
     fileNotice("That file isn't a pension-planner profile", true);
     return;
   }
-  name = (name || file.name.replace(/\.pension\.json$|\.json$/i, "")).trim() || "Imported plan";
+  // The FILE NAME names the plan, both ways round: the name you chose when
+  // saving is the name you get back when you load it, and loading the same file
+  // again refreshes that plan instead of piling up "(2)", "(3)" copies.
+  const fromFile = file.name.replace(/\.pension\.json$|\.json$/i, "").trim();
+  name = fromFile || (name || "").trim() || "Imported plan";
   const profiles = loadProfiles();
-  if (profiles[name]) { // never silently overwrite an existing profile
-    let i = 2;
-    while (profiles[`${name} (${i})`]) i++;
-    name = `${name} (${i})`;
-  }
+  const replaced = !!profiles[name];
   profiles[name] = data;
   saveProfiles(profiles);
   currentProfileName = name;
@@ -7096,7 +7312,7 @@ async function importProfileFromFile(file) {
   applyProfileData(data);
   refreshProfileSelect();
   API.saveProfile(name, data);
-  fileNotice(`Loaded "${name}" from ${file.name}`);
+  fileNotice(`Loaded "${name}" from ${file.name}${replaced ? " (updated the existing plan of that name)" : ""}`);
 }
 
 els("profileExportBtn").addEventListener("click", openSaveFileModal);
@@ -7107,6 +7323,10 @@ els("profileImportInput").addEventListener("change", () => {
   els("profileImportInput").value = "";
 });
 els("saveFileConfirm").addEventListener("click", doSaveFile);
+// Enter in the name field saves, as it would in any native save dialog.
+els("saveFileName").addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); doSaveFile(); }
+});
 els("closeSaveFile").addEventListener("click", closeSaveFileModal);
 els("closeSaveFile2").addEventListener("click", closeSaveFileModal);
 els("saveFileModal").addEventListener("click", e => { if (e.target === els("saveFileModal")) closeSaveFileModal(); });
@@ -7139,7 +7359,7 @@ function seedDemoProfiles() {
   const base = {
     dob: "1973-03-01", sex: "M", retireDate: "2028-03-01", retireSpend: "0",
     spouseDob: "1976-04-01", spouseSex: "F", spouseRetireDate: "2033-04-01",
-    yourPot: "0", yourDrawdown: "4", yourPotGrowth: "6", yourSalary: "0", yourEmployerRate: "15",
+    yourPot: "0", yourDrawdown: "4", yourPotGrowth: "8", yourSalary: "0", yourEmployerRate: "15",
     yourEmployerMonthly: "2,500", yourPersonalRate: "0", yourPersonalMonthly: "0", annualAllowance: "60,000",
     bonusAmount: "0", bonusDeferYears: "2", bonusCashPct: "0", bonusDeferredPct: "50", bonusRsuPct: "50",
     rsuHeld: "0", rsuHeldYears: "2", rsuAmount: "0", rsuVestYears: "2",
@@ -7147,11 +7367,13 @@ function seedDemoProfiles() {
     stratSaveAmt: "10,000", stratIsaAmt: "20,000", stratSaveOn: false, stratPclsOn: false, stratIsaOn: true,
     stratRecycleOn: false, stratSpouseContribOn: false, stratSpouseContribAmt: "2,880",
     goGoPct: "120", goGoUntilAge: "75", slowGoPct: "100", slowGoUntilAge: "85", noGoPct: "80",
-    careNursing: "state", careHome: "none",
+    careNursing: "state", careHome: "none", spouseCareNursing: "state", spouseCareHome: "none",
+    careStayOn: true, careNursingYears: "1.5", careHomeYears: "2.5",
+    spouseCareNursingYears: "1.5", spouseCareHomeYears: "2.5",
     yourTakePcls: false, spouseTakePcls: false, smoothOn: false, spendPhasesOn: false,
     spouseSalary: "0", flatMoneyOn: false, levelIncomeOn: false,
     yourIncome: "0", yourIncomeGrowth: "2", cashCurrent: "0", spouseCashCurrent: "0",
-    spousePot: "0", spouseDrawdown: "4", spousePotGrowth: "6", spouseIncome: "0", spouseIncomeGrowth: "2",
+    spousePot: "0", spouseDrawdown: "4", spousePotGrowth: "8", spouseIncome: "0", spouseIncomeGrowth: "2",
     statePensionWeekly: "230.25", statePensionGrowth: "2.5", discountRate: "2.5",
     numChildren: "0", numGrandchildren: "0", smallGiftAmount: "250", annualExemption: "3,000",
     giftPerRecipient: "", essentialSpending: "", plannedAnnualGift: "", giftStartYear: String(todayObj().y),
@@ -7334,6 +7556,7 @@ refreshProfileSelect();
 els("giftStartYear").value = todayObj().y;
 currentCountry = els("country").value || "UK";
 updateCurrencyLabels();
+applyIndexGrowth("you"); applyIndexGrowth("spouse");
 renderAssetLists();
 renderEventList();
 renderScenarioList();
