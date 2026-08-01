@@ -1,0 +1,30 @@
+# Production-shaped stack: the FastAPI app + PostgreSQL.
+#   docker compose up --build   ->   http://localhost:8000
+# Change POSTGRES_PASSWORD (and the matching DATABASE_URL) before deploying.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: pension
+      POSTGRES_USER: pension
+      POSTGRES_PASSWORD: change-me
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pension -d pension"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+psycopg2://pension:change-me@db:5432/pension
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
