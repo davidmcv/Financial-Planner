@@ -1634,12 +1634,13 @@
       <button class="icon-btn" id="closeSaveFile" aria-label="Close">&#10005;</button>
     </div>
     <div class="field">
-      <label for="saveFileName">File name</label>
+      <label for="saveFileName">Plan name</label>
       <div class="filename-row">
-        <input type="text" id="saveFileName" maxlength="120" placeholder="my-pension-plan">
+        <input type="text" id="saveFileName" maxlength="120" placeholder="My pension plan">
         <span class="filename-ext">.pension.json</span>
       </div>
-      <span class="hint">Name the file whatever you like &mdash; it doesn't have to match the saved-profile name.</span>
+      <span class="hint">This names the file <b>and</b> the saved profile in the dropdown. Keep the name to update
+        that profile; change it to save a copy under the new name.</span>
     </div>
     <div class="save-where" id="saveFileWhere"></div>
     <p class="hint" style="margin: 0;">Can't save here? Copy the plan text below and paste it into a file yourself.</p>
@@ -3111,6 +3112,24 @@ function persistCurrentProfile() {
   profiles[currentProfileName] = data;
   saveProfiles(profiles);
   API.saveProfile(currentProfileName, data);
+}
+
+// Saving a plan also stores it as a named profile, so the name you type in the
+// save dialog is the name that appears in the profile dropdown - and, because
+// it becomes the current profile, every later edit keeps saving back to it.
+// Saving under the current profile's name updates it in place; saving under a
+// different name is a "save as" that leaves the original untouched.
+function saveAsProfile(name) {
+  if (!name) return false;
+  currentShared = null;
+  const profiles = loadProfiles();
+  const data = collectProfileData();
+  profiles[name] = data;
+  saveProfiles(profiles);
+  currentProfileName = name;
+  API.saveProfile(name, data);
+  refreshProfileSelect();
+  return true;
 }
 
 function onUserChange() {
@@ -6829,9 +6848,10 @@ function profileFileName(name) {
   return (safe || "pension-plan") + ".pension.json";
 }
 
-// Build the file payload for the plan currently on screen.
-function currentPlanPayload() {
-  const name = currentShared ? currentShared.name : (currentProfileName || "Unsaved plan");
+// Build the file payload for the plan currently on screen. `nameOverride` is
+// the name typed in the save dialog, which becomes the profile name too.
+function currentPlanPayload(nameOverride) {
+  const name = nameOverride || (currentShared ? currentShared.name : (currentProfileName || "Unsaved plan"));
   return {
     app: "pensionPlanner", kind: "profile", version: PROFILE_FILE_VERSION,
     name, savedAt: new Date().toISOString(),
@@ -6866,7 +6886,11 @@ function canShareFile(fname, json) {
 // a clear note about where the file will end up.
 function openSaveFileModal() {
   const payload = currentPlanPayload();
-  const base = (payload.name || "pension-plan").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-") || "pension-plan";
+  // Prefill the profile name EXACTLY as stored - not slugified - so pressing
+  // Save on an existing profile updates that profile instead of creating a
+  // near-duplicate under a stripped-down name. Only the file name is sanitised,
+  // and that happens later in doSaveFile().
+  const base = payload.name && payload.name !== "Unsaved plan" ? payload.name : "My pension plan";
   els("saveFileName").value = base;
   const json = JSON.stringify(payload, null, 2);
   els("saveFileText").value = json;
@@ -6885,11 +6909,20 @@ function openSaveFileModal() {
 function closeSaveFileModal() { els("saveFileModal").classList.remove("open"); }
 
 async function doSaveFile() {
-  const payload = currentPlanPayload();
-  const json = JSON.stringify(payload, null, 2);
-  let base = els("saveFileName").value.replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-") || "pension-plan";
-  base = base.replace(/\.pension$/i, "").replace(/\.json$/i, "");
+  // The name typed here is the PLAN name: it names the file and becomes the
+  // saved-profile name in the dropdown, so saving always lands somewhere you
+  // can find again rather than only producing a file.
+  const planName = (els("saveFileName").value || "").trim()
+    .replace(/\.pension$/i, "").replace(/\.json$/i, "").trim()
+    || currentProfileName || "Pension plan";
+  const base = planName.replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-") || "pension-plan";
   const fname = base + ".pension.json";
+  const payload = currentPlanPayload(planName);
+  const json = JSON.stringify(payload, null, 2);
+  // Store the profile up front so the plan is kept even if the file write is
+  // cancelled or blocked - losing the user's edits to a cancelled dialog would
+  // be the worst outcome here.
+  saveAsProfile(planName);
   if (canPickSaveLocation()) {
     try {
       const handle = await showSaveFilePicker({
@@ -6898,7 +6931,7 @@ async function doSaveFile() {
       });
       const w = await handle.createWritable();
       await w.write(json); await w.close();
-      fileNotice(`Saved ${handle.name} to the folder you chose`);
+      fileNotice(`Saved “${planName}” — file ${handle.name} written to the folder you chose`);
       closeSaveFileModal();
       return;
     } catch (e) {
@@ -6911,7 +6944,7 @@ async function doSaveFile() {
   if (canShareFile(fname, json)) {
     try {
       await navigator.share({ files: [new File([json], fname, { type: "application/json" })], title: fname });
-      fileNotice(`Shared ${fname} — "Save to Files" puts it in the folder you picked`);
+      fileNotice(`Saved “${planName}” — shared ${fname}; "Save to Files" puts it in the folder you picked`);
       closeSaveFileModal();
       return;
     } catch (e) {
@@ -6925,10 +6958,10 @@ async function doSaveFile() {
     a.download = fname;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    fileNotice(`Saved ${fname} to your Downloads folder`);
-    saveFileMsg(`✓ Saved as ${fname} in your Downloads folder. Not there? Copy the plan text below instead.`);
+    fileNotice(`Saved “${planName}” — file ${fname} in your Downloads folder`);
+    saveFileMsg(`✓ Saved as profile “${planName}”, and ${fname} written to your Downloads folder. Not there? Copy the plan text below instead.`);
   } catch (e) {
-    saveFileMsg("Couldn't save here — copy the plan text below and paste it into a file.", true);
+    saveFileMsg(`Saved as profile “${planName}”, but the file couldn't be written here — copy the plan text below and paste it into a file.`, true);
   }
 }
 
