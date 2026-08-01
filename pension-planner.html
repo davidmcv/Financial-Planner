@@ -1208,6 +1208,17 @@
         </div>
         <div class="chart-legend" id="breakdownLegend"></div>
         <p class="caption" id="breakdownCaption"></p>
+
+        <div class="divider" style="margin: 16px 0;"></div>
+        <h3>What you have left <span class="hint-inline">(your savings and pension running down)</span></h3>
+        <p class="caption" style="margin: -2px 0 8px;">The charts above show money <b>coming in</b> each year. This one shows what's
+          <b>still there</b> &mdash; each pot stacked, so you can see which one empties first and when.</p>
+        <div class="chart-wrap" style="position:relative;"><canvas id="balanceChart" height="380"></canvas>
+          <div id="balanceTip" class="chart-tip" style="display:none;"></div></div>
+        <label class="check-inline"><input type="checkbox" id="balanceProperty"> Include property in the total
+          <span class="hint-inline">(shown as a line &mdash; a house dwarfs the other pots)</span></label>
+        <div class="chart-legend" id="balanceLegend"></div>
+        <p class="caption" id="balanceCaption"></p>
       </div>
 
       <div class="card">
@@ -1814,14 +1825,19 @@ function remainingDcPotAtEnd(startAge, endAge, potValue, drawdownPct, growthPct)
   return pot;
 }
 
-function accumulatePensionPot(potValue, today, nmpaDate, annualContribution, growthPct) {
+// `trail`, if given, collects the year-by-year pot value during the build-up so
+// the balance chart can show savings rising before they fall. Callers that
+// don't need it pass nothing and are unaffected.
+function accumulatePensionPot(potValue, today, nmpaDate, annualContribution, growthPct, trail) {
   const growthRate = growthPct / 100;
   let pot = potValue;
   let offset = 1;
+  if (trail) trail.push({ year: today.y, pot });
   while (true) {
     const yearEnd = addYearsMonths(today, offset, 0);
     if (cmp(yearEnd, nmpaDate) > 0) break;
     pot = (pot + annualContribution) * (1 + growthRate);
+    if (trail) trail.push({ year: yearEnd.y, pot });
     offset++;
   }
   return pot;
@@ -1861,16 +1877,23 @@ function generateDcDrawdownTable(startAge, startDate, endAge, potValue, drawdown
 }
 
 function applyInheritedPot(rows, inheritedSeries, today, discountPct) {
-  const byYear = {};
-  inheritedSeries.forEach(e => { if (e.private > 0) byYear[e.date.y] = e.private; });
+  const byYear = {}, potByYear = {};
+  inheritedSeries.forEach(e => {
+    if (e.private > 0) byYear[e.date.y] = e.private;
+    // Keep the inherited pot's remaining BALANCE too, not just the income it
+    // throws off - otherwise the balance chart shows the first person's pot
+    // vanishing at their life expectancy instead of passing to the survivor.
+    if (e.potStart !== undefined) potByYear[e.date.y] = e.potStart;
+  });
   if (!Object.keys(byYear).length) return rows;
   return rows.map(row => {
     const extra = byYear[row.date.y] || 0;
-    if (!extra) return row;
+    const inheritedPot = potByYear[row.date.y] || 0;
+    if (!extra && !inheritedPot) return row;
     const private_ = row.private + extra;
     const annual = private_ + row.state;
     return {
-      ...row, private: private_, annual,
+      ...row, private: private_, annual, inheritedPot,
       monthly: annual / 12, weekly: annual / 52,
       present: discountToPresent(annual, row.date, today, discountPct),
     };
@@ -3610,7 +3633,8 @@ function buildPersonProjection(p, o) {
     // capped at the annual allowance - the most that gets tax relief each year.
     const contrib = Math.min(o.employerContribution + o.assets.dcContribution,
                              o.annualAllowance != null ? o.annualAllowance : Infinity);
-    meta.accumulatedPot = accumulatePensionPot(effToday, o.today, decumStartDate, contrib, o.potGrowth);
+    meta.accumulationTrail = [];
+    meta.accumulatedPot = accumulatePensionPot(effToday, o.today, decumStartDate, contrib, o.potGrowth, meta.accumulationTrail);
     // 25% tax-free lump sum taken at access: pot drops to 75%, the cash is
     // recorded for the funding model to draw on.
     if (o.takePcls && o.pclsCountry === "UK") {   // 25% tax-free lump sum is a UK rule
@@ -3842,6 +3866,7 @@ function computeAll(overrides = {}) {
       ["private", "state", "db", "annual", "monthly", "weekly", "net",
        "fromCash", "fromShares", "shortfall"].forEach(k => { if (r[k] !== undefined) r[k] *= f; });
       if (r.potStart !== undefined) r.potStart *= f;
+      if (r.inheritedPot !== undefined) r.inheritedPot *= f;
       if (r.assetsTotal !== undefined) r.assetsTotal *= f;
       r.present = r.annual;
     });
@@ -4635,11 +4660,126 @@ function householdFunding(model, targetOverride) {
     const pensionShown = (level ? b.pension - b.potPension : b.pension) + potDraw;
     const total = fixedIncome + potDraw + draws.pcls + draws.downsize + draws.cash + draws.cashISA + draws.gia + draws.ssISA;
     byYear[y] = { year: y, salary: b.salary, state: b.state, db: b.db, pension: pensionShown, ...draws, target, total };
+    // What's LEFT after this year's draws - the stock behind the flows above,
+    // so the balance chart can show each pool depleting. In fixed-drawdown mode
+    // the pension pot isn't part of `pool` (the %-drawdown rows own it), so it
+    // is filled in from the per-person projections by fundingBalances().
+    byYear[y].balances = { pot: level ? flexPot : 0, pcls: pool.pcls, cash: pool.cash,
+                           cashISA: pool.cashISA, gia: pool.gia, ssISA: pool.ssISA };
     pool.cash *= (1 + gCash); pool.cashISA *= (1 + gCashISA); pool.gia *= (1 + gInvest); pool.ssISA *= (1 + gInvest); pool.pcls *= (1 + gCash);
     if (level) flexPot *= (1 + gInvest);
   }
   const years = Object.keys(byYear).map(Number).sort((a, b) => a - b);
-  return { years, byYear, exhaustedYear, leftoverPot: level ? flexPot : null };
+  return { years, byYear, exhaustedYear, leftoverPot: level ? flexPot : null,
+           // enough to reconstruct the pools BEFORE retirement, so the balance
+           // chart can show them building as well as running down
+           basis: { by, bs, gInvest, gCash, gCashISA, startYear, todayY: today.y, defl } };
+}
+
+/* What's LEFT each year - the stock behind the income flows. The income charts
+   answer "how much comes in?"; this answers "how much is still there?", which
+   is what shows a plan running down. Sources:
+   - pension pot: the funding model's flexible pot in level-income mode, else
+     each person's %-drawdown pot (row.potStart) from their projection;
+   - cash / Cash ISA / GIA / S&S ISA / tax-free cash: the funding model's pool,
+     which already grows and depletes them year by year;
+   - property: projected at its own growth rate and stepped down when a
+     downsizing releases equity (that release becomes cash in the pool above).
+   Property is kept separate: a house dwarfs the liquid pots and would flatten
+   the depletion story, so the chart draws it as a line, not a stacked layer.
+   Flat / today's-money mode needs no special handling here - both sources are
+   already deflated upstream. */
+function fundingBalances(model) {
+  const fund = householdFunding(model);
+  const level = model.inp.levelOn;
+
+  // Pension pot per year, assembled PER PERSON across the whole span: while
+  // someone is still paying in, their pot comes from their accumulation trail;
+  // once they start drawing, from their projection rows. Doing it per person
+  // matters when one retires before the other - otherwise the one still
+  // working drops out of the total and the chart dips at the first retirement.
+  const potByYear = {};
+  const deflY = fund.basis ? fund.basis.defl : 1, todayY = model.today.y;
+  const addPerson = (meta, rows) => {
+    if (!meta) return;
+    const decStart = meta.decumStartDate ? meta.decumStartDate.y : Infinity;
+    (meta.accumulationTrail || []).forEach(t => {
+      if (t.year >= decStart) return;                    // drawing has started; rows take over
+      const v = t.pot / Math.pow(deflY, Math.max(0, t.year - todayY));
+      potByYear[t.year] = (potByYear[t.year] || 0) + v;
+    });
+    if (level) return;   // in level mode the funding model owns the drawn-down pot
+    rows.forEach(r => {
+      // a pot inherited from the first death keeps counting for the survivor
+      if (r.inheritedPot) potByYear[r.date.y] = (potByYear[r.date.y] || 0) + r.inheritedPot;
+      if (r.potStart === undefined || r.isBridge) return;
+      potByYear[r.date.y] = (potByYear[r.date.y] || 0) + r.potStart;
+    });
+  };
+  addPerson(model.yourMeta, model.yourRows);
+  if (model.spouse) addPerson(model.spouseMeta, model.spouseRows);
+
+  const propAt = year => {
+    let v = 0;
+    ["you", "spouse"].forEach(owner => {
+      if (owner === "spouse" && !model.spouse) return;
+      ((assets[owner] || {}).property || []).forEach(a => {
+        const base = Number(a.value) || 0;
+        if (base <= 0) return;
+        const g = (a.growthPct == null ? 3 : Number(a.growthPct)) / 100;
+        const dz = Number(a.downsizeYear) || 0;
+        const sold = dz && a.type !== "Car" && year >= dz;
+        if (!sold) { v += base * Math.pow(1 + g, Math.max(0, year - model.today.y)); return; }
+        const f = propFuture(a, model.today.y);          // value + release at the downsize year
+        v += Math.max(0, f.future - f.release) * Math.pow(1 + g, year - dz);
+      });
+    });
+    return v;
+  };
+
+  // The funding model can run a year past the last projection row; beyond that
+  // there is no modelled pot, so stop rather than draw a phantom fall to zero.
+  const lastRowYear = Math.max(
+    model.yourRows.length ? model.yourRows[model.yourRows.length - 1].date.y : 0,
+    model.spouse && model.spouseRows.length ? model.spouseRows[model.spouseRows.length - 1].date.y : 0);
+  const years = fund.years.filter(y => !lastRowYear || y <= lastRowYear);
+
+  const decRows = years.map(y => {
+    const b = fund.byYear[y].balances;
+    // potByYear also carries anyone still paying in, so a spouse who retires
+    // later keeps contributing to the household total
+    const pot = (level ? b.pot : 0) + (potByYear[y] || 0);
+    const liquid = pot + b.pcls + b.cash + b.cashISA + b.gia + b.ssISA;
+    const property = propAt(y);
+    return { year: y, pot, pcls: b.pcls, cash: b.cash, cashISA: b.cashISA,
+             gia: b.gia, ssISA: b.ssISA, liquid, property, total: liquid + property };
+  });
+
+  // Build-up years (today -> retirement): the pension pot from each person's
+  // accumulation trail, and the savings pools compounding from today at the
+  // same rates the funding model uses after retirement. Together with the rows
+  // above this gives the full rise-and-fall shape of the plan.
+  const bx = fund.basis;
+  const accRows = [];
+  if (bx && bx.startYear > bx.todayY) {
+    const at = (v, rate, y) => v * Math.pow(1 + rate, Math.max(0, y - bx.todayY));
+    for (let y = bx.todayY; y < bx.startYear; y++) {
+      const pot = potByYear[y] || 0;   // already deflated above where needed
+      const cash = at(bx.by.cash + bx.bs.cash, bx.gCash, y);
+      const cashISA = at(bx.by.cashISA + bx.bs.cashISA, bx.gCashISA, y);
+      const gia = at(bx.by.gia + bx.bs.gia, bx.gInvest, y);
+      const ssISA = at(bx.by.ssISA + bx.bs.ssISA, bx.gInvest, y);
+      const liquid = pot + cash + cashISA + gia + ssISA;
+      const property = propAt(y);
+      accRows.push({ year: y, pot, pcls: 0, cash, cashISA, gia, ssISA,
+                     liquid, property, total: liquid + property });
+    }
+  }
+
+  const rows = accRows.concat(decRows);
+  return { rows, years: rows.map(r => r.year), decYears: years,
+           retireYear: bx ? bx.startYear : (years[0] || null),
+           exhaustedYear: fund.exhaustedYear };
 }
 
 // The largest flat (phase-adjusted) spending target the household can fund in
@@ -5183,6 +5323,174 @@ function drawBreakdownChart(model) {
       `${plainW ? "other investments" : "GIA"} and downsizing drawn in to fund the target. The dashed line is your spending target.`;
 }
 
+let balanceXform = null;   // geometry of the balance chart, for its hover tooltip
+
+/* "What you have left": a stacked area of every remaining pot, year by year.
+   The charts above are flows (money arriving); this is the stock (money still
+   there), which is what actually shows a plan running down. It shares the
+   x-axis and phase band with the breakdown chart above so the two line up
+   vertically - a year's bar sits directly under that year's balance. */
+function drawBalanceChart(model) {
+  const canvas = els("balanceChart");
+  if (!canvas) return;
+  const wrap = canvas.parentElement;
+  const W = Math.max(320, wrap.clientWidth), H = 380;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.height = H + "px";
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  const bal = fundingBalances(model);
+  if (!bal.rows.length) { balanceXform = null; return; }
+  const byYear = {}; bal.rows.forEach(r => { byYear[r.year] = r; });
+
+  const padL = 62, padR = 14, padT = 26, padB = 62; // padB holds the phase band + year labels
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+
+  // Same x domain as the breakdown chart above, so the two align.
+  const acc = accumulationSeries(model);
+  const retYear = acc.retYear;
+  const domainStart = Math.min(acc.years.length ? acc.years[0].year : bal.years[0], bal.years[0]);
+  const domainEnd = bal.years[bal.years.length - 1];
+  const nYears = Math.max(1, domainEnd - domainStart + 1);
+  const slot = plotW / nYears;
+  const idxOf = y => y - domainStart;
+  const xf = y => padL + slot * idxOf(y);              // left edge (phase divider)
+  const xAt = y => padL + slot * (idxOf(y) + 0.5);     // centre (data points)
+
+  const showProp = els("balanceProperty") && els("balanceProperty").checked;
+  const layers = [
+    { key: "pot", color: CHART.private, label: "Pension pot" },
+    { key: "pcls", color: CHART.bridge, label: "Tax-free cash" },
+    { key: "cash", color: "#8aa0b8", label: "Cash & savings" },
+    { key: "cashISA", color: "#5f7ea6", label: "Cash ISA" },
+    { key: "gia", color: "#9a7bc0", label: wordingMode === "plain" ? "Other investments" : "GIA / other" },
+    { key: "ssISA", color: "#6f62c4", label: "Stocks & Shares ISA" },
+  ];
+
+  const peak = Math.max(1, ...bal.rows.map(r => showProp ? r.total : r.liquid));
+  const maxV = peak * 1.12;
+  const yPix = v => padT + plotH - v / maxV * plotH;
+
+  drawPhaseDecor(ctx, xf, retYear, domainEnd, padL, padR, padT, plotH, W);
+
+  // gridlines + y labels
+  ctx.strokeStyle = themeColor("--border", "#ddd"); ctx.fillStyle = themeColor("--ink-faint", "#999");
+  ctx.lineWidth = 1; ctx.font = "13px " + SANS; ctx.textAlign = "right";
+  for (let g = 0; g <= 4; g++) {
+    const v = maxV / 4 * g, py = yPix(v);
+    ctx.beginPath(); ctx.moveTo(padL, py); ctx.lineTo(W - padR, py); ctx.stroke();
+    ctx.fillText(CUR() + Math.round(v / 1000) + "k", padL - 6, py + 4);
+  }
+
+  // stacked areas, bottom-to-top
+  const base = {}; bal.years.forEach(y => { base[y] = 0; });
+  layers.forEach(layer => {
+    if (!bal.rows.some(r => (r[layer.key] || 0) > 0.5)) return; // skip empty pots
+    ctx.beginPath();
+    bal.years.forEach((y, i) => {
+      const py = yPix(base[y] + (byYear[y][layer.key] || 0));
+      i === 0 ? ctx.moveTo(xAt(y), py) : ctx.lineTo(xAt(y), py);
+    });
+    for (let i = bal.years.length - 1; i >= 0; i--) {
+      const y = bal.years[i];
+      ctx.lineTo(xAt(y), yPix(base[y]));
+    }
+    ctx.closePath();
+    ctx.fillStyle = layer.color + "d0";
+    ctx.fill();
+    bal.years.forEach(y => { base[y] += (byYear[y][layer.key] || 0); });
+  });
+
+  // total outline, so the overall shape reads even where layers are thin
+  ctx.beginPath();
+  bal.years.forEach((y, i) => {
+    const py = yPix(byYear[y].liquid);
+    i === 0 ? ctx.moveTo(xAt(y), py) : ctx.lineTo(xAt(y), py);
+  });
+  ctx.strokeStyle = themeColor("--ink", "#222"); ctx.lineWidth = 1.5; ctx.stroke();
+
+  // property as a dashed line on top (never a stacked layer - it would dwarf
+  // the liquid pots and flatten the depletion story)
+  if (showProp) {
+    ctx.beginPath(); ctx.setLineDash([6, 4]); ctx.lineWidth = 2;
+    bal.years.forEach((y, i) => {
+      const py = yPix(byYear[y].total);
+      i === 0 ? ctx.moveTo(xAt(y), py) : ctx.lineTo(xAt(y), py);
+    });
+    ctx.strokeStyle = "#b5834a"; ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  // The moment the money is actually gone - i.e. THIS chart's own total hitting
+  // zero. Deliberately not fund.exhaustedYear, which means something different
+  // (the first year the spending target can't be met, which can happen while a
+  // fixed-drawdown pension pot is still large); that is reported separately.
+  // only meaningful once drawing has started - an empty pot during the build-up
+  // years just means there's nothing saved yet, not that the plan has failed
+  const runOut = (bal.rows.find(r => r.year >= (bal.retireYear || 0) && r.liquid < 1) || {}).year || null;
+  if (runOut && runOut >= domainStart && runOut <= domainEnd) {
+    const px = xAt(runOut);
+    ctx.beginPath(); ctx.setLineDash([4, 3]); ctx.lineWidth = 2;
+    ctx.strokeStyle = CHART.crit;
+    ctx.moveTo(px, padT); ctx.lineTo(px, padT + plotH); ctx.stroke(); ctx.setLineDash([]);
+    const age = runOut - model.you.dob.y;
+    const label = `savings run out ${runOut} · age ${age}`;
+    ctx.font = "600 11px " + SANS;
+    const tw = ctx.measureText(label).width + 12;
+    const lx = Math.min(W - padR - tw, Math.max(padL, px - tw / 2));
+    ctx.fillStyle = CHART.crit;
+    roundRect(ctx, lx, padT + 2, tw, 17, 5); ctx.fill();
+    ctx.fillStyle = "#FFFFFF"; ctx.textAlign = "center";
+    ctx.fillText(label, lx + tw / 2, padT + 14);
+  }
+
+  drawRetireDivider(ctx, Math.max(padL, Math.min(W - padR, xf(retYear))), padT, plotH);
+
+  // x labels
+  ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center"; ctx.font = "12px " + SANS;
+  const step = Math.max(1, Math.round(nYears / 12));
+  for (let y = domainStart; y <= domainEnd; y += step) {
+    ctx.fillText(String(y), xAt(y), padT + plotH + 48);
+  }
+
+  balanceXform = {
+    padL, padT, plotH, slot, domainStart, domainEnd,
+    tip: year => {
+      const r = byYear[year];
+      if (!r) return null;
+      const segs = layers.map(l => ({ label: l.label, color: l.color, amt: r[l.key] || 0 }))
+        .filter(s => s.amt > 0.5);
+      return { year, age: year - model.you.dob.y, segs,
+               total: r.liquid, property: showProp ? r.property : 0 };
+    },
+  };
+
+  els("balanceLegend").innerHTML = layers
+    .filter(l => bal.rows.some(r => (r[l.key] || 0) > 0.5))
+    .map(l => `<span class="key"><span class="swatch" style="background:${l.color}"></span>${l.label}</span>`)
+    .join("") + (showProp ? `<span class="key"><span class="swatch" style="background:#b5834a"></span>Including property</span>` : "");
+
+  const money = v => CUR() + Math.round(v).toLocaleString("en-GB");
+  const first = bal.rows.find(r => r.year === bal.retireYear) || bal.rows[0];
+  const last = bal.rows[bal.rows.length - 1];
+  // Two different facts, deliberately kept apart: when the pots hit zero, and
+  // when the plan first can't fund the target (which can happen years earlier,
+  // while a fixed-drawdown pension pot is still sizeable).
+  const shortfallYear = bal.exhaustedYear && bal.exhaustedYear !== runOut ? bal.exhaustedYear : null;
+  els("balanceCaption").innerHTML =
+    `Each band is what's in that pot that year &mdash; rising while you pay in, then falling as you spend it. ` +
+    `You reach retirement in ${first.year} with <b>${money(first.liquid)}</b>` +
+    (runOut ? `, it runs out in <b>${runOut}</b> (age ${runOut - model.you.dob.y}).`
+            : `, you still have <b>${money(last.liquid)}</b> at ${last.year}.`) +
+    (shortfallYear ? ` Note the plan first falls <b>short of your spending target</b> in ${shortfallYear} &mdash; ` +
+      `earlier than the pots empty, because a fixed-percentage drawdown only releases part of the pension pot each year.` : ``) +
+    (model.inp.flatOn ? ` Shown in <b>today's money</b>, so the fall is a real loss of buying power.`
+                      : ` Shown in future pounds &mdash; switch on the flat/today's-money view to see it in real terms.`) +
+    ` Property is excluded from the bands${showProp ? " but added as the dashed line" : ""}; it isn't money you can spend without selling.`;
+}
+
 function runMonteCarlo(model) {
   // Household: both pots pooled from your decumulation start; guaranteed
   // income = both state pensions + DB streams, in today's money.
@@ -5536,6 +5844,7 @@ function renderAll() {
   if (els("tab-planner").classList.contains("active")) {
     drawPlannerChart(model);
     drawBreakdownChart(model);
+    drawBalanceChart(model);
     renderScenarioCompare(model);
     renderStrategies(model);
     drawMcChart();
@@ -5594,7 +5903,7 @@ function activateTab(tabName) {
   if (c) c.scrollTop = 0;
   if (tabName === "planner" && lastModel) {
     // Canvas has zero width while hidden - draw once visible.
-    requestAnimationFrame(() => { drawPlannerChart(lastModel); drawBreakdownChart(lastModel); renderScenarioCompare(lastModel); drawMcChart(); drawLongevityChart(lastModel); });
+    requestAnimationFrame(() => { drawPlannerChart(lastModel); drawBreakdownChart(lastModel); drawBalanceChart(lastModel); renderScenarioCompare(lastModel); drawMcChart(); drawLongevityChart(lastModel); });
   }
 }
 // Delegated so both the desktop rail and the mobile bottom nav work.
@@ -5899,6 +6208,45 @@ makeTargetDrag("breakdownChart", () => breakdownXform);
   canvas.addEventListener("touchend", () => setTimeout(() => { tip.style.display = "none"; }, 2500));
 })();
 
+/* Same speech-bubble treatment on the balance chart: hovering a year shows what
+   is still left in each pot at that point, rather than what came in. */
+(function wireBalanceTip() {
+  const canvas = els("balanceChart"), tip = els("balanceTip");
+  if (!canvas || !tip) return;
+  function show(clientX, clientY) {
+    const xf = balanceXform;
+    if (!xf || !xf.tip || !xf.slot) { tip.style.display = "none"; return; }
+    const rect = canvas.getBoundingClientRect();
+    const px = clientX - rect.left, py = clientY - rect.top;
+    if (px < xf.padL || py < xf.padT || py > xf.padT + xf.plotH) { tip.style.display = "none"; return; }
+    const year = xf.domainStart + Math.floor((px - xf.padL) / xf.slot);
+    const d = year >= xf.domainStart && year <= xf.domainEnd ? xf.tip(year) : null;
+    if (!d) { tip.style.display = "none"; return; }
+    const money = v => CUR() + Math.round(v).toLocaleString("en-GB");
+    tip.innerHTML = `<div class="tip-head">${d.year} &middot; age ${d.age} &mdash; still left</div>` +
+      (d.segs.length ? d.segs.map(s => `<div class="tip-row"><span class="tip-sw" style="background:${s.color}"></span>` +
+        `<span class="tip-lbl">${s.label}</span><span class="tip-amt">${money(s.amt)}</span></div>`).join("")
+        : `<div class="tip-row"><span class="tip-lbl">Nothing left</span></div>`) +
+      `<div class="tip-total"><span>Total</span><span>${money(d.total)}</span></div>` +
+      (d.property ? `<div class="tip-target"><span>Including property</span><span>${money(d.total + d.property)}</span></div>` : "");
+    tip.style.display = "";
+    const wrapW = canvas.parentElement.clientWidth;
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    let left = px + 14; if (left + tw > wrapW - 4) left = px - tw - 14;
+    let top = py - th - 10; if (top < 4) top = py + 16;
+    tip.style.left = Math.max(4, left) + "px";
+    tip.style.top = top + "px";
+  }
+  canvas.addEventListener("mousemove", e => show(e.clientX, e.clientY));
+  canvas.addEventListener("mouseleave", () => { tip.style.display = "none"; });
+  canvas.addEventListener("touchstart", e => { const t = e.touches[0]; if (t) show(t.clientX, t.clientY); }, { passive: true });
+  canvas.addEventListener("touchend", () => setTimeout(() => { tip.style.display = "none"; }, 2500));
+})();
+
+if (els("balanceProperty")) {
+  els("balanceProperty").addEventListener("change", () => { if (lastModel) drawBalanceChart(lastModel); });
+}
+
 /* Drag any *movable* event flag (retirements, custom in/out events) directly on
    either chart to change its year. Statutory flags (State Pension) aren't
    movable. The grab area is the icon/label band above the plot, so it never
@@ -6190,7 +6538,7 @@ els("runMcBtn").addEventListener("click", () => {
 });
 window.addEventListener("resize", () => {
   if (els("tab-planner").classList.contains("active") && lastModel) {
-    drawPlannerChart(lastModel); drawBreakdownChart(lastModel); drawMcChart(); drawLongevityChart(lastModel);
+    drawPlannerChart(lastModel); drawBreakdownChart(lastModel); drawBalanceChart(lastModel); drawMcChart(); drawLongevityChart(lastModel);
   }
 });
 
