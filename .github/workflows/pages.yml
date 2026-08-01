@@ -1,0 +1,50 @@
+name: Deploy to GitHub Pages
+
+# The planner is a single self-contained HTML file, so there's nothing to
+# build - the site is just that file served as the index. Copying it at
+# deploy time (rather than committing a duplicate index.html) keeps one
+# source of truth, so the published page can never drift from the app.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - pension-planner.html
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a newer deploy supersede one already in flight, but never cancel a run
+# that is midway through publishing.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble the site
+        run: |
+          mkdir -p _site
+          cp pension-planner.html _site/index.html
+          # Keep the original filename working too, so existing links don't 404.
+          cp pension-planner.html _site/pension-planner.html
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
