@@ -9,8 +9,28 @@
      exactly as before, using the built-in data and browser local storage.
      When served by the backend it upgrades itself automatically.
      ===================================================================== -->
+<meta charset="utf-8">
+<!-- Without this the phone lays the page out at ~980px and scales it down, so
+     the responsive breakpoints never fire and the mobile UI below is never
+     reached. viewport-fit=cover lets the app paint under the notch/home bar,
+     with the safe-area insets used in the CSS to keep content clear of them. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="description" content="Retirement and pension planner for the UK, US, France and Australia.">
+<!-- Add to Home Screen: launches full-screen without browser chrome. -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ledger &amp; Later">
+<meta name="format-detection" content="telephone=no">
 <title>Pension Planner</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>&#127807;</text></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23000'/><text y='0.86em' x='12' font-size='76'>&#127807;</text></svg>">
+<!-- Manifest inlined as a data URI so the app stays a single portable file:
+     "Add to Home Screen" then launches it standalone, like an installed app. -->
+<link rel="manifest" href='data:application/manifest+json,{"name":"Ledger %26 Later — Retirement Planner","short_name":"Ledger %26 Later","display":"standalone","orientation":"portrait-primary","background_color":"%23000000","theme_color":"%23000000","start_url":".","scope":".","icons":[{"src":"data:image/svg%2Bxml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect width=%27100%27 height=%27100%27 rx=%2722%27 fill=%27%23000%27/%3E%3Ctext y=%270.86em%27 x=%2712%27 font-size=%2776%27%3E🌿%3C/text%3E%3C/svg%3E","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}'>
 <style>
   /* THEMES. Default = Night: true black & white (no green). Day = white &
      black. Forest = the previous dark-green look, kept as an option.
@@ -543,11 +563,56 @@
     .bottomnav .tab-btn .icon { font-size: 1.15rem; line-height: 1; opacity: 0.9; }
     .bottomnav .tab-btn.active { color: var(--accent-strong); }
     .bottomnav .tab-btn.active .icon { opacity: 1; transform: translateY(-1px); }
+    /* Pressed state instead of a hover state - phones have no hover, and the
+       tap feedback is what makes buttons feel native. */
+    .bottomnav .tab-btn:active { background: var(--surface-2); transform: scale(0.96); }
+
+    /* iOS zooms the whole page in when you focus an input under 16px and never
+       zooms back out. Every text control is therefore >=16px on mobile. */
+    .field input, .field select, .asset-row .field input, .asset-row .field select,
+    .budget-table input, .modal input, .modal select, .profile-row select, input, select, textarea {
+      font-size: 16px;
+    }
+    /* Comfortable thumb targets (Apple/Google both call for ~44px). */
+    .field input, .field select, .profile-row select { min-height: 44px; }
+    .profile-row .icon-btn, .icon-btn { min-width: 44px; min-height: 44px; }
+    .btn-primary, .btn-ghost, .add-btn { min-height: 44px; padding-left: 18px; padding-right: 18px; }
+    .segmented button { min-height: 44px; padding: 10px 14px; }
+    .check-inline { min-height: 40px; }
+    .check-inline input { width: 22px; height: 22px; }
+
+    /* Native scrolling feel: momentum inside scrollers, and no rubber-banding
+       of the whole page behind the fixed nav. */
+    html, body { overscroll-behavior-y: none; }
+    .table-scroll, .chart-wrap, #timelineCard {
+      -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
+    }
+    /* Don't flash a grey box on every tap. */
+    * { -webkit-tap-highlight-color: transparent; }
+    /* Stop iOS inflating text in landscape. */
+    body { -webkit-text-size-adjust: 100%; }
+    /* Chrome is app furniture, not content: it shouldn't be selectable. */
+    .mobilebar, .bottomnav, .segmented, .wording-seg, .tab-btn { -webkit-user-select: none; user-select: none; }
+
+    /* Segmented pickers can be wider than a phone (the living-standard picker
+       has four long labels), which would scroll the whole page sideways. Let
+       them wrap onto as many rows as they need instead. */
+    .segmented { display: flex; flex-wrap: wrap; width: 100%; max-width: 100% !important; }
+    .segmented button { flex: 1 1 44%; border-bottom: 1px solid var(--border); }
+    .wording-seg { flex-wrap: nowrap; width: auto; }
+    .wording-seg button { flex: 0 0 auto; border-bottom: none; }
   }
 
   @media (max-width: 400px) {
     .bottomnav .tab-btn { font-size: 0.56rem; }
     .stat-row { gap: 8px; }
+  }
+
+  /* Launched from the home screen: no browser chrome, so the app itself must
+     pad for the status bar and the home indicator. */
+  @media (display-mode: standalone) {
+    .mobilebar { padding-top: calc(env(safe-area-inset-top, 0px) + 12px); }
+    body { overscroll-behavior: none; }
   }
 
   /* ---------- Modal ---------- */
@@ -570,7 +635,9 @@
   .icon-btn:hover { color: var(--ink); }
   .modal-actions { display: flex; justify-content: flex-end; }
   .filename-row { display: flex; align-items: stretch; gap: 0; }
-  .filename-row input { flex: 1 1 auto; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+  /* min-width:0 lets the input actually shrink inside the flex row - without it
+     the ".pension.json" suffix gets pushed off the edge on a phone. */
+  .filename-row input { flex: 1 1 auto; min-width: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; }
   .filename-ext {
     display: flex; align-items: center; padding: 0 10px; font-size: 0.85rem; color: var(--ink-muted);
     background: var(--surface-2); border: 1px solid var(--border); border-left: none;
@@ -601,6 +668,32 @@
   @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; }
   }
+
+  /* ---------- Mobile: dialogs become bottom sheets ----------
+     Placed AFTER the modal rules above: media queries add no specificity, so
+     these only win on source order. The sheet rises from the bottom edge -
+     within thumb reach - instead of floating in the middle of the screen. */
+  @media (max-width: 860px) {
+    .modal-backdrop { align-items: flex-end; padding: 0; }
+    .modal {
+      max-width: 100%;
+      border-radius: 18px 18px 0 0;
+      padding: 18px 18px calc(env(safe-area-inset-bottom, 0px) + 18px);
+      max-height: 88vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+      animation: sheet-up 0.24s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    /* The grab handle that reads as "this is a sheet". */
+    .modal::before {
+      content: ""; display: block; flex: 0 0 auto;
+      width: 38px; height: 4px; border-radius: 2px;
+      background: var(--border); margin: -4px auto 4px;
+    }
+    /* Full-width stacked actions beat right-aligned ones under a thumb. */
+    .modal-actions { flex-direction: column-reverse; gap: 8px; }
+    .modal-actions button { width: 100%; }
+  }
+  @keyframes sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  @media (prefers-reduced-motion: reduce) { .modal { animation: none !important; } }
 </style>
 
 <div class="app">
@@ -4902,7 +4995,16 @@ function roundRect(ctx, x, y, w, h, r) {
 
 // Shared event-flag rendering (both charts): dashed line, icon, label and an
 // age/date sub-line, stacked into lanes so labels don't collide.
+// Phones are too narrow for the flag text blocks - the labels run off the edge
+// and eat the plot. On a narrow screen the flags become icons only (still
+// draggable, still on the same lanes), with the detail available by tapping a
+// bar for the tooltip.
+const narrowScreen = () => Math.min(window.innerWidth || 9999, document.documentElement.clientWidth || 9999) <= 700;
+// Charts sized for the device: a 560px-tall chart fills a whole phone screen.
+const chartH = (full, compact) => (narrowScreen() ? compact : full);
+
 function drawEventFlags(ctx, flags, xf, domainStart, domainEnd, padT, plotH, hitOut) {
+  const compact = narrowScreen();
   const inView = flags.filter(f => f.year >= domainStart && f.year <= domainEnd).sort((a, b) => a.year - b.year);
   // Lanes track the real right edge of each flag's text block (measured, not a
   // fixed width), so clustered flags stagger into stacked rows only when they
@@ -4915,14 +5017,14 @@ function drawEventFlags(ctx, flags, xf, domainStart, domainEnd, padT, plotH, hit
     ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
     ctx.beginPath(); ctx.moveTo(px, padT); ctx.lineTo(px, padT + plotH); ctx.stroke(); ctx.setLineDash([]);
     ctx.font = "600 10.5px " + SANS;
-    const wLabel = ctx.measureText(f.label).width;
+    const wLabel = compact ? 0 : ctx.measureText(f.label).width;
     ctx.font = "9px " + SANS;
-    const wSub = f.sub ? ctx.measureText(f.sub).width : 0;
-    const rightEdge = px + 10 + Math.max(wLabel, wSub);
+    const wSub = (!compact && f.sub) ? ctx.measureText(f.sub).width : 0;
+    const rightEdge = compact ? px + 12 : px + 10 + Math.max(wLabel, wSub);
     let lane = 0;
     while (lanes[lane] !== undefined && px - 14 < lanes[lane]) lane++;
     lanes[lane] = rightEdge + 8;
-    const topY = padT - 75 + lane * rowH;
+    const topY = (compact ? padT - 30 : padT - 75) + lane * (compact ? 20 : rowH);
     ctx.textAlign = "center"; ctx.font = "15px " + SANS;
     // a subtle grip ring behind movable icons so it's clear they can be dragged
     if (movable) {
@@ -4930,10 +5032,12 @@ function drawEventFlags(ctx, flags, xf, domainStart, domainEnd, padT, plotH, hit
       ctx.fillStyle = themeColor("--accent-wash", "rgba(120,180,160,0.18)"); ctx.fill();
     }
     ctx.fillText(f.icon || "📌", px, topY + 12);
-    ctx.textAlign = "left"; ctx.font = "600 10.5px " + SANS;
-    ctx.fillStyle = f.custom ? CHART.bridge : themeColor("--ink", "#0F1D19");
-    ctx.fillText(f.label, px + 10, topY + 6);
-    if (f.sub) { ctx.font = "9px " + SANS; ctx.fillStyle = themeColor("--ink-faint", "#8A968F"); ctx.fillText(f.sub, px + 10, topY + 17); }
+    if (!compact) {
+      ctx.textAlign = "left"; ctx.font = "600 10.5px " + SANS;
+      ctx.fillStyle = f.custom ? CHART.bridge : themeColor("--ink", "#0F1D19");
+      ctx.fillText(f.label, px + 10, topY + 6);
+      if (f.sub) { ctx.font = "9px " + SANS; ctx.fillStyle = themeColor("--ink-faint", "#8A968F"); ctx.fillText(f.sub, px + 10, topY + 17); }
+    }
     if (movable && hitOut) hitOut.push({ px, topY, move: f.move, year: f.year });
   });
 }
@@ -4941,7 +5045,7 @@ function drawEventFlags(ctx, flags, xf, domainStart, domainEnd, padT, plotH, hit
 function drawPlannerChart(model) {
   const canvas = els("plannerChart");
   const wrap = canvas.parentElement;
-  const W = Math.max(320, wrap.clientWidth), H = 560;
+  const W = Math.max(320, wrap.clientWidth), H = chartH(560, 420);
   const dpr = window.devicePixelRatio || 1;
   canvas.width = W * dpr; canvas.height = H * dpr;
   canvas.style.height = H + "px";
@@ -4951,7 +5055,7 @@ function drawPlannerChart(model) {
 
   const { years, byYear, flags } = householdSeries(model);
   if (!years.length) return;
-  const padL = 62, padR = 14, padT = 84, padB = 68; // padB holds the phase band + year labels
+  const padL = narrowScreen() ? 46 : 62, padR = 14, padT = narrowScreen() ? 40 : 84, padB = 68; // padT holds the event flags; padB the phase band + year labels
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const stacks = years.map(y => byYear[y]);
 
@@ -5162,7 +5266,7 @@ function drawPlannerChart(model) {
 function drawBreakdownChart(model) {
   const canvas = els("breakdownChart");
   const wrap = canvas.parentElement;
-  const W = Math.max(320, wrap.clientWidth), H = 540;
+  const W = Math.max(320, wrap.clientWidth), H = chartH(540, 400);
   const dpr = window.devicePixelRatio || 1;
   canvas.width = W * dpr; canvas.height = H * dpr;
   canvas.style.height = H + "px";
@@ -5172,7 +5276,7 @@ function drawBreakdownChart(model) {
 
   const { years, byYear, flags } = householdSeries(model);
   if (!years.length) return;
-  const padL = 62, padR = 14, padT = 84, padB = 62; // padB holds the phase band + year labels
+  const padL = narrowScreen() ? 46 : 62, padR = 14, padT = narrowScreen() ? 40 : 84, padB = 62; // padT holds the event flags; padB the phase band + year labels
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const target = model.rlsTarget || 0;
 
@@ -5353,7 +5457,7 @@ function drawBalanceChart(model) {
   const canvas = els("balanceChart");
   if (!canvas) return;
   const wrap = canvas.parentElement;
-  const W = Math.max(320, wrap.clientWidth), H = 380;
+  const W = Math.max(320, wrap.clientWidth), H = chartH(380, 300);
   const dpr = window.devicePixelRatio || 1;
   canvas.width = W * dpr; canvas.height = H * dpr;
   canvas.style.height = H + "px";
@@ -5365,7 +5469,7 @@ function drawBalanceChart(model) {
   if (!bal.rows.length) { balanceXform = null; return; }
   const byYear = {}; bal.rows.forEach(r => { byYear[r.year] = r; });
 
-  const padL = 62, padR = 14, padT = 26, padB = 62; // padB holds the phase band + year labels
+  const padL = narrowScreen() ? 46 : 62, padR = 14, padT = 26, padB = 62; // padB holds the phase band + year labels
   const plotW = W - padL - padR, plotH = H - padT - padB;
 
   // Same x domain as the breakdown chart above, so the two align.
@@ -5549,7 +5653,7 @@ function runMonteCarlo(model) {
 function drawMcChart() {
   if (!lastMc) return;
   const canvas = els("mcChart"), wrap = canvas.parentElement;
-  const W = Math.max(320, wrap.clientWidth), H = 260;
+  const W = Math.max(320, wrap.clientWidth), H = chartH(260, 220);
   const dpr = window.devicePixelRatio || 1;
   canvas.width = W * dpr; canvas.height = H * dpr; canvas.style.height = H + "px";
   const ctx = canvas.getContext("2d"); ctx.scale(dpr, dpr); ctx.clearRect(0, 0, W, H);
@@ -5646,7 +5750,7 @@ function longevityData(model) {
 
 function drawLongevityChart(model) {
   const canvas = els("longevityChart"), wrap = canvas.parentElement;
-  const W = Math.max(320, wrap.clientWidth), H = 320;
+  const W = Math.max(320, wrap.clientWidth), H = chartH(320, 260);
   const dpr = window.devicePixelRatio || 1;
   canvas.width = W * dpr; canvas.height = H * dpr; canvas.style.height = H + "px";
   const ctx = canvas.getContext("2d"); ctx.scale(dpr, dpr); ctx.clearRect(0, 0, W, H);
