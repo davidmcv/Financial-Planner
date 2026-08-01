@@ -40,7 +40,11 @@ jobs:
           # Keep the original filename working too, so existing links don't 404.
           cp pension-planner.html _site/pension-planner.html
 
+      # enablement: turns Pages on for the repo on the first run, so there's no
+      # manual Settings step. Harmless once it's already enabled.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:
