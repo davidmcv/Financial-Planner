@@ -223,7 +223,13 @@ browser's local storage only; served by the backend below, an Account card appea
 profiles also sync to the server - across devices, and shareable with an adviser.
 
 Profiles can also be **saved to and loaded from a file**. "Save to file" opens a dialog where you
-**name the file** (independent of the saved-profile name) and then writes a `.pension.json` through
+give the plan a **name**: that name is used for both the **saved profile in the dropdown** and the
+file, so saving always leaves the plan somewhere you can find again rather than only producing a
+file. The box is pre-filled with the current profile's name, so pressing Save **updates that
+profile in place**; typing a different name saves a copy under the new name and leaves the original
+untouched. Once saved, the plan is the current profile, so ordinary edits keep saving back into it.
+The profile is stored *before* the file is written, so cancelling or blocking the file dialog never
+loses your edits. Saving then writes a `.pension.json` through
 the system save dialog (Chrome/Edge), which reaches local folders, **Google Drive** (via Drive for
 desktop) and **iCloud Drive** wherever the OS mounts them. On an **iPad or iPhone** (and Android)
 the native **share sheet** opens instead - choose *Save to Files* to put the file in iCloud Drive
