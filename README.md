@@ -19,6 +19,14 @@ Everything is a simplified planning model - not financial or tax advice.
   e.g. an inheritance in or a house purchase out);
 - a Voyant Go-style **year-by-year breakdown**: a stacked bar chart underneath, one bar per year
   split by income source, with your spending target drawn across so short years are obvious;
+- **"What you have left"**: the charts above are *flows* (money arriving each year); this one is the
+  *stock* — a stacked area of every remaining pot (pension, tax-free cash, cash, Cash ISA, S&S ISA,
+  other investments), rising as you pay in and falling as you spend it. Stacked rather than a single
+  line so you can see **which pot empties first**, sharing the x-axis and phase band with the
+  breakdown chart so the two line up. A marker calls out the year the money actually runs out (kept
+  distinct from the year the plan first *falls short of the target*, which can come earlier while a
+  fixed-percentage drawdown still leaves a large pot). Property is deliberately excluded from the
+  bands — a house dwarfs the liquid pots — and available as an optional dashed line instead;
 - both charts span the whole life, splitting the **Accumulation** (what you pay in each year) and
   **Decumulation** (household income by source) phases with a labelled retirement divider; every
   event flag shows the person's age and the date. **Movable event flags** (retirements and your own
