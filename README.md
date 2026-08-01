@@ -185,12 +185,24 @@ employer pots fold into your drawdown pot, and **Defined Benefit** pensions add 
 their own start age. (These are simplified planning assumptions - e.g. DB income is flat, DC pots
 grow at your pot's rate, and cash/shares are only drawn during an early-retirement gap.)
 
-The layout is mobile-first and app-like: on a phone the tabs sit in a fixed bottom navigation bar
+The layout is mobile-first and app-like. On a phone the tabs sit in a fixed bottom navigation bar
 (no horizontal scrolling), the desktop sidebar collapses into a compact top bar, stat tiles reflow
-two-up, and safe-area insets keep content clear of the notch/home indicator. (A true installable
-React Native app isn't shippable as a single self-contained web file - RN compiles to a native
-iOS/Android binary requiring Xcode/Android Studio and app-store distribution - so this delivers the
-native *feel* as a mobile web app.)
+two-up, and safe-area insets keep content clear of the notch and home indicator. Specifically:
+
+- every text control is **>=16px**, the threshold below which iOS zooms the page in on focus and
+  never zooms back out, and taps land on ~**44px** targets;
+- **dialogs are bottom sheets** - flush to the bottom edge within thumb reach, rounded on top, with
+  a grab handle and stacked full-width actions;
+- charts **resize for the device**, and event flags drop to **icon-only** on a narrow screen (their
+  labels would otherwise run off the edge); tap a bar for the detail;
+- no tap-highlight flash, no page rubber-banding, momentum scrolling inside tables and charts, and
+  pressed states instead of hover states;
+- it is **installable**: an inlined web-app manifest, theme colour and Apple meta mean *Add to Home
+  Screen* launches it full-screen, with no browser chrome.
+
+A true React Native app isn't shippable as a single self-contained web file - RN compiles to a
+native binary needing Xcode/Android Studio and app-store distribution - so this delivers the native
+*feel*, installable from the browser.
 
 The **View** toggle (top bar and sidebar) switches all jargon between novice-friendly
 phrasing and the accurate terms, so both a beginner and an expert can use it - e.g. "When you can
