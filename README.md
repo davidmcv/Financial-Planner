@@ -297,9 +297,20 @@ A pension planner is used across a very wide age range, so the interface is buil
   Night, Day and Forest themes. `prefers-reduced-motion` disables transitions, animations and smooth
   scrolling.
 
-Two Playwright suites hold this in place: `a11y_test.py` (structure, naming, keyboard, dialogs,
-chart alternatives, target sizes) and `contrast_test.py` (computes every visible element's contrast
-ratio against its real background, on all three themes and all six tabs).
+Three Playwright suites hold this in place: `a11y_test.py` (structure, naming, keyboard, dialogs,
+chart alternatives, target sizes), `contrast_test.py` (computes every visible element's contrast
+ratio against its real background, on all three themes and all six tabs) and `chartaxis_test.py`
+(axis readability at iPhone 15 width).
+
+### Chart axes on a phone
+
+On a 393px screen an axis has room for about five money labels and four year labels, so both are
+computed rather than assumed. Money maxima round up to the next 1/2/2.5/5&times;10&#8319; and the ticks
+divide into round numbers, so the axis reads &pound;0 / &pound;1.0m / ... / &pound;5.0m instead of
+&pound;4077k. Year labels are spaced from the *measured* width of a four-digit label, snapped to whole
+decades, so they cannot print on top of each other at any width. The retirement marker shortens to
+"RETIRE" and is clamped inside the plot so it stops covering the &pound;0 label, and the longevity
+chart drops its second age row and shortens its survival markers on a narrow screen.
 
 ## Server backend
 
