@@ -85,16 +85,6 @@
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 8px 24px -12px rgba(0, 0, 0, 0.2);
     color-scheme: light;
   }
-  :root[data-app-theme="forest"] {
-    --paper: #000000; --surface: #121917; --surface-2: #1B2420; --border: #2B3833;
-    --ink: #FFFFFF; --ink-muted: #B9C6C0; --ink-faint: #7F8D87;
-    --accent: #4FBE9E; --accent-strong: #7ED4B8; --accent-wash: #16332A; --on-accent: #0A0F0D;
-    --gold: #D9A44E; --gold-wash: #2E2515;
-    --good: #4CAF7A; --warn: #D9A73C; --critical: #E88787; --critical-wash: #331A1A;
-    --focus-ring: #FFD24D; --focus-halo: rgba(255, 210, 77, 0.35);
-    --control-border: #638178;
-    color-scheme: dark;
-  }
 
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
@@ -518,11 +508,49 @@
     width: 15px; height: 15px; border-radius: 50%; background: var(--accent); border: none;
   }
 
+  /* Checkbox + label. Aligned to the TOP, not the middle: at the larger text
+     sizes these labels wrap to two or three lines, and a centred box floated
+     into the middle of the block, away from the line it belongs to. The box
+     also must not shrink, or a long label squeezes it into a sliver. */
   .check-inline {
-    display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+    display: inline-flex; align-items: flex-start; gap: 8px; cursor: pointer;
     font-size: 0.92rem; color: var(--ink); margin: 4px 0 8px; font-weight: 600;
+    line-height: 1.4;
   }
-  .check-inline input { width: 17px; height: 17px; accent-color: var(--accent); cursor: pointer; }
+  .check-inline input {
+    width: 17px; height: 17px; flex: 0 0 auto; accent-color: var(--accent);
+    cursor: pointer; margin-top: 0.15em;   /* sits on the first line, not above it */
+  }
+  /* All the label's text in ONE flex item. Without this the <b> and the text
+     around it each became their own flex column, so at the larger text sizes
+     "Only pay for an length of stay , ending in" laid itself out in three
+     ragged columns. normaliseCheckLabels() puts the wrapper in. */
+  .check-inline .check-text { flex: 1 1 auto; min-width: 0; }
+  /* the parenthetical hint after a label reads as part of the same sentence */
+  .check-inline .hint-inline { font-weight: 400; }
+
+  /* ---------- Wide tables: a scrollbar at the top as well as the bottom ----
+     A table wider than the panel puts its scrollbar at the very bottom, which
+     on a tall table is off-screen - you cannot tell there is more to the right,
+     let alone reach it. This mirror sits above the table and scrolls it. It is
+     added only where the content really does overflow. */
+  .scroll-mirror {
+    overflow-x: auto; overflow-y: hidden; height: 14px; margin-bottom: 2px;
+    scrollbar-width: thin;
+  }
+  .scroll-mirror > div { height: 1px; }
+  /* Overlay scrollbars (macOS, iOS) stay invisible until something scrolls,
+     which defeats the point of a mirror whose only job is to be seen. */
+  .scroll-mirror::-webkit-scrollbar { height: 10px; -webkit-appearance: none; }
+  .scroll-mirror::-webkit-scrollbar-track { background: var(--surface-2); border-radius: 6px; }
+  .scroll-mirror::-webkit-scrollbar-thumb {
+    background: var(--control-border); border-radius: 6px; border: 2px solid var(--surface-2);
+  }
+  .scroll-mirror::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); }
+  .scroll-hint {
+    font-size: 0.72rem; color: var(--ink-faint); margin: 0 0 2px; display: none;
+  }
+  .scroll-mirror.is-active + .scroll-hint, .scroll-hint.is-active { display: block; }
 
   .divider { height: 1px; background: var(--border); margin: 4px 0; }
 
@@ -850,7 +878,6 @@
         <div class="wording-seg theme-seg" style="width: 100%;" role="group" aria-labelledby="themeLabel">
           <button data-app-theme="night" style="flex:1;" aria-pressed="false">Night</button>
           <button data-app-theme="day" style="flex:1;" aria-pressed="false">Day</button>
-          <button data-app-theme="forest" style="flex:1;" aria-pressed="false">Forest</button>
         </div>
       </div>
       <div class="profile-box" style="padding: 0;">
@@ -1096,6 +1123,10 @@
           <div id="yourPclsRow">
             <label class="check-inline" data-glossary="pcls"><input type="checkbox" id="yourTakePcls"> Take the 25% tax-free lump sum at your access age</label>
             <span class="hint" style="display:block; margin:-4px 0 4px;">Reduces the drawdown pot to 75% and adds the tax-free cash to your savings, available to fund/smooth retirement.</span>
+            <label class="check-inline"><input type="checkbox" id="pclsEarlyIsa"> Take it at the <b>earliest</b> access age and feed it into Stocks &amp; Shares ISAs</label>
+            <span class="hint" style="display:block; margin:-4px 0 4px;">Instead of leaving the cash sitting there, it moves into ISAs at up to
+              <span class="cur">&pound;</span>20,000 per person a year, where it grows free of tax on the way out. Taking it early
+              also fixes the amount before further pot growth &mdash; so it is a trade, not free money.</span>
           </div>
           <div class="divider" style="margin: 14px 0;"></div>
           <h3><span class="phase-chip accum" data-term="accumulationShort">Paying in</span> Pension contributions (until you can access this pot)</h3>
@@ -1443,6 +1474,9 @@
           </div>
         </div>
         <div class="field-row" style="margin-top: 4px;">
+          <label class="check-inline"><input type="checkbox" id="toMaxAge" checked> Run the plan to the <b>maximum modelled age</b>
+            <span class="hint-inline">(life expectancy is the halfway point &mdash; half of people outlive it)</span></label>
+          <label class="check-inline"><input type="checkbox" id="showSurvival"> Show the <b>chance of still being alive</b> at each age on the charts</label>
           <label class="check-inline"><input type="checkbox" id="targetInflationOn" checked> Income target rises with inflation each year (keeps pace with the cost of living)</label>
           <label class="check-inline"><input type="checkbox" id="flatMoney"> Show flat, today's-money numbers (strip inflation-style growth)</label>
           <label class="check-inline"><input type="checkbox" id="levelOn"> Level income: draw the pension as needed &amp; bank surplus to close gaps</label>
@@ -1940,7 +1974,6 @@
       <div class="wording-seg theme-seg" style="width: 100%;" role="group" aria-labelledby="themeLabelM">
         <button data-app-theme="night" style="flex:1;">Night (black &amp; white)</button>
         <button data-app-theme="day" style="flex:1;">Day (white &amp; black)</button>
-        <button data-app-theme="forest" style="flex:1;">Forest (green)</button>
       </div>
     </div>
     <div class="modal-actions">
@@ -3063,6 +3096,10 @@ function renderOwnerAssets(owner) {
       ${assetMoneyField("Annual income (£)", "income", a.income, { max: 100000 })}
       ${assetMoneyField("Lump sum (£)", "lumpSum", a.lumpSum, { max: 500000 })}
       ${assetNumField("From age", "startAge", a.startAge, { max: 100, step: 1, flex: "0 0 110px" })}
+      ${assetNumField("Rises %/yr", "growthPct", dbGrowthOf(a), { max: 10, def: DB_GROWTH_DEFAULT, flex: "0 0 120px" })}
+      <label class="check-inline" style="flex: 1 1 100%; margin-top: 2px;">
+        <input type="checkbox" data-field="growthOn"${a.growthOn === false ? "" : " checked"}>
+        Income rises each year <span class="hint-inline">(most DB schemes are index-linked; untick for a flat pension)</span></label>
       ` : `
       ${assetMoneyField("Value today (£)", "value", a.value, { max: 2000000 })}
       ${assetMoneyField("Contribution (£/yr)", "contribution", a.contribution, { max: 60000 })}
@@ -3093,12 +3130,23 @@ function renderOwnerAssets(owner) {
         <select data-field="type">${optionsHtml(PROPERTY_TYPES, a.type)}</select></div>
       ${assetMoneyField("Value today (£)", "value", a.value, { max: 2000000 })}
       ${canDownsize ? `
+      ${isFullHomeRelease(a) ? `
+      <div class="field" style="flex:0 0 150px;"><label>Sold in year</label>
+        <div class="prop-projection">${homeSaleYearComputed
+          ? `${homeSaleYearComputed} <span class="hint-inline">(care starts)</span>`
+          : `<span class="hint-inline">set once calculated</span>`}</div></div>
+      ` : `
       <div class="field" style="flex:0 0 110px;"><label>Downsize in year</label>
         <input type="number" data-field="downsizeYear" min="2020" max="2100" placeholder="—" value="${a.downsizeYear || ""}"></div>
+      `}
       ${assetNumField("Growth %/yr", "growthPct", growth, { max: 12, def: 3, flex: "0 0 120px" })}
       ${assetNumField("Release %", "releasePct", relPct, { max: 100, def: 100, flex: "0 0 120px" })}
       <div class="field" style="flex:1 1 180px;"><label>Projected release</label>
         <div class="prop-projection" data-projection>${propProjectionText(a)}</div></div>
+      ${isFullHomeRelease(a) ? `
+      <p class="hint" style="flex: 1 1 100%; margin: 2px 0 0;">Releasing <b>100%</b> of a main home is a sale, not a
+        downsizing move &mdash; so it is dated to when the <b>last person goes into care</b> and the house stands
+        empty, rather than to a year you pick. Set the release below 100% to choose a year yourself.</p>` : ""}
       ` : ""}
       <button type="button" class="remove-btn" data-remove="property" data-owner="${owner}" data-idx="${i}" aria-label="Remove">&times;</button>
     </div>`;
@@ -3108,7 +3156,9 @@ function renderOwnerAssets(owner) {
 // Grow the value to the downsize year and take the release percentage of it.
 function propFuture(a, fromYear) {
   const base = Number(a.value) || 0;
-  const dz = Number(a.downsizeYear) || 0;
+  // A full main-home release has no typed year - it grows to the sale year
+  // worked out from when care starts.
+  const dz = (isFullHomeRelease(a) ? (homeSaleYearComputed || 0) : 0) || Number(a.downsizeYear) || 0;
   const yrs = dz > fromYear ? dz - fromYear : 0;
   const g = (a.growthPct == null ? 3 : Number(a.growthPct)) / 100;
   const future = base * Math.pow(1 + g, yrs);
@@ -3117,10 +3167,21 @@ function propFuture(a, fromYear) {
     : Number(a.releasePct);
   return { future, release: future * pct / 100, years: yrs };
 }
+// Is this row a main home whose whole value is being released? That is a sale,
+// not a downsize, and it is dated by care rather than by a typed year.
+function isFullHomeRelease(a) {
+  if (!a || a.type !== "Main home") return false;
+  const pct = a.releasePct == null
+    ? (Number(a.value) > 0 ? 100 * (Number(a.releaseAmount) || 0) / Number(a.value) : 100)
+    : Number(a.releasePct);
+  return pct >= 100;
+}
+
 function propProjectionText(a) {
-  if (!a.downsizeYear || a.type === "Car") return "—";
+  if (a.type === "Car" || (!a.downsizeYear && !isFullHomeRelease(a))) return "—";
   const f = propFuture(a, todayObj().y);
-  return `${CUR()}${fmtNum(Math.round(f.future))} in ${a.downsizeYear} `
+  const year = isFullHomeRelease(a) ? (homeSaleYearComputed || "—") : a.downsizeYear;
+  return `${CUR()}${fmtNum(Math.round(f.future))} in ${year} `
     + `&rarr; releases <b>${CUR()}${fmtNum(Math.round(f.release))}</b>`;
 }
 function renderAssetLists() {
@@ -3133,6 +3194,20 @@ function renderAssetLists() {
 
 function fmtNum(n) { return (Number(n) || 0).toLocaleString("en-GB"); }
 
+/* DB pensions are normally index-linked, so their income rises each year.
+   Default the rate to the plan's own inflation assumption (the same number
+   driving the State Pension and the spending target), so the three don't drift
+   apart, and let each pension override it or switch the rise off entirely. */
+const DB_GROWTH_DEFAULT = 2.5;
+// The ISA subscription limit, per person per tax year (UK, 2025/26).
+const ISA_ANNUAL_LIMIT = 20000;
+function dbGrowthOf(a) {
+  if (a && a.growthPct != null && a.growthPct !== "") return Number(a.growthPct);
+  const el = els("discountRate");
+  const infl = el ? parseFloat(el.value) : NaN;
+  return isFinite(infl) ? infl : DB_GROWTH_DEFAULT;
+}
+
 // Read the editable asset rows back into the `assets` state (both owners).
 function syncAssetsFromDOM() {
   document.querySelectorAll(".asset-row[data-owner]").forEach(row => {
@@ -3141,7 +3216,8 @@ function syncAssetsFromDOM() {
     if (!obj) return;
     row.querySelectorAll("[data-field]").forEach(inp => {
       const f = inp.dataset.field;
-      if (inp.tagName === "SELECT" || f === "label") obj[f] = inp.value;
+      if (inp.type === "checkbox") obj[f] = inp.checked;
+      else if (inp.tagName === "SELECT" || f === "label") obj[f] = inp.value;
       else if (f === "startAge") obj[f] = parseInt(inp.value, 10) || 0;
       else if (f === "downsizeYear") obj[f] = inp.value.trim() === "" ? "" : (parseInt(inp.value, 10) || "");
       else if (f === "growthPct" || f === "releasePct") obj[f] = inp.value.trim() === "" ? 0 : (parseFloat(inp.value) || 0);
@@ -3155,6 +3231,50 @@ function newAssetRow(listName) {
   if (listName === "shares") return { type: "Stocks & Shares ISA", value: 0 };
   if (listName === "property") return { type: "Main home", value: 0, downsizeYear: "", growthPct: 3, releasePct: 100 };
   return { label: "Employer pension", kind: "DC", value: 0, contribution: 0, income: 0, lumpSum: 0, startAge: 65 };
+}
+
+/* The year a person's care is assumed to start: the start of their stay when
+   a length of stay is given, otherwise their no-go age. Shared by the care
+   flags on the charts and by the main-home sale below, so the two can never
+   disagree about when someone leaves home. */
+function careStartYear(inp, person, isSpouse) {
+  const nY = isSpouse ? inp.spouseCareNursingYears : inp.careNursingYears;
+  const hY = isSpouse ? inp.spouseCareHomeYears : inp.careHomeYears;
+  return inp.careStayOn ? person.lifeExpDate.y - ((nY || 0) + (hY || 0))
+                        : person.dob.y + inp.slowGoUntilAge;
+}
+
+/* Releasing 100% of a main home isn't a downsizing move - it's the house being
+   sold because nobody is living in it any more. So its date isn't a year
+   anyone types in: it's when the LAST of the two goes into care, which for a
+   couple is the later of the two care start years, and for one person is
+   simply theirs.
+
+   Anything less than 100% stays a downsizing move - trading down while still
+   living somewhere - and keeps the year on the row.
+
+   The year is worked out BEFORE the asset totals are built, because the house
+   also has to grow in value up to that year, and assetTotals() reads it. */
+let homeSaleYearComputed = null;
+function careSaleYear(inp, you, spouse) {
+  return Math.max(careStartYear(inp, you, false),
+                  spouse ? careStartYear(inp, spouse, true) : -Infinity);
+}
+function stampFullHomeRelease(at, atSpouse, saleYear) {
+  [at, atSpouse].forEach(a => ((a && a.downsizeEvents) || []).forEach(e => {
+    if (e.fullRelease) { e.year = saleYear; e.retimed = true; }
+  }));
+}
+
+/* A DB pension's income in a given calendar year: the amount entered, then
+   compounded at its own rate from the year it starts. Index-linking is on by
+   default, so a DB pension no longer quietly loses a third of its value over
+   a long retirement the way a flat figure did. */
+function dbIncomeAt(st, person, year) {
+  const start = addYearsMonths(person.dob, st.startAge, 0).y;
+  if (year < start) return 0;
+  const g = (st.growthPct || 0) / 100;
+  return st.income * Math.pow(1 + g, Math.max(0, year - start));
 }
 
 // Aggregate one owner's assets for the calculation engine.
@@ -3174,11 +3294,21 @@ function assetTotals(owner) {
   // terms). It rides along on the stream so it lands in the right year.
   const dbStreams = oa.employerPensions.filter(p => p.kind === "DB")
     .map(a => ({ income: Number(a.income) || 0, lumpSum: Number(a.lumpSum) || 0,
-                 startAge: Number(a.startAge) || 0 }));
+                 startAge: Number(a.startAge) || 0,
+                 growthPct: a.growthOn === false ? 0 : dbGrowthOf(a) }));
   const property = (oa.property || []).reduce((s, a) => s + (Number(a.value) || 0), 0);
+  // A main home being released in full is dated by retimeFullHomeRelease (to
+  // the last person going into care) rather than by a typed year, so it needs
+  // no downsizeYear to qualify. Everything else is a downsizing move and does.
   const downsizeEvents = (oa.property || [])
-    .filter(a => a.type !== "Car" && a.downsizeYear)
-    .map(a => ({ year: Number(a.downsizeYear), amount: Math.round(propFuture(a, todayObj().y).release), label: a.type }))
+    .filter(a => a.type !== "Car")
+    .filter(a => a.downsizeYear || isFullHomeRelease(a))
+    .map(a => ({
+      year: Number(a.downsizeYear) || 0,
+      amount: Math.round(propFuture(a, todayObj().y).release),
+      label: a.type,
+      fullRelease: isFullHomeRelease(a),
+    }))
     .filter(e => e.amount > 0);
   return { cash, shares, dcValue, dcContribution, dbStreams, property, downsizeEvents };
 }
@@ -3403,6 +3533,9 @@ function collectProfileData() {
   data.stratRecycleOn = els("stratRecycleOn").checked;
   data.stratSpouseContribOn = els("stratSpouseContribOn").checked;
   data.yourTakePcls = els("yourTakePcls").checked;
+  data.pclsEarlyIsa = els("pclsEarlyIsa").checked;
+  data.toMaxAge = els("toMaxAge").checked;
+  data.showSurvival = els("showSurvival").checked;
   data.spouseTakePcls = els("spouseTakePcls").checked;
   data.smoothOn = els("smoothOn").checked;
   data.spendPhasesOn = els("spendPhasesOn").checked;
@@ -3488,6 +3621,9 @@ function applyProfileData(data) {
   els("stratRecycleFields").style.display = data.stratRecycleOn ? "" : "none";
   els("stratSpouseContribFields").style.display = data.stratSpouseContribOn ? "" : "none";
   els("yourTakePcls").checked = !!data.yourTakePcls;
+  els("pclsEarlyIsa").checked = !!data.pclsEarlyIsa;
+  if (data.toMaxAge != null) els("toMaxAge").checked = !!data.toMaxAge;
+  els("showSurvival").checked = !!data.showSurvival;
   els("spouseTakePcls").checked = !!data.spouseTakePcls;
   els("smoothOn").checked = !!data.smoothOn;
   els("spendPhasesOn").checked = !!data.spendPhasesOn;
@@ -3659,6 +3795,9 @@ function readInputs() {
     stratSpouseContribAmt: money("stratSpouseContribAmt"),
     yourTakePcls: els("yourTakePcls").checked,
     spouseTakePcls: els("spouseTakePcls").checked,
+    pclsEarlyIsa: els("pclsEarlyIsa").checked,
+    toMaxAge: els("toMaxAge").checked,
+    showSurvival: els("showSurvival").checked,
     spouseSalary: Math.min(1000000, Math.max(0, money("spouseSalary"))),
     spouseCountry: els("spouseCountry").value || "UK",
     spouseScottish: els("spouseScotland") && els("spouseScotland").value === "scot",
@@ -4134,7 +4273,12 @@ function buildPersonProjection(p, o) {
   const decumStartDate = cmp(o.retireDate, accessDate) >= 0 ? o.retireDate : accessDate;
   const decumStartAge = ageAtDate(p.dob, decumStartDate);
   const retireAge = ageAtDate(p.dob, o.retireDate);
-  const startAge = retireAge, endAge = p.lifeExpAge;
+  /* How far the plan runs. Life expectancy is the MEDIAN age - half of people
+     outlive it - so stopping there hides exactly the risk a retirement plan
+     exists to answer. The horizon runs to the maximum modelled age instead,
+     and the survival overlay on the charts says how likely each of those
+     later years is. Switch it off to go back to stopping at life expectancy. */
+  const startAge = retireAge, endAge = o.toMaxAge ? Math.max(p.lifeExpAge, maxAgeFor()) : p.lifeExpAge;
   const meta = { mode: o.mode, decumStartAge, decumStartDate, accumulatedPot: 0,
                  drawdown: o.drawdown, growth: o.potGrowth, pclsCash: 0, pclsYear: null };
   if (startAge > endAge) return { rows: [], meta };
@@ -4150,12 +4294,30 @@ function buildPersonProjection(p, o) {
                              o.annualAllowance != null ? o.annualAllowance : Infinity);
     meta.accumulationTrail = [];
     meta.accumulatedPot = accumulatePensionPot(effToday, o.today, decumStartDate, contrib, o.potGrowth, meta.accumulationTrail);
-    // 25% tax-free lump sum taken at access: pot drops to 75%, the cash is
-    // recorded for the funding model to draw on.
+    /* 25% tax-free lump sum taken at access: pot drops to 75%, the cash is
+       recorded for the funding model to draw on.
+
+       "Early" takes it at the earliest access age (NMPA) instead of waiting
+       for retirement, so the cash can start growing inside an ISA sooner. The
+       pot is only grown to THAT date before the 25% is measured, which is the
+       honest trade: a smaller lump sum, taken earlier, sheltered from then on
+       (householdFunding moves it into ISAs at the annual allowance). */
     if (o.takePcls && o.pclsCountry === "UK") {   // 25% tax-free lump sum is a UK rule
-      meta.pclsCash = meta.accumulatedPot * 0.25;
-      meta.pclsYear = decumStartDate.y;
-      meta.accumulatedPot *= 0.75;
+      const early = o.pclsEarlyIsa && cmp(accessDate, decumStartDate) < 0;
+      if (early) {
+        const potAtAccess = accumulatePensionPot(effToday, o.today, accessDate, contrib, o.potGrowth);
+        meta.pclsCash = potAtAccess * 0.25;
+        meta.pclsYear = accessDate.y;
+        meta.pclsEarly = true;
+        // the 75% left carries on growing (and being paid into) to the date
+        // drawdown actually starts
+        meta.accumulatedPot = accumulatePensionPot(
+          potAtAccess * 0.75, accessDate, decumStartDate, contrib, o.potGrowth);
+      } else {
+        meta.pclsCash = meta.accumulatedPot * 0.25;
+        meta.pclsYear = decumStartDate.y;
+        meta.accumulatedPot *= 0.75;
+      }
     }
     const series = generateDcDrawdownSeries(
       decumStartAge, decumStartDate, endAge, meta.accumulatedPot, o.drawdown, o.potGrowth,
@@ -4193,7 +4355,7 @@ function buildPersonProjection(p, o) {
     }
     let db = 0;
     o.assets.dbStreams.forEach(st => {
-      if (cmp(rowDate, addYearsMonths(p.dob, st.startAge, 0)) >= 0) db += st.income;
+      if (cmp(rowDate, addYearsMonths(p.dob, st.startAge, 0)) >= 0) db += dbIncomeAt(st, p, rowDate.y);
     });
 
     const annual = priv + state + db;
@@ -4265,8 +4427,13 @@ function computeAll(overrides = {}) {
   const spouse = inp.spouseOn ? buildPersonSummary(inp.spouseDob, inp.spouseSex, inp.spouseCountry) : null;
   const spouseSpWeekly = spouse && inp.spouseCountry !== currentCountry
     ? COUNTRIES[inp.spouseCountry].spWeeklyDefault : inp.spWeekly;
+  // Selling the whole main home is dated to the last person going into care
+  // (see stampFullHomeRelease), not to a year typed into the row. Worked out
+  // first, because the house has to grow in value up to that year.
+  homeSaleYearComputed = careSaleYear(inp, you, spouse);
   const at = assetTotals("you");
   const atSpouse = assetTotals("spouse");
+  stampFullHomeRelease(at, atSpouse, homeSaleYearComputed);
 
   // Employer contribution: % of salary, or a fixed £/month, per the toggle.
   const employerContribution = inp.yourMode !== "pot" ? 0
@@ -4317,7 +4484,7 @@ function computeAll(overrides = {}) {
 
   const yourBuilt = buildPersonProjection(you, {
     mode: inp.yourMode, potToday: inp.yourPot, drawdown: inp.yourDrawdown, potGrowth: inp.yourPotGrowth,
-    employerContribution, annualAllowance: inp.annualAllowance, takePcls: inp.yourTakePcls, pclsCountry: currentCountry,
+    employerContribution, annualAllowance: inp.annualAllowance, takePcls: inp.yourTakePcls, pclsCountry: currentCountry, pclsEarlyIsa: inp.pclsEarlyIsa, toMaxAge: inp.toMaxAge,
     startIncome: inp.yourIncome, incomeGrowth: inp.yourIncomeGrowth,
     retireDate: inp.retireDate, retireSpend: inp.retireSpend, assets: atYou,
     spWeekly: inp.spWeekly, spGrowth: inp.spGrowth, discount: inp.discount, today,
@@ -4330,7 +4497,7 @@ function computeAll(overrides = {}) {
   if (spouse) {
     spouseBuilt = buildPersonProjection(spouse, {
       mode: inp.spouseMode, potToday: inp.spousePot, drawdown: inp.spouseDrawdown, potGrowth: inp.spousePotGrowth,
-      employerContribution: 0, annualAllowance: Infinity, takePcls: inp.spouseTakePcls, pclsCountry: inp.spouseCountry,
+      employerContribution: 0, annualAllowance: Infinity, takePcls: inp.spouseTakePcls, pclsCountry: inp.spouseCountry, pclsEarlyIsa: inp.pclsEarlyIsa, toMaxAge: inp.toMaxAge,
       startIncome: inp.spouseIncome, incomeGrowth: inp.spouseIncomeGrowth,
       retireDate: inp.spouseRetireDate, retireSpend: 0, assets: atSpouse,
       spWeekly: spouseSpWeekly, spGrowth: inp.spGrowth, discount: inp.discount, today,
@@ -5104,7 +5271,15 @@ function householdFunding(model, targetOverride) {
   const inp = model.inp, today = model.today, spouse = model.spouse, you = model.you;
   const startYear = Math.min(model.yourMeta.decumStartDate.y,
     spouse ? model.spouseMeta.decumStartDate.y : Infinity);
-  const endYear = Math.max(you.lifeExpDate.y, spouse ? spouse.lifeExpDate.y : 0);
+  /* The funding model has to run as far as the plan does. When the horizon was
+     extended to the maximum modelled age this was still stopping at life
+     expectancy, leaving the last twenty-odd years of the chart unfunded - and
+     the "years below target" count reading a year the model had no figures
+     for at all. Take the end from the projection rows, which already honour
+     the chosen horizon. */
+  const lastRow = rows => (rows && rows.length ? rows[rows.length - 1].date.y : 0);
+  const endYear = Math.max(you.lifeExpDate.y, spouse ? spouse.lifeExpDate.y : 0,
+                           lastRow(model.yourRows), lastRow(model.spouseRows));
 
   const inc = {};
   const blank = () => ({ state: 0, db: 0, pension: 0, potPension: 0, salary: 0 });
@@ -5211,6 +5386,17 @@ function householdFunding(model, targetOverride) {
     // is filled in from the per-person projections by fundingBalances().
     byYear[y].balances = { pot: level ? flexPot : 0, pcls: pool.pcls, cash: pool.cash,
                            cashISA: pool.cashISA, gia: pool.gia, ssISA: pool.ssISA };
+    /* Feed the tax-free cash into Stocks & Shares ISAs, up to the annual
+       subscription limit per person. Whatever is left over stays as cash and
+       grows at cash rates - the point of the option is that the sheltered
+       part compounds at investment rates instead, and is tax-free coming out
+       again. Moved AFTER this year's draws, so money needed now isn't locked
+       away first and drawn straight back. */
+    if (inp.pclsEarlyIsa && pool.pcls > 0) {
+      const room = ISA_ANNUAL_LIMIT * (spouse ? 2 : 1);
+      const move = Math.min(pool.pcls, room);
+      pool.pcls -= move; pool.ssISA += move;
+    }
     pool.cash *= (1 + gCash); pool.cashISA *= (1 + gCashISA); pool.gia *= (1 + gInvest); pool.ssISA *= (1 + gInvest); pool.pcls *= (1 + gCash);
     if (level) flexPot *= (1 + gInvest);
   }
@@ -5550,6 +5736,47 @@ function decadeSnapshots(buckets, getYear) {
    Tax tab does the per-person arithmetic properly. */
 const CHART_NET_WORK = "#D98C2B";   // take-home while working
 const CHART_NET_RET = "#C75B9C";    // take-home once retired
+const CHART_SURVIVAL = "#7F8D87";   // chance of still being alive
+
+/* The survival overlay. Once the plan runs past life expectancy the later
+   years are real but progressively less likely, and a chart that draws year
+   90 exactly like year 70 doesn't say so. This puts the probability of still
+   being alive on its own 0-100% scale down the right-hand side, so the far
+   end of the plan can be read for what it is.
+
+   For a couple it is the chance that EITHER is alive, which is the horizon the
+   money actually has to cover. */
+function survivalLine(model, today) {
+  const curYou = ageAtDate(model.you.dob, today), medYou = model.you.lifeExpAge;
+  const curSp = model.spouse ? ageAtDate(model.spouse.dob, today) : null;
+  const medSp = model.spouse ? model.spouse.lifeExpAge : null;
+  return year => {
+    const sYou = survivalProb(curYou, medYou, year - model.you.dob.y);
+    if (!model.spouse) return sYou;
+    const sSp = survivalProb(curSp, medSp, year - model.spouse.dob.y);
+    return 1 - (1 - sYou) * (1 - sSp);
+  };
+}
+
+/* Draw it: a faint dashed line, a right-hand axis labelled in %, and a note of
+   where the odds pass a half. Shares the plot rectangle with the money, but
+   never touches the money axis. */
+function drawSurvivalOverlay(ctx, model, today, from, to, xOf, padT, plotH, W, padR) {
+  const at = survivalLine(model, today);
+  ctx.save();
+  ctx.beginPath(); ctx.setLineDash([4, 3]); ctx.lineWidth = 1.8; ctx.strokeStyle = CHART_SURVIVAL;
+  let started = false;
+  for (let y = from; y <= to; y++) {
+    const py = padT + plotH - at(y) * plotH;
+    const px = xOf(y);
+    started ? ctx.lineTo(px, py) : (ctx.moveTo(px, py), started = true);
+  }
+  ctx.stroke(); ctx.setLineDash([]);
+  // right-hand percentage axis, only the ends and the middle
+  ctx.fillStyle = CHART_SURVIVAL; ctx.font = chartFont(10); ctx.textAlign = "right";
+  [1, 0.5].forEach(p => ctx.fillText(Math.round(p * 100) + "%", W - padR - 2, padT + plotH - p * plotH + 10));
+  ctx.restore();
+}
 
 function netIncomeFns(model, accOf, stackOf) {
   const ctry = model.inp.country, scot = model.inp.scotland === "scot";
@@ -5584,11 +5811,17 @@ function netIncomeFns(model, accOf, stackOf) {
    the first and last can't hang over the axis. */
 function drawDecadeLabels(ctx, buckets, xOf, baselineY, leftEdge, rightEdge, endOffset) {
   ctx.textAlign = "center"; ctx.font = chartFont(12);
+  // At the largest text size six decade labels are wider than a phone, so a
+  // label that would touch the one before it is dropped rather than printed
+  // on top of it ("20202030s").
+  let usedTo = -Infinity;
   buckets.forEach(b => {
     let cx = (xOf(b.start) + xOf(b.end + (endOffset == null ? 1 : endOffset))) / 2;
     const half = ctx.measureText(b.label).width / 2 + 2;
     if (leftEdge != null) cx = Math.max(cx, leftEdge + half);
     if (rightEdge != null) cx = Math.min(cx, rightEdge - half);
+    if (cx - half < usedTo + 4) return;
+    usedTo = cx + half;
     ctx.fillText(b.label, cx, baselineY);
   });
 }
@@ -5598,13 +5831,43 @@ function drawDecadeLabels(ctx, buckets, xOf, baselineY, leftEdge, rightEdge, end
    labels. Left to itself that produced "£4077k" and a row of years printed on
    top of each other, so both axes are computed rather than assumed. */
 
-// Round a peak up to the next 1/2/2.5/5 x 10^n so the labels are readable
-// numbers (£4.0m, not £4077k) and the gridlines land on them exactly.
+/* Round a peak up to a readable maximum: labels stay round numbers (£4.0m,
+   not £4077k) and the gridlines land on them exactly.
+
+   The ladder is deliberately fine. A coarse 1/2/2.5/5 ladder sent a £3.6m plan
+   to a £5m axis, which left the plan drawn across two thirds of the chart and
+   looking far smaller than it is. Every rung here still divides into round
+   ticks - see AXIS_TICKS. */
+const AXIS_RUNGS = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
+// how many gridlines each rung splits into without producing ugly tick values
+const AXIS_TICKS = { 1: 5, 1.2: 4, 1.5: 3, 2: 4, 2.5: 5, 3: 3, 4: 4, 5: 5, 6: 3, 8: 4, 10: 5 };
+
 function niceCeil(v) {
   if (!(v > 0)) return 1;
   const mag = Math.pow(10, Math.floor(Math.log10(v)));
   const f = v / mag;
-  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * mag;
+  const rung = AXIS_RUNGS.find(r => f <= r + 1e-9) || 10;
+  return rung * mag;
+}
+// The tick count that keeps a nice maximum's gridlines on round numbers.
+function niceTicks(maxV) {
+  if (!(maxV > 0)) return 5;
+  const mag = Math.pow(10, Math.floor(Math.log10(maxV)));
+  const rung = AXIS_RUNGS.find(r => Math.abs(maxV / mag - r) < 1e-6);
+  return (rung && AXIS_TICKS[rung]) || 5;
+}
+
+/* The gutter the y-axis labels live in. It used to be a flat 46/62px, which
+   was fine at 100% text and clipped "£200k" down to "00k" at 150% - the
+   "no values on the graphs" report. Measured from a representative label at
+   the current text scale instead, with the old values as the floor. */
+function axisPadL() {
+  const base = narrowScreen() ? 46 : 62;
+  try {
+    const c = document.createElement("canvas").getContext("2d");
+    c.font = chartFont(13);
+    return Math.max(base, Math.ceil(c.measureText("£200k").width) + 12);
+  } catch (e) { return Math.round(base * TEXT_SCALE); }
 }
 
 // Money for an axis tick: whole pounds under £1k, then k, then m with one
@@ -5616,15 +5879,24 @@ function axisMoney(v) {
   return CUR() + Math.round(v);
 }
 
-// Draw the y gridlines and their labels from a nice maximum.
-function drawMoneyAxis(ctx, maxV, yPix, padL, W, padR, steps) {
+/* Draw the y gridlines and their labels from a nice maximum.
+
+   plotH matters: at the largest text size a 13px label becomes ~20px, and six
+   of them down a 300px phone plot overlap into an unreadable smear. So the
+   tick count is halved (and halved again) until the labels have room, and the
+   halving keeps them on round numbers - 5 ticks over a £5m axis becomes 1m
+   steps, then 2.5m steps, never something like £1.67m. */
+function drawMoneyAxis(ctx, maxV, yPix, padL, W, padR, steps, plotH) {
   ctx.strokeStyle = themeColor("--border", "#ddd");
   ctx.fillStyle = themeColor("--ink-faint", "#999");
   ctx.lineWidth = 1; ctx.font = chartFont(13); ctx.textAlign = "right";
   // Divide a nice maximum into ticks that are themselves round: a 5m axis wants
   // fifths (1,2,3,4,5m), a 2m axis wants quarters (0.5,1,1.5,2m).
-  const lead = maxV / Math.pow(10, Math.floor(Math.log10(maxV)));
-  const n = steps || (Math.abs(lead - 2) < 0.01 ? 4 : 5);
+  let n = steps || niceTicks(maxV);
+  if (plotH) {
+    const labelH = Math.round(13 * TEXT_SCALE) + 6;   // the drawn height plus breathing room
+    while (n > 1 && plotH / n < labelH) n = Math.max(1, Math.floor(n / 2));
+  }
   for (let g = 0; g <= n; g++) {
     const v = maxV / n * g, py = yPix(v);
     ctx.beginPath(); ctx.moveTo(padL, py); ctx.lineTo(W - padR, py); ctx.stroke();
@@ -5703,7 +5975,7 @@ function drawPlannerChart(model) {
 
   const { years, byYear, flags } = householdSeries(model);
   if (!years.length) return;
-  const padL = narrowScreen() ? 46 : 62, padR = 14, padT = narrowScreen() ? 40 : 84, padB = 68; // padT holds the event flags; padB the phase band + year labels
+  const padL = axisPadL(), padR = 14, padT = narrowScreen() ? 40 : 84, padB = 68; // padT holds the event flags; padB the phase band + year labels
   const plotW = W - padL - padR, plotH = H - padT - padB;
 
   // accumulation (pre-retirement) so the chart spans both phases
@@ -5752,7 +6024,7 @@ function drawPlannerChart(model) {
     const hs = householdSeries(m);
     return { name: sc.name || "What-if", years: hs.years, byYear: hs.byYear };
   });
-  maxV = niceCeil(maxV * 1.08);
+  maxV = niceCeil(maxV * 1.02);
 
   const x = y => padL + (y - domainStart) / Math.max(1, domainEnd - domainStart) * plotW;
   const yPix = v => padT + plotH - v / maxV * plotH;
@@ -5763,7 +6035,7 @@ function drawPlannerChart(model) {
   drawPhaseDecor(ctx, x, retYear, domainEnd, padL, padR, padT, plotH, W, retInView);
 
   // gridlines + y labels (nice round ticks, so a phone shows "£4.0m" not "£4077k")
-  drawMoneyAxis(ctx, maxV, yPix, padL, W, padR);
+  drawMoneyAxis(ctx, maxV, yPix, padL, W, padR, null, plotH);
 
   // Zoom mode keeps the whole series in the path and lets the plot rectangle
   // do the cropping, so a partly-visible band still enters from the edge at
@@ -5869,6 +6141,9 @@ function drawPlannerChart(model) {
   netLine(domainStart, Math.min(retYear - 1, domainEnd), netFns.working, CHART_NET_WORK);
   netLine(Math.max(retYear, domainStart), domainEnd, netFns.retired, CHART_NET_RET);
   ctx.restore(); // end of the clipped plot area
+  if (model.inp.showSurvival) {
+    drawSurvivalOverlay(ctx, model, model.today, domainStart, domainEnd, x, padT, plotH, W, padR);
+  }
 
   // The last full working year's take-home: the "before" figure every
   // retirement year is compared against in the tooltip.
@@ -5996,6 +6271,9 @@ function drawPlannerChart(model) {
           : (function () { const s = standardsFor(); return s && s.tiers[rlsChoice] ? " (" + s.tiers[rlsChoice].label + ")" : ""; })()}` +
         ` &mdash; drag it up or down</span>`
       : "",
+    model.inp.showSurvival
+      ? `<span class="key"><span class="swatch-line dashed" style="color:${CHART_SURVIVAL}"></span>` +
+        `Chance of still being alive (right-hand %)</span>` : "",
     ...scenarioSeries.map((ss, si) => `<span class="key"><span class="swatch" style="background:${scColors[si % scColors.length]}"></span>${ss.name}</span>`),
   ].filter(Boolean).join("");
 
@@ -6062,7 +6340,7 @@ function drawBreakdownChart(model) {
 
   const { years, byYear, flags } = householdSeries(model);
   if (!years.length) return;
-  const padL = narrowScreen() ? 46 : 62, padR = 14, padT = narrowScreen() ? 40 : 84, padB = 62; // padT holds the event flags; padB the phase band + year labels
+  const padL = axisPadL(), padR = 14, padT = narrowScreen() ? 40 : 84, padB = 62; // padT holds the event flags; padB the phase band + year labels
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const target = model.rlsTarget || 0;
 
@@ -6144,7 +6422,7 @@ function drawBreakdownChart(model) {
   const drawnMax = bucketStacks ? Math.max(0, ...bucketStacks.map(b => b.total))
                                 : Math.max(0, ...allYears.map(stackTotal));
   const targetPeak = Math.max(0, ...allYears.filter(y => y >= retYear).map(targetAt));
-  let maxV = niceCeil(Math.max(drawnMax, targetPeak, baseTarget) * 1.08);
+  let maxV = niceCeil(Math.max(drawnMax, targetPeak, baseTarget) * 1.02);
   if (maxV <= 0) maxV = 1;
 
   const yPix = v => padT + plotH - v / maxV * plotH;
@@ -6158,7 +6436,7 @@ function drawBreakdownChart(model) {
   drawPhaseDecor(ctx, xf, retYear, domainEnd, padL, padR, padT, plotH, W, retInView);
 
   // gridlines + y labels (nice round ticks, so a phone shows "£4.0m" not "£4077k")
-  drawMoneyAxis(ctx, maxV, yPix, padL, W, padR);
+  drawMoneyAxis(ctx, maxV, yPix, padL, W, padR, null, plotH);
 
   const bw = Math.max(3, Math.min(34, slot * 0.8));
 
@@ -6266,6 +6544,10 @@ function drawBreakdownChart(model) {
   };
   bNetLine(domainStart, Math.min(retYear - 1, domainEnd), CHART_NET_WORK);
   bNetLine(Math.max(retYear, domainStart), domainEnd, CHART_NET_RET);
+  if (model.inp.showSurvival) {
+    drawSurvivalOverlay(ctx, model, model.today, domainStart, domainEnd,
+      y => padL + slot * (idxOf(y) + 0.5), padT, plotH, W, padR);
+  }
 
   // redraw the retirement divider + label ON TOP so the stacked bars can't
   // hide the "RETIREMENT" chip (it's drawn behind the data by drawPhaseDecor)
@@ -6330,6 +6612,9 @@ function drawBreakdownChart(model) {
       `Take-home while working (after tax${model.inp.country === "UK" ? " &amp; NI" : ""})</span>`,
     `<span class="key"><span class="swatch-line" style="background:${CHART_NET_RET}"></span>` +
       `Take-home once retired (after tax)</span>`,
+    model.inp.showSurvival
+      ? `<span class="key"><span class="swatch-line dashed" style="color:${CHART_SURVIVAL}"></span>` +
+        `Chance of still being alive (right-hand %)</span>` : "",
   ].filter(Boolean).join("");
   const plainW = wordingMode === "plain";
   const leftPhrase = plainW ? `while you're working (salaries + what you pay in)` : `the <b>accumulation</b> phase (salaries + contributions)`;
@@ -6384,7 +6669,7 @@ function drawBalanceChart(model) {
   const byYear = {}; bal.rows.forEach(r => { byYear[r.year] = r; });
   buildBalanceTable(bal);
 
-  const padL = narrowScreen() ? 46 : 62, padR = 14, padT = 26, padB = 62; // padB holds the phase band + year labels
+  const padL = axisPadL(), padR = 14, padT = 26, padB = 62; // padB holds the phase band + year labels
   const plotW = W - padL - padR, plotH = H - padT - padB;
 
   // Same x domain as the breakdown chart above, so the two align.
@@ -6421,13 +6706,13 @@ function drawBalanceChart(model) {
   const visRows = bal.rows.filter(r => r.year >= domainStart && r.year <= domainEnd);
   const peak = Math.max(1, ...(visRows.length ? visRows : bal.rows)
     .map(r => { const d = rowOf(r.year) || r; return showProp ? d.total : d.liquid; }));
-  const maxV = niceCeil(peak * 1.08);
+  const maxV = niceCeil(peak * 1.02);
   const yPix = v => padT + plotH - v / maxV * plotH;
 
   drawPhaseDecor(ctx, xf, retYear, domainEnd, padL, padR, padT, plotH, W, retInView);
 
   // gridlines + y labels (nice round ticks, so a phone shows "£4.0m" not "£4077k")
-  drawMoneyAxis(ctx, maxV, yPix, padL, W, padR);
+  drawMoneyAxis(ctx, maxV, yPix, padL, W, padR, null, plotH);
 
   // let the plot rectangle crop a zoomed window (see the chart above)
   ctx.save();
@@ -6471,6 +6756,9 @@ function drawBalanceChart(model) {
     ctx.strokeStyle = "#b5834a"; ctx.stroke(); ctx.setLineDash([]);
   }
   ctx.restore(); // end of the clipped plot area
+  if (model.inp.showSurvival) {
+    drawSurvivalOverlay(ctx, model, model.today, domainStart, domainEnd, xAt, padT, plotH, W, padR);
+  }
 
   // The moment the money is actually gone - i.e. THIS chart's own total hitting
   // zero. Deliberately not fund.exhaustedYear, which means something different
@@ -6562,10 +6850,10 @@ function runMonteCarlo(model) {
     if (y >= model.you.spaDate.y) g += inp.spWeekly * 52;
     if (model.spouse && y >= model.spouse.spaDate.y) g += (model.spouseSpWeekly || inp.spWeekly) * 52;
     model.assetTotals.dbStreams.forEach(st => {
-      if (y >= addYearsMonths(model.you.dob, st.startAge, 0).y) g += st.income;
+      g += dbIncomeAt(st, model.you, y);
     });
     if (model.spouse) model.assetTotalsSpouse.dbStreams.forEach(st => {
-      if (y >= addYearsMonths(model.spouse.dob, st.startAge, 0).y) g += st.income;
+      g += dbIncomeAt(st, model.spouse, y);
     });
     guaranteed.push(g);
   }
@@ -6651,8 +6939,8 @@ function longevityData(model) {
     const y = startYear + i; let g = 0;
     if (y >= model.you.spaDate.y) g += inp.spWeekly * 52;
     if (model.spouse && y >= model.spouse.spaDate.y) g += (model.spouseSpWeekly || inp.spWeekly) * 52;
-    model.assetTotals.dbStreams.forEach(st => { if (y >= addYearsMonths(model.you.dob, st.startAge, 0).y) g += st.income; });
-    if (model.spouse) model.assetTotalsSpouse.dbStreams.forEach(st => { if (y >= addYearsMonths(model.spouse.dob, st.startAge, 0).y) g += st.income; });
+    model.assetTotals.dbStreams.forEach(st => { g += dbIncomeAt(st, model.you, y); });
+    if (model.spouse) model.assetTotalsSpouse.dbStreams.forEach(st => { g += dbIncomeAt(st, model.spouse, y); });
     guaranteed.push(g);
   }
   const custom = parseMoney(els("mcSpend").value);
@@ -6894,6 +7182,7 @@ function renderTax(model) {
 
 function renderAll() {
   applyStaticTerms();
+  normaliseCheckLabels();   // dynamic rows (DB pensions) carry checkboxes too
   let model;
   try {
     model = computeAll();
@@ -6929,6 +7218,7 @@ function renderAll() {
     renderNumbersFirst(model);
     updateZoomBars();
   }
+  scheduleTableScrollbars();
 }
 let lastModel = null;
 
@@ -7707,6 +7997,7 @@ els("runMcBtn").addEventListener("click", () => {
 window.addEventListener("resize", () => {
   // crossing the phone/desktop boundary switches the chart mode on or off
   applyChartMode(false);
+  scheduleTableScrollbars();
   if (els("tab-planner").classList.contains("active") && lastModel) {
     drawPlannerChart(lastModel); drawBreakdownChart(lastModel); drawBalanceChart(lastModel); drawMcChart(); drawLongevityChart(lastModel);
   }
@@ -7826,9 +8117,15 @@ document.addEventListener("change", e => {
   const wasKind = field === "kind"; // DB/DC switch changes fields
   if (e.target.dataset.money !== undefined) formatMoneyInput(e.target);
   syncAssetsFromDOM();
-  // Property type or type-change re-lays-out the row; otherwise just refresh
-  // the paired slider + the projected-release readout in place.
-  if (wasKind || (field === "type" && row.dataset.list === "property")) {
+  /* Some edits change the SHAPE of the row, not just a number in it, so the
+     row has to be rebuilt: the DB/DC switch swaps the whole field set, and on
+     a property the type and the release percentage decide whether there is a
+     "Downsize in year" box at all (at 100% on a main home the date comes from
+     when care starts instead). Everything else just refreshes the paired
+     slider and the projected-release readout in place. */
+  const reshapes = wasKind ||
+    (row.dataset.list === "property" && (field === "type" || field === "releasePct"));
+  if (reshapes) {
     renderAssetLists();
   } else {
     const slider = e.target.parentElement && e.target.parentElement.querySelector(".asset-slider");
@@ -8597,6 +8894,7 @@ const TEXT_SCALE_KEY = "pensionPlanner.textScale";
 let TEXT_SCALE = parseFloat(localStorage.getItem(TEXT_SCALE_KEY)) || 1;
 function applyTextScale() {
   document.documentElement.style.fontSize = (100 * TEXT_SCALE) + "%";
+  scheduleTableScrollbars();   // bigger text can push a table into overflow
   document.querySelectorAll(".text-seg button").forEach(b => {
     const on = Math.abs(parseFloat(b.dataset.textScale) - TEXT_SCALE) < 0.001;
     b.classList.toggle("active", on);
@@ -8816,6 +9114,69 @@ function renderNumbersFirst(model) {
    readers can't see a class, so mirror it onto aria-pressed. An observer keeps
    the two in step wherever the class is set, instead of every apply* function
    having to remember (WCAG 4.1.2 Name, Role, Value). */
+/* A checkbox label is a flex row of [box, text]. Any <b> or <span> inside the
+   text would otherwise become its own flex item and lay itself out as a
+   separate column, which fell apart the moment the text wrapped - at the
+   larger text sizes it read as three ragged columns. Collect everything but
+   the box into one wrapper so the text is a single, normally-wrapping item.
+   Safe to call repeatedly; already-wrapped labels are skipped. */
+function normaliseCheckLabels(root) {
+  (root || document).querySelectorAll(".check-inline").forEach(lbl => {
+    if (lbl.dataset.wrapped) return;
+    const box = lbl.querySelector("input");
+    if (!box) return;
+    const span = document.createElement("span");
+    span.className = "check-text";
+    Array.from(lbl.childNodes).forEach(n => { if (n !== box) span.appendChild(n); });
+    lbl.appendChild(span);
+    lbl.dataset.wrapped = "1";
+  });
+}
+
+/* Give every horizontally-scrollable table a second scrollbar ABOVE it, kept
+   in step with the real one. On a long table the only scrollbar sits below the
+   last row, off the bottom of the screen, so there is nothing to tell you the
+   table continues to the right - and nothing to drag without scrolling to the
+   end first.
+
+   The mirror appears only when the table actually overflows, and disappears
+   again when it doesn't (a window resize, a text-size change, or a table that
+   just got narrower), so nothing is added where nothing is needed. */
+function syncTableScrollbars(root) {
+  (root || document).querySelectorAll(".table-scroll").forEach(box => {
+    let mirror = box.previousElementSibling;
+    if (!mirror || !mirror.classList.contains("scroll-mirror")) {
+      mirror = document.createElement("div");
+      mirror.className = "scroll-mirror";
+      mirror.setAttribute("aria-hidden", "true");   // it drives the table, it isn't content
+      mirror.appendChild(document.createElement("div"));
+      // Each scrolls the other. The guard stops the two bouncing off one
+      // another: setting scrollLeft fires scroll again on the far side.
+      let syncing = false;
+      const link = (from, to) => from.addEventListener("scroll", () => {
+        if (syncing) { syncing = false; return; }
+        syncing = true; to.scrollLeft = from.scrollLeft;
+      });
+      link(mirror, box); link(box, mirror);
+      box.parentElement.insertBefore(mirror, box);
+    }
+    const overflow = box.scrollWidth - box.clientWidth > 2;
+    mirror.style.display = overflow ? "" : "none";
+    mirror.classList.toggle("is-active", overflow);
+    if (overflow) {
+      mirror.firstChild.style.width = box.scrollWidth + "px";
+      mirror.scrollLeft = box.scrollLeft;
+    }
+  });
+}
+// Tables are rebuilt constantly, and their width changes with the window and
+// the text size, so re-measure on a frame rather than only at startup.
+let tableScrollRaf = null;
+function scheduleTableScrollbars() {
+  if (tableScrollRaf) return;
+  tableScrollRaf = requestAnimationFrame(() => { tableScrollRaf = null; syncTableScrollbars(); });
+}
+
 const SEG_SELECTOR = ".segmented, .wording-seg";
 function syncPressedState(root) {
   (root || document).querySelectorAll(SEG_SELECTOR).forEach(seg => {
@@ -9041,7 +9402,11 @@ function autoTheme() {
     window.matchMedia("(prefers-color-scheme: dark)").matches;
   return (prefersDark || !daytime) ? "night" : "day";
 }
-let appTheme = localStorage.getItem(THEME_STORAGE_KEY) || autoTheme();
+// "forest" was a third, green theme. It has been removed; anyone whose
+// stored choice still names it falls back to Night.
+const APP_THEMES = ["night", "day"];
+let appTheme = localStorage.getItem(THEME_STORAGE_KEY);
+if (APP_THEMES.indexOf(appTheme) < 0) appTheme = autoTheme();
 function applyAppTheme() {
   if (appTheme === "night") delete document.documentElement.dataset.appTheme;
   else document.documentElement.dataset.appTheme = appTheme;
@@ -9065,6 +9430,8 @@ currentCountry = els("country").value || "UK";
 updateCurrencyLabels();
 applyIndexGrowth("you"); applyIndexGrowth("spouse");
 applyTextScale();
+normaliseCheckLabels();
+syncTableScrollbars();
 applyChartMode(false);   // renderAll() hasn't run yet, so no redraw to ask for
 syncPressedState();
 nameOrphanControls();
