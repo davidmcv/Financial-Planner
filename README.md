@@ -263,6 +263,44 @@ deferred cash / RSUs) auto-balances to 100% as you drag; savings-account balance
 new accounts default to a £20,000 Cash ISA; and the **spending-phase** rows show what each phase
 costs as gross / tax / net income and an effective rate, yearly and monthly.
 
+### Accessibility
+
+A pension planner is used across a very wide age range, so the interface is built and tested against
+**WCAG 2.2 AA** - the standard behind both US **Section 508** (which adopts WCAG A/AA through
+36 CFR 1194) and the UK Public Sector Bodies Accessibility Regulations (through **EN 301 549**).
+
+- **Text size.** A four-step control (in the sidebar and in Assumptions) scales the whole interface,
+  including the canvas charts, which can't inherit CSS and so read the scale directly. The choice
+  persists. Layout reflows without horizontal scrolling at every step (SC 1.4.10), and browser zoom
+  still works on top.
+- **Two-gear sliders.** Every editable figure has a slider under it. It starts in a **coarse gear**
+  (£5,000 steps for money, scaled down for small-money fields such as monthly budget rows) so a
+  thumb-drag crosses the whole range; letting go re-scales it to a **fine window** around where you
+  landed, so the same travel now tunes the value precisely. Dragging to the edge of that window pops
+  back out to coarse, and typing in the field resets it. Each slider is named from its own label and
+  announces its value through `aria-valuetext`.
+- **Keyboard.** A skip link, a real ARIA tablist (arrow keys, Home/End, roving tabindex), a
+  three-pixel two-tone focus ring that clears 3:1 on every theme, and `scroll-margin` so a focused
+  control is never left under the sticky bars (SC 2.4.7, 2.4.11, 2.4.13). Dialogs move focus in,
+  cycle Tab inside themselves, close on Escape and hand focus back to whatever opened them.
+- **Screen readers.** Every control is named - including the generated asset rows and the budget
+  grid, which take their names from the field label or the row and column headers rather than
+  duplicating text. Segmented controls expose `aria-pressed`; the spouse toggle is a real
+  `role="switch"`. Recalculated results are announced through a polite live region.
+- **Charts.** Each canvas is `role="img"` with a description carrying the actual figures, and the
+  three data charts publish the same numbers as a scoped HTML table under *"Show these figures as a
+  table"* (SC 1.1.1). Nothing is conveyed by colour alone.
+- **Pointer.** Every target is at least 24x24 CSS px (44px on phones), and every draggable thing -
+  the target line, the retirement markers, the event flags - has a slider or number field that does
+  the same job without dragging (SC 2.5.7, 2.5.8).
+- **Colour and motion.** All text meets 4.5:1 and all control boundaries 3:1, verified across the
+  Night, Day and Forest themes. `prefers-reduced-motion` disables transitions, animations and smooth
+  scrolling.
+
+Two Playwright suites hold this in place: `a11y_test.py` (structure, naming, keyboard, dialogs,
+chart alternatives, target sizes) and `contrast_test.py` (computes every visible element's contrast
+ratio against its real background, on all three themes and all six tabs).
+
 ## Server backend
 
 `server/` is an optional backend that turns the single file into a hosted, multi-user product. The

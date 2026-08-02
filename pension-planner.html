@@ -1,3 +1,5 @@
+<!doctype html>
+<html lang="en">
 <!-- =====================================================================
      MAJOR CHANGE IN PROGRESS
      This single-page version is being extended with an optional server
@@ -54,6 +56,14 @@
     --warn: #D0B060;
     --critical: #E88787;
     --critical-wash: #2E1A1A;
+    /* Focus ring: >=3:1 against both the control and the page behind it
+       (WCAG 2.2 SC 1.4.11 / 2.4.13). The halo is the second tone. */
+    --focus-ring: #FFD24D;
+    --focus-halo: rgba(255, 210, 77, 0.35);
+    /* --border is chrome (cards, dividers, gridlines) and stays quiet. Form
+       controls need their edge to reach 3:1 against the surface behind them
+       (WCAG 1.4.11 Non-text Contrast), so they use their own token. */
+    --control-border: #767676;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 28px -14px rgba(0, 0, 0, 0.7);
     --radius: 14px;
     --font-display: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", "Helvetica Neue", Arial, sans-serif;
@@ -63,10 +73,15 @@
   }
   :root[data-app-theme="day"] {
     --paper: #FFFFFF; --surface: #F6F6F6; --surface-2: #ECECEC; --border: #D6D6D6;
-    --ink: #000000; --ink-muted: #3E3E3E; --ink-faint: #757575;
+    /* Every one of these clears 4.5:1 against the lightest AND the darkest
+       surface it can land on (WCAG 1.4.3). Small muted text on a light theme
+       is where contrast is easiest to lose, so ink-faint is the tightest. */
+    --ink: #000000; --ink-muted: #3E3E3E; --ink-faint: #666666;
     --accent: #000000; --accent-strong: #2E2E2E; --accent-wash: #EDEDED; --on-accent: #FFFFFF;
-    --gold: #8A6A2F; --gold-wash: #F3EBDB;
-    --good: #2E7D4F; --warn: #8A6D1A; --critical: #B23B3B; --critical-wash: #F9E9E9;
+    --gold: #6E5322; --gold-wash: #F3EBDB;
+    --good: #22643E; --warn: #6E5614; --critical: #8F2F2F; --critical-wash: #F9E9E9;
+    --focus-ring: #A65B00; --focus-halo: rgba(166, 91, 0, 0.28);
+    --control-border: #828282;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 8px 24px -12px rgba(0, 0, 0, 0.2);
     color-scheme: light;
   }
@@ -76,6 +91,8 @@
     --accent: #4FBE9E; --accent-strong: #7ED4B8; --accent-wash: #16332A; --on-accent: #0A0F0D;
     --gold: #D9A44E; --gold-wash: #2E2515;
     --good: #4CAF7A; --warn: #D9A73C; --critical: #E88787; --critical-wash: #331A1A;
+    --focus-ring: #FFD24D; --focus-halo: rgba(255, 210, 77, 0.35);
+    --control-border: #638178;
     color-scheme: dark;
   }
 
@@ -94,7 +111,44 @@
   h1, h2, h3 { font-family: var(--font-display); font-weight: 650; text-wrap: balance; margin: 0; letter-spacing: -0.018em; }
   .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
   a { color: var(--accent); }
-  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* Keyboard focus must be obvious on every theme. WCAG 2.2 adds 2.4.11
+     (Focus Not Obscured) and 2.4.13 (Focus Appearance): a thick, high-contrast
+     ring in two tones so it shows against both dark and light surfaces. */
+  :focus-visible {
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 5px var(--focus-halo);
+    border-radius: 4px;
+  }
+  /* scroll-margin keeps a focused control clear of the sticky bars above and
+     below it when the browser scrolls it into view (SC 2.4.11). */
+  a:focus-visible, button:focus-visible, input:focus-visible,
+  select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
+    scroll-margin-top: 84px; scroll-margin-bottom: 96px;
+  }
+
+  /* Jump straight past the navigation to the form (WCAG 2.4.1 Bypass Blocks).
+     Hidden until focused, then pinned to the top-left. */
+  .skip-link {
+    position: absolute; left: -9999px; top: 0; z-index: 200;
+    background: var(--accent); color: var(--paper);
+    padding: 12px 18px; border-radius: 0 0 8px 0; font-weight: 600;
+    text-decoration: none;
+  }
+  .skip-link:focus { left: 0; }
+
+  /* Available to screen readers, invisible on screen. Used for chart data
+     tables and status text (WCAG 1.1.1). */
+  .visually-hidden {
+    position: absolute !important; width: 1px; height: 1px;
+    margin: -1px; padding: 0; overflow: hidden;
+    clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
+  }
+
+  /* SC 2.5.8 Target Size (Minimum): every pointer target at least 24x24 CSS px
+     on every screen size, not only the 44px phone treatment further down. */
+  button, .icon-btn, select, input[type="checkbox"], input[type="radio"],
+  summary, [role="tab"], [role="switch"] { min-height: 24px; min-width: 24px; }
 
   .app {
     display: flex;
@@ -137,11 +191,11 @@
   .profile-row { display: flex; gap: 6px; }
   .profile-row select {
     flex: 1; min-width: 0; font: inherit; font-size: 0.84rem;
-    padding: 7px 8px; border-radius: 8px; border: 1px solid var(--border);
+    padding: 7px 8px; border-radius: 8px; border: 1px solid var(--control-border);
     background: var(--paper); color: var(--ink);
   }
   .profile-row .icon-btn {
-    border: 1px solid var(--border); border-radius: 8px; padding: 6px 9px; flex: 0 0 auto;
+    border: 1px solid var(--control-border); border-radius: 8px; padding: 6px 9px; flex: 0 0 auto;
   }
   .profile-row .icon-btn:hover { border-color: var(--accent); color: var(--accent-strong, var(--accent)); }
   .profile-row #deleteProfile:hover { border-color: var(--critical); color: var(--critical); }
@@ -172,7 +226,7 @@
   .rail-footer { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
   .settings-btn {
     display: flex; align-items: center; gap: 8px;
-    background: var(--surface-2); border: 1px solid var(--border); color: var(--ink);
+    background: var(--surface-2); border: 1px solid var(--control-border); color: var(--ink);
     font: inherit; font-size: 0.85rem; padding: 9px 12px; border-radius: 10px; cursor: pointer;
   }
   .settings-btn:hover { border-color: var(--accent); }
@@ -220,7 +274,7 @@
     font: inherit; font-size: 0.94rem;
     padding: 9px 11px;
     border-radius: 9px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--control-border);
     background: var(--paper);
     color: var(--ink);
   }
@@ -251,6 +305,20 @@
   .chart-tip .tip-target { color: var(--ink-muted); display: flex; justify-content: space-between; }
   .chart-wrap canvas { display: block; width: 100%; }
   .chart-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; font-size: 0.76rem; color: var(--ink-muted); }
+  /* Text alternative for the canvas charts: the same figures as a real table,
+     readable by a screen reader and copyable by anyone (WCAG 1.1.1). */
+  .chart-data { margin-top: 10px; }
+  .chart-data > summary {
+    cursor: pointer; font-size: 0.8rem; color: var(--ink-muted);
+    padding: 6px 4px; border-radius: 6px; min-height: 24px;
+  }
+  .chart-data > summary:hover { color: var(--ink); }
+  .chart-data .table-scroll { max-height: 340px; overflow: auto; margin-top: 8px; }
+  .chart-data table { border-collapse: collapse; width: 100%; font-size: 0.78rem; }
+  .chart-data caption { text-align: left; padding: 4px 0 8px; color: var(--ink-muted); font-size: 0.78rem; }
+  .chart-data th, .chart-data td { padding: 4px 8px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+  .chart-data th:first-child, .chart-data td:first-child { text-align: left; }
+  .chart-data thead th { position: sticky; top: 0; background: var(--surface); }
   .chart-legend .key { display: inline-flex; align-items: center; gap: 5px; }
   .chart-legend .swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
   .hint-inline { font-size: 0.72rem; color: var(--ink-faint); font-weight: 400; }
@@ -380,7 +448,7 @@
   .switch.on::after { transform: translateX(18px); }
 
   .segmented {
-    display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+    display: inline-flex; border: 1px solid var(--control-border); border-radius: 10px; overflow: hidden;
   }
   .segmented button {
     font: inherit; font-size: 0.86rem; background: var(--surface); color: var(--ink-muted);
@@ -497,7 +565,7 @@
 
   /* ---------- Wording toggle ---------- */
   .wording-seg {
-    display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden;
+    display: inline-flex; border: 1px solid var(--control-border); border-radius: 999px; overflow: hidden;
     background: var(--surface);
   }
   .wording-seg button {
@@ -568,10 +636,11 @@
     .bottomnav .tab-btn:active { background: var(--surface-2); transform: scale(0.96); }
 
     /* iOS zooms the whole page in when you focus an input under 16px and never
-       zooms back out. Every text control is therefore >=16px on mobile. */
+       zooms back out. Every text control is therefore >=16px on mobile - but the
+       floor must not cap the text-size control, so it grows with the root size. */
     .field input, .field select, .asset-row .field input, .asset-row .field select,
     .budget-table input, .modal input, .modal select, .profile-row select, input, select, textarea {
-      font-size: 16px;
+      font-size: max(16px, 1rem);
     }
     /* Comfortable thumb targets (Apple/Google both call for ~44px). */
     .field input, .field select, .profile-row select { min-height: 44px; }
@@ -665,8 +734,15 @@
   }
   .btn-primary:hover { background: var(--accent-strong); }
 
+  /* WCAG 2.3.3 Animation from Interactions: honour the OS "reduce motion"
+     setting for every transition, animation and smooth scroll in the app. */
   @media (prefers-reduced-motion: reduce) {
-    * { transition: none !important; }
+    *, *::before, *::after {
+      transition: none !important;
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+    }
   }
 
   /* ---------- Mobile: dialogs become bottom sheets ----------
@@ -696,37 +772,50 @@
   @media (prefers-reduced-motion: reduce) { .modal { animation: none !important; } }
 </style>
 
+<a class="skip-link" href="#mainContent">Skip to the planner</a>
 <div class="app">
   <aside class="rail">
     <div class="brand">
       <span class="mark">Ledger &amp; Later</span>
       <span class="sub">Retirement &amp; Pension Planner</span>
     </div>
-    <nav class="tabs" id="tabs">
-      <button class="tab-btn active" data-tab="people"><span class="icon">&#128100;</span>People</button>
-      <button class="tab-btn" data-tab="salary"><span class="icon">&#8681;</span>Paying In</button>
-      <button class="tab-btn" data-tab="projection"><span class="icon">&#8679;</span>Paying Out</button>
-      <button class="tab-btn" data-tab="planner"><span class="icon">&#128506;</span>Planner</button>
-      <button class="tab-btn" data-tab="tax"><span class="icon">&#9878;</span>Tax</button>
-      <button class="tab-btn" data-tab="gifting"><span class="icon">&#127873;</span>Gifting</button>
+    <!-- A real ARIA tablist: arrow keys move between tabs, Home/End jump to the
+         ends, and only the selected tab is a tab stop (roving tabindex). The
+         emoji are decoration, so they are hidden from screen readers. -->
+    <nav class="tabs" id="tabs" role="tablist" aria-label="Planner sections">
+      <button class="tab-btn active" id="tabbtn-people" role="tab" aria-selected="true" aria-controls="tab-people" data-tab="people"><span class="icon" aria-hidden="true">&#128100;</span>People</button>
+      <button class="tab-btn" id="tabbtn-salary" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-salary" data-tab="salary"><span class="icon" aria-hidden="true">&#8681;</span>Paying In</button>
+      <button class="tab-btn" id="tabbtn-projection" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-projection" data-tab="projection"><span class="icon" aria-hidden="true">&#8679;</span>Paying Out</button>
+      <button class="tab-btn" id="tabbtn-planner" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-planner" data-tab="planner"><span class="icon" aria-hidden="true">&#128506;</span>Planner</button>
+      <button class="tab-btn" id="tabbtn-tax" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-tax" data-tab="tax"><span class="icon" aria-hidden="true">&#9878;</span>Tax</button>
+      <button class="tab-btn" id="tabbtn-gifting" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-gifting" data-tab="gifting"><span class="icon" aria-hidden="true">&#127873;</span>Gifting</button>
     </nav>
     <div class="rail-footer">
       <div class="profile-box" style="padding: 0;">
-        <span class="profile-label">View</span>
-        <div class="wording-seg level-seg" style="width: 100%;">
-          <button data-level="simple" style="flex:1;">Simple</button>
-          <button data-level="advanced" style="flex:1;">Advanced</button>
+        <span class="profile-label" id="viewLevelLabel">View</span>
+        <div class="wording-seg level-seg" style="width: 100%;" role="group" aria-labelledby="viewLevelLabel">
+          <button data-level="simple" style="flex:1;" aria-pressed="false">Simple</button>
+          <button data-level="advanced" style="flex:1;" aria-pressed="false">Advanced</button>
         </div>
       </div>
       <div class="profile-box" style="padding: 0;">
-        <span class="profile-label">Theme</span>
-        <div class="wording-seg theme-seg" style="width: 100%;">
-          <button data-app-theme="night" style="flex:1;">Night</button>
-          <button data-app-theme="day" style="flex:1;">Day</button>
-          <button data-app-theme="forest" style="flex:1;">Forest</button>
+        <span class="profile-label" id="themeLabel">Theme</span>
+        <div class="wording-seg theme-seg" style="width: 100%;" role="group" aria-labelledby="themeLabel">
+          <button data-app-theme="night" style="flex:1;" aria-pressed="false">Night</button>
+          <button data-app-theme="day" style="flex:1;" aria-pressed="false">Day</button>
+          <button data-app-theme="forest" style="flex:1;" aria-pressed="false">Forest</button>
         </div>
       </div>
-      <button class="settings-btn" id="openSettings"><span>&#9881;</span> Assumptions</button>
+      <div class="profile-box" style="padding: 0;">
+        <span class="profile-label" id="textSizeLabel">Text size</span>
+        <div class="wording-seg text-seg" style="width: 100%;" role="group" aria-labelledby="textSizeLabel">
+          <button data-text-scale="1" style="flex:1; font-size: 0.72rem;" aria-label="Normal text size">A</button>
+          <button data-text-scale="1.15" style="flex:1; font-size: 0.85rem;" aria-label="Large text size">A</button>
+          <button data-text-scale="1.3" style="flex:1; font-size: 0.98rem;" aria-label="Larger text size">A</button>
+          <button data-text-scale="1.5" style="flex:1; font-size: 1.12rem;" aria-label="Largest text size">A</button>
+        </div>
+      </div>
+      <button class="settings-btn" id="openSettings"><span aria-hidden="true">&#9881;</span> Assumptions</button>
     </div>
   </aside>
 
@@ -734,17 +823,21 @@
   <header class="mobilebar">
     <span class="mark">Ledger &amp; Later</span>
     <span class="spacer"></span>
-    <div class="wording-seg level-seg">
-      <button data-level="simple">Simple</button>
-      <button data-level="advanced">Advanced</button>
+    <div class="wording-seg level-seg" role="group" aria-label="Detail level">
+      <button data-level="simple" aria-pressed="false">Simple</button>
+      <button data-level="advanced" aria-pressed="false">Advanced</button>
     </div>
     <button class="icon-btn" id="openSettingsMobile" aria-label="Assumptions">&#9881;</button>
   </header>
 
-  <main class="content">
+  <!-- Recalculated headline figures are announced here so a screen-reader user
+       hears the outcome of an edit without hunting for it (WCAG 4.1.3). -->
+  <p class="visually-hidden" id="srStatus" role="status" aria-live="polite" aria-atomic="true"></p>
+
+  <main class="content" id="mainContent" tabindex="-1">
 
     <!-- PEOPLE (now also holds the pension-age timeline) -->
-    <section class="panel active" id="tab-people">
+    <section class="panel active" id="tab-people" role="tabpanel" aria-labelledby="tabbtn-people">
       <div class="panel-head">
         <h1 id="ageHeading">Your pension timeline</h1>
         <p id="ageSubtitle">Your dates of birth and planned retirement, then when a private pension is available, when the State Pension starts, and average life expectancy.</p>
@@ -760,7 +853,7 @@
               <button class="icon-btn" id="profileImportBtn" title="Load a plan from a file" aria-label="Load from file">&#128193;</button>
               <button class="icon-btn" id="shareProfile" title="Share this profile with another account" aria-label="Share profile" style="display: none;">&#128101;</button>
               <button class="icon-btn" id="deleteProfile" title="Delete this profile" aria-label="Delete profile">&#128465;</button>
-              <input type="file" id="profileImportInput" accept=".json,application/json" style="display: none;">
+              <input type="file" id="profileImportInput" accept=".json,application/json" style="display: none;" aria-label="Choose a saved plan file to load">
             </div>
             <span class="hint" id="profileFileMsg" style="display: none; font-weight: 600;"></span>
           </div>
@@ -817,7 +910,7 @@
         <div class="field-row">
           <div class="field">
             <label for="dob">Date of birth</label>
-            <input type="date" id="dob" value="1973-03-01">
+            <input type="date" id="dob" value="1973-03-01" autocomplete="bday">
           </div>
           <div class="field">
             <label for="sex">Sex recorded at birth</label>
@@ -830,7 +923,7 @@
           <div class="field">
             <label for="retireDate">Planned retirement date</label>
             <input type="date" id="retireDate" value="2028-03-01">
-            <input type="range" id="retireSliderP" class="fld-slider" min="2026" max="2070" step="1">
+            <input type="range" id="retireSliderP" class="fld-slider" min="2026" max="2070" step="1" aria-label="Adjust your planned retirement year">
             <span class="hint">When you stop earning. If before a pension starts, savings bridge the gap.</span>
           </div>
           <div class="field">
@@ -843,8 +936,9 @@
 
       <div class="card">
         <div class="switch-row" style="margin-bottom: 4px;">
-          <button class="switch on" id="spouseSwitch" role="switch" aria-checked="true"></button>
-          <label for="spouseSwitch">Include a spouse or partner</label>
+          <!-- A <label for> can't name a button, so point at the text instead. -->
+          <button class="switch on" id="spouseSwitch" role="switch" aria-checked="true" aria-labelledby="spouseSwitchLabel"></button>
+          <label for="spouseSwitch" id="spouseSwitchLabel">Include a spouse or partner</label>
         </div>
         <div id="spouseFields">
           <div class="divider" style="margin: 14px 0;"></div>
@@ -852,7 +946,7 @@
           <div class="field-row">
             <div class="field">
               <label for="spouseDob">Date of birth</label>
-              <input type="date" id="spouseDob" value="1976-04-01">
+              <input type="date" id="spouseDob" value="1976-04-01" autocomplete="section-spouse bday">
             </div>
             <div class="field">
               <label for="spouseSex">Sex recorded at birth</label>
@@ -864,7 +958,7 @@
             <div class="field">
               <label for="spouseRetireDate">Planned retirement date</label>
               <input type="date" id="spouseRetireDate" value="2033-04-01">
-              <input type="range" id="spouseRetireSliderP" class="fld-slider" min="2026" max="2070" step="1">
+              <input type="range" id="spouseRetireSliderP" class="fld-slider" min="2026" max="2070" step="1" aria-label="Adjust your spouse's planned retirement year">
             </div>
           </div>
           <div class="field-row">
@@ -897,7 +991,7 @@
     </section>
 
     <!-- PAYING IN (was Salary & Pot) -->
-    <section class="panel" id="tab-salary">
+    <section class="panel" id="tab-salary" role="tabpanel" aria-labelledby="tabbtn-salary">
       <div class="panel-head">
         <h1>Paying In</h1>
         <p>Everything building up before you retire: your pension pot and contributions, cash savings, employer pensions, and share accounts. This is the <b data-term="accumulationShort">accumulation</b> phase.</p>
@@ -916,7 +1010,7 @@
 
       <div class="card person-card">
         <div class="person-title"><h2>You</h2></div>
-        <div class="segmented" id="yourModeSeg">
+        <div class="segmented" id="yourModeSeg" role="group" aria-label="How your pension pays out">
           <button data-mode="pot" class="active">Pension pot (drawdown)</button>
           <button data-mode="income">Fixed income (DB / annuity)</button>
         </div>
@@ -958,7 +1052,7 @@
           <div class="field-row" style="align-items: flex-start;">
             <div class="field">
               <label>Employer contribution</label>
-              <div class="segmented" id="yourEmployerModeSeg" style="max-width: 320px;">
+              <div class="segmented" id="yourEmployerModeSeg" style="max-width: 320px;" role="group" aria-label="Employer contribution entered as">
                 <button type="button" data-emode="pct" class="active">% of salary</button>
                 <button type="button" data-emode="fixed"><span class="cur">&pound;</span> per month</button>
               </div>
@@ -979,7 +1073,7 @@
           <div class="field-row" style="align-items: flex-start;">
             <div class="field">
               <label id="personalContribLabel">Your contribution <span class="hint-inline">(from take-home pay)</span></label>
-              <div class="segmented" id="yourPersonalModeSeg" style="max-width: 320px;">
+              <div class="segmented" id="yourPersonalModeSeg" style="max-width: 320px;" role="group" aria-label="Your contribution entered as">
                 <button type="button" data-pmode="pct" class="active">% of salary</button>
                 <button type="button" data-pmode="fixed"><span class="cur">&pound;</span> per month</button>
               </div>
@@ -1165,7 +1259,7 @@
             <span class="hint">Shown as household income until they retire</span>
           </div>
         </div>
-        <div class="segmented" id="spouseModeSeg">
+        <div class="segmented" id="spouseModeSeg" role="group" aria-label="How your spouse's pension pays out">
           <button data-mode="pot">Pension pot (drawdown)</button>
           <button data-mode="income" class="active">Fixed income (DB / annuity)</button>
         </div>
@@ -1246,7 +1340,7 @@
     </section>
 
     <!-- PAYING OUT (was Projection) -->
-    <section class="panel" id="tab-projection">
+    <section class="panel" id="tab-projection" role="tabpanel" aria-labelledby="tabbtn-projection">
       <div class="panel-head">
         <h1>Paying Out</h1>
         <p>Your income year by year in retirement &mdash; from your retirement date to average life expectancy. If you retire before a pension starts, cash then shares bridge the gap.</p>
@@ -1255,7 +1349,7 @@
     </section>
 
     <!-- PLANNER (lifetime cash-flow chart, targets, Monte Carlo, what-ifs, household) -->
-    <section class="panel" id="tab-planner">
+    <section class="panel" id="tab-planner" role="tabpanel" aria-labelledby="tabbtn-planner">
       <div class="panel-head">
         <h1>Lifetime planner</h1>
         <p>Your whole retirement on one chart: income each year, major life events, a living-standard target, market-history stress testing, and what-if scenarios.</p>
@@ -1266,7 +1360,7 @@
           <h2>Major events &amp; cash flow</h2>
           <span class="pill" id="plannerVerdict"></span>
         </div>
-        <div class="chart-wrap"><canvas id="plannerChart" height="560"></canvas></div>
+        <div class="chart-wrap"><canvas id="plannerChart" height="560" role="img" aria-describedby="plannerCaption" aria-label="Major events and cash flow chart. A description of the figures appears here once the plan is calculated."></canvas></div>
         <div class="field" style="margin-top: 10px;">
           <label for="targetSlider">Income target <b id="targetSliderVal"></b> <span class="hint-inline">(drag the red line, or slide here &mdash; easier on a tablet)</span></label>
           <input type="range" id="targetSlider" class="fld-slider" min="0" max="200000" step="500">
@@ -1291,8 +1385,9 @@
 
         <div class="divider" style="margin: 16px 0;"></div>
         <h3>Year-by-year breakdown <span class="hint-inline">(income sources vs your spending target)</span></h3>
-        <div class="chart-wrap" style="position:relative;"><canvas id="breakdownChart" height="540"></canvas>
+        <div class="chart-wrap" style="position:relative;"><canvas id="breakdownChart" height="540" role="img" aria-describedby="breakdownCaption" aria-label="Year-by-year income breakdown chart. The same figures are available as a table below."></canvas>
           <div id="breakdownTip" class="chart-tip" style="display:none;"></div></div>
+        <details class="chart-data"><summary>Show these figures as a table</summary><div id="breakdownTable"></div></details>
         <div class="field" style="margin-top: 10px;">
           <label for="targetSlider2">Income target <b id="targetSliderVal2"></b> <span class="hint-inline">(synced with the chart above)</span></label>
           <input type="range" id="targetSlider2" class="fld-slider" min="0" max="200000" step="500">
@@ -1314,8 +1409,9 @@
         <h3>What you have left <span class="hint-inline">(your savings and pension running down)</span></h3>
         <p class="caption" style="margin: -2px 0 8px;">The charts above show money <b>coming in</b> each year. This one shows what's
           <b>still there</b> &mdash; each pot stacked, so you can see which one empties first and when.</p>
-        <div class="chart-wrap" style="position:relative;"><canvas id="balanceChart" height="380"></canvas>
+        <div class="chart-wrap" style="position:relative;"><canvas id="balanceChart" height="380" role="img" aria-describedby="balanceCaption" aria-label="Chart of what you have left. The same figures are available as a table below."></canvas>
           <div id="balanceTip" class="chart-tip" style="display:none;"></div></div>
+        <details class="chart-data"><summary>Show these figures as a table</summary><div id="balanceTable"></div></details>
         <label class="check-inline"><input type="checkbox" id="balanceProperty"> Include property in the total
           <span class="hint-inline">(shown as a line &mdash; a house dwarfs the other pots)</span></label>
         <div class="chart-legend" id="balanceLegend"></div>
@@ -1330,37 +1426,37 @@
             the <b>Now</b> column shows how much of your take-home pay is spoken for &mdash; and what's spare to save. Defaults are
             broad UK household figures; make them yours.</p>
           <div class="table-scroll"><table class="budget-table"><thead>
-            <tr><th>Category</th><th>Now (<span class="cur">&pound;</span>/mo)</th><th>Retired (<span class="cur">&pound;</span>/mo)</th></tr></thead>
+            <tr><th scope="col">Category</th><th scope="col">Now (<span class="cur">&pound;</span>/mo)</th><th scope="col">Retired (<span class="cur">&pound;</span>/mo)</th></tr></thead>
           <tbody>
-            <tr><td>Mortgage / rent <span class="hint-inline">(fixed &mdash; doesn't rise with inflation)</span></td>
+            <tr><th scope="row">Mortgage / rent <span class="hint-inline">(fixed &mdash; doesn't rise with inflation)</span></th>
               <td><input type="text" inputmode="decimal" data-money="0" id="budMortgage" value="1,000"></td>
               <td class="budget-note">same, until paid off in
                 <input type="number" id="budMortgageEnd" min="2024" max="2080" placeholder="&mdash;" style="width:5.2em;"> </td></tr>
-            <tr><td>Food &amp; groceries</td>
+            <tr><th scope="row">Food &amp; groceries</th>
               <td><input type="text" inputmode="decimal" data-money="0" id="budFoodNow" value="500"></td>
               <td><input type="text" inputmode="decimal" data-money="0" id="budFoodRet" value="450"></td></tr>
-            <tr><td>Utilities &amp; council tax</td>
+            <tr><th scope="row">Utilities &amp; council tax</th>
               <td><input type="text" inputmode="decimal" data-money="0" id="budUtilNow" value="350"></td>
               <td><input type="text" inputmode="decimal" data-money="0" id="budUtilRet" value="350"></td></tr>
-            <tr><td>Transport &amp; car</td>
+            <tr><th scope="row">Transport &amp; car</th>
               <td><input type="text" inputmode="decimal" data-money="0" id="budTransNow" value="300"></td>
               <td><input type="text" inputmode="decimal" data-money="0" id="budTransRet" value="250"></td></tr>
-            <tr><td>Holidays &amp; travel</td>
+            <tr><th scope="row">Holidays &amp; travel</th>
               <td><input type="text" inputmode="decimal" data-money="0" id="budHolNow" value="250"></td>
               <td><input type="text" inputmode="decimal" data-money="0" id="budHolRet" value="400"></td></tr>
-            <tr><td>Health &amp; insurance</td>
+            <tr><th scope="row">Health &amp; insurance</th>
               <td><input type="text" inputmode="decimal" data-money="0" id="budHealthNow" value="150"></td>
               <td><input type="text" inputmode="decimal" data-money="0" id="budHealthRet" value="250"></td></tr>
-            <tr><td>Subscriptions &amp; leisure</td>
+            <tr><th scope="row">Subscriptions &amp; leisure</th>
               <td><input type="text" inputmode="decimal" data-money="0" id="budSubsNow" value="150"></td>
               <td><input type="text" inputmode="decimal" data-money="0" id="budSubsRet" value="150"></td></tr>
-            <tr><td>Gifts &amp; family</td>
+            <tr><th scope="row">Gifts &amp; family</th>
               <td><input type="text" inputmode="decimal" data-money="0" id="budGiftNow" value="100"></td>
               <td><input type="text" inputmode="decimal" data-money="0" id="budGiftRet" value="150"></td></tr>
-            <tr><td>Clothing &amp; personal</td>
+            <tr><th scope="row">Clothing &amp; personal</th>
               <td><input type="text" inputmode="decimal" data-money="0" id="budClothNow" value="150"></td>
               <td><input type="text" inputmode="decimal" data-money="0" id="budClothRet" value="100"></td></tr>
-            <tr><td>Other</td>
+            <tr><th scope="row">Other</th>
               <td><input type="text" inputmode="decimal" data-money="0" id="budOtherNow" value="200"></td>
               <td><input type="text" inputmode="decimal" data-money="0" id="budOtherRet" value="200"></td></tr>
           </tbody></table></div>
@@ -1368,13 +1464,13 @@
         </div>
         <div class="divider" style="margin: 14px 0;"></div>
         <h3 data-glossary="rls">Living standard target <span class="hint-inline" id="rlsSourceHint">(Pensions UK, formerly PLSA / Loughborough University Retirement Living Standards)</span></h3>
-        <div class="segmented" id="rlsSeg">
+        <div class="segmented" id="rlsSeg" role="group" aria-label="Living standard target">
           <button data-rls="none">No target</button>
           <button data-rls="min">Low (Minimum)</button>
           <button data-rls="mod" class="active">Medium (Moderate)</button>
           <button data-rls="comf">High (Comfortable)</button>
         </div>
-        <div class="segmented" id="rlsRegionSeg" style="margin-top: 8px; max-width: 340px;">
+        <div class="segmented" id="rlsRegionSeg" style="margin-top: 8px; max-width: 340px;" role="group" aria-label="Living standard region">
           <button data-rlsregion="uk" class="active">Rest of UK</button>
           <button data-rlsregion="london">London</button>
         </div>
@@ -1529,7 +1625,7 @@
           </div>
           <button type="button" class="btn-primary" id="runMcBtn" style="align-self:flex-end;">Run stress test</button>
         </div>
-        <div class="chart-wrap"><canvas id="mcChart" height="260"></canvas></div>
+        <div class="chart-wrap"><canvas id="mcChart" height="260" role="img" aria-describedby="mcCaption" aria-label="Market stress test chart. Run the stress test to fill it in."></canvas></div>
         <p class="caption" id="mcCaption"></p>
       </div>
 
@@ -1541,7 +1637,8 @@
         <p class="caption" style="margin-top:-4px;">Plots, across age to the maximum modelled age: your <b>chance of still being alive</b>,
           the Monte Carlo <b>portfolio success rate</b> (money still lasts to that age), and a <b>longevity-adjusted</b> rate that
           weights success by the chance you're alive to need it.</p>
-        <div class="chart-wrap"><canvas id="longevityChart" height="320"></canvas></div>
+        <div class="chart-wrap"><canvas id="longevityChart" height="320" role="img" aria-describedby="longevityCaption" aria-label="Longevity chart. The same figures are available as a table below."></canvas></div>
+        <details class="chart-data"><summary>Show these figures as a table</summary><div id="longevityTable"></div></details>
         <div class="chart-legend" id="longevityLegend"></div>
         <p class="caption" id="longevityCaption"></p>
       </div>
@@ -1613,7 +1710,7 @@
     </section>
 
     <!-- TAX -->
-    <section class="panel" id="tab-tax">
+    <section class="panel" id="tab-tax" role="tabpanel" aria-labelledby="tabbtn-tax">
       <div class="panel-head">
         <h1>Tax</h1>
         <p id="taxSubtitle">How much tax you'd each pay &mdash; on salary today and on your retirement income &mdash; under your country's current rules.</p>
@@ -1636,7 +1733,7 @@
     </section>
 
     <!-- GIFTING -->
-    <section class="panel" id="tab-gifting">
+    <section class="panel" id="tab-gifting" role="tabpanel" aria-labelledby="tabbtn-gifting">
       <div class="panel-head">
         <h1>Tax-free gifting</h1>
         <p id="giftingIntro">How much you can gift each year to children and grandchildren without Inheritance Tax implications, and a recommended amount based on your surplus income.</p>
@@ -1704,22 +1801,32 @@
   </main>
 
   <!-- Mobile bottom tab bar (all tabs, no horizontal scroll) -->
-  <nav class="bottomnav" id="bottomnav">
-    <button class="tab-btn active" data-tab="people"><span class="icon">&#128100;</span>People</button>
-    <button class="tab-btn" data-tab="salary"><span class="icon">&#8681;</span>In</button>
-    <button class="tab-btn" data-tab="projection"><span class="icon">&#8679;</span>Out</button>
-    <button class="tab-btn" data-tab="planner"><span class="icon">&#128506;</span>Planner</button>
-    <button class="tab-btn" data-tab="tax"><span class="icon">&#9878;</span>Tax</button>
-    <button class="tab-btn" data-tab="gifting"><span class="icon">&#127873;</span>Gifts</button>
+  <nav class="bottomnav" id="bottomnav" role="tablist" aria-label="Planner sections">
+    <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="tab-people" aria-label="People" data-tab="people"><span class="icon" aria-hidden="true">&#128100;</span>People</button>
+    <button class="tab-btn" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-salary" aria-label="Paying In" data-tab="salary"><span class="icon" aria-hidden="true">&#8681;</span>In</button>
+    <button class="tab-btn" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-projection" aria-label="Paying Out" data-tab="projection"><span class="icon" aria-hidden="true">&#8679;</span>Out</button>
+    <button class="tab-btn" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-planner" aria-label="Planner" data-tab="planner"><span class="icon" aria-hidden="true">&#128506;</span>Planner</button>
+    <button class="tab-btn" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-tax" aria-label="Tax" data-tab="tax"><span class="icon" aria-hidden="true">&#9878;</span>Tax</button>
+    <button class="tab-btn" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-gifting" aria-label="Gifting" data-tab="gifting"><span class="icon" aria-hidden="true">&#127873;</span>Gifts</button>
   </nav>
 </div>
 
 <!-- SETTINGS MODAL -->
 <div class="modal-backdrop" id="settingsModal">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle">
     <div class="modal-head">
-      <h2>Shared assumptions</h2>
+      <h2 id="settingsModalTitle">Shared assumptions</h2>
       <button class="icon-btn" id="closeSettings" aria-label="Close">&#10005;</button>
+    </div>
+    <div class="field">
+      <label id="textSizeLabelM">Text size</label>
+      <div class="wording-seg text-seg" role="group" aria-labelledby="textSizeLabelM">
+        <button data-text-scale="1" style="flex:1; font-size: 0.8rem;">A</button>
+        <button data-text-scale="1.15" style="flex:1; font-size: 0.95rem;">A</button>
+        <button data-text-scale="1.3" style="flex:1; font-size: 1.1rem;">A</button>
+        <button data-text-scale="1.5" style="flex:1; font-size: 1.25rem;">A</button>
+      </div>
+      <span class="hint">Makes every label, number and chart bigger. Your browser's own zoom still works too.</span>
     </div>
     <div class="field">
       <label for="statePensionWeekly">Full new State Pension (<span class="cur">&pound;</span>/week)</label>
@@ -1737,8 +1844,8 @@
       <span class="hint">Used to convert future income into today's money (PV)</span>
     </div>
     <div class="field">
-      <label>Theme</label>
-      <div class="wording-seg theme-seg" style="width: 100%;">
+      <label id="themeLabelM">Theme</label>
+      <div class="wording-seg theme-seg" style="width: 100%;" role="group" aria-labelledby="themeLabelM">
         <button data-app-theme="night" style="flex:1;">Night (black &amp; white)</button>
         <button data-app-theme="day" style="flex:1;">Day (white &amp; black)</button>
         <button data-app-theme="forest" style="flex:1;">Forest (green)</button>
@@ -1753,7 +1860,7 @@
 <!-- PROFILE MODAL (inline replacement for prompt()/confirm(), which
      sandboxed pages block - the reason "+ New profile" did nothing) -->
 <div class="modal-backdrop" id="profileModal">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
     <div class="modal-head">
       <h2 id="profileModalTitle">New profile</h2>
       <button class="icon-btn" id="closeProfileModal" aria-label="Close">&#10005;</button>
@@ -1781,9 +1888,9 @@
      saved-profile name), then save via the system dialog / download, or copy
      the plan text as a guaranteed fallback. -->
 <div class="modal-backdrop" id="saveFileModal">
-  <div class="modal" style="max-width: 520px;">
+  <div class="modal" style="max-width: 520px;" role="dialog" aria-modal="true" aria-labelledby="saveFileModalTitle">
     <div class="modal-head">
-      <h2>Save plan to a file</h2>
+      <h2 id="saveFileModalTitle">Save plan to a file</h2>
       <button class="icon-btn" id="closeSaveFile" aria-label="Close">&#10005;</button>
     </div>
     <div class="field">
@@ -1799,7 +1906,7 @@
     <p class="hint" style="margin: 0;">Can't save here? Copy the plan text below and paste it into a file yourself.</p>
     <details class="save-json-details">
       <summary>Show / copy plan text</summary>
-      <textarea id="saveFileText" readonly rows="7" spellcheck="false"></textarea>
+      <textarea id="saveFileText" readonly rows="7" spellcheck="false" aria-label="Plan text, ready to copy"></textarea>
       <button type="button" class="btn-ghost" id="copyPlanBtn" style="margin-top: 8px;">Copy plan text</button>
     </details>
     <p id="saveFileMsg" style="display: none; margin: 0; font-size: 0.9rem; font-weight: 600;"></p>
@@ -5164,7 +5271,7 @@ function drawPhaseDecor(ctx, xf, retYear, domainEnd, padL, padR, padT, plotH, W)
     if (w <= 0) return;
     ctx.fillStyle = bg;
     roundRect(ctx, x0, bandY, w, bandH, 6); ctx.fill();
-    ctx.font = "600 10.5px " + SANS; ctx.textAlign = "center"; ctx.fillStyle = "#FFFFFF";
+    ctx.font = chartFont(10.5, "600"); ctx.textAlign = "center"; ctx.fillStyle = "#FFFFFF";
     if (ctx.measureText(text).width + 14 < w) ctx.fillText(text, x0 + w / 2, bandY + 14);
     else if (w > 40) { // narrow segment: short label only
       const shortTxt = text.split(" ·")[0];
@@ -5183,7 +5290,7 @@ function drawRetireDivider(ctx, xRet, padT, plotH) {
   ctx.save();
   ctx.strokeStyle = CHART.state; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(xRet, padT); ctx.lineTo(xRet, padT + plotH); ctx.stroke();
-  ctx.font = "600 10px " + SANS; ctx.textAlign = "center";
+  ctx.font = chartFont(10, "600"); ctx.textAlign = "center";
   const rw = ctx.measureText("RETIREMENT").width + 14;
   // a dark outline so the chip stays legible over any colour behind it
   ctx.fillStyle = themeColor("--surface", "#000");
@@ -5227,16 +5334,16 @@ function drawEventFlags(ctx, flags, xf, domainStart, domainEnd, padT, plotH, hit
     ctx.strokeStyle = f.custom ? CHART.bridge : themeColor("--ink-faint", "#9aa39f");
     ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
     ctx.beginPath(); ctx.moveTo(px, padT); ctx.lineTo(px, padT + plotH); ctx.stroke(); ctx.setLineDash([]);
-    ctx.font = "600 10.5px " + SANS;
+    ctx.font = chartFont(10.5, "600");
     const wLabel = compact ? 0 : ctx.measureText(f.label).width;
-    ctx.font = "9px " + SANS;
+    ctx.font = chartFont(9);
     const wSub = (!compact && f.sub) ? ctx.measureText(f.sub).width : 0;
     const rightEdge = compact ? px + 12 : px + 10 + Math.max(wLabel, wSub);
     let lane = 0;
     while (lanes[lane] !== undefined && px - 14 < lanes[lane]) lane++;
     lanes[lane] = rightEdge + 8;
     const topY = (compact ? padT - 30 : padT - 75) + lane * (compact ? 20 : rowH);
-    ctx.textAlign = "center"; ctx.font = "15px " + SANS;
+    ctx.textAlign = "center"; ctx.font = chartFont(15);
     // a subtle grip ring behind movable icons so it's clear they can be dragged
     if (movable) {
       ctx.beginPath(); ctx.arc(px, topY + 7, 11, 0, Math.PI * 2);
@@ -5244,10 +5351,10 @@ function drawEventFlags(ctx, flags, xf, domainStart, domainEnd, padT, plotH, hit
     }
     ctx.fillText(f.icon || "📌", px, topY + 12);
     if (!compact) {
-      ctx.textAlign = "left"; ctx.font = "600 10.5px " + SANS;
+      ctx.textAlign = "left"; ctx.font = chartFont(10.5, "600");
       ctx.fillStyle = f.custom ? CHART.bridge : themeColor("--ink", "#0F1D19");
       ctx.fillText(f.label, px + 10, topY + 6);
-      if (f.sub) { ctx.font = "9px " + SANS; ctx.fillStyle = themeColor("--ink-faint", "#8A968F"); ctx.fillText(f.sub, px + 10, topY + 17); }
+      if (f.sub) { ctx.font = chartFont(9); ctx.fillStyle = themeColor("--ink-faint", "#8A968F"); ctx.fillText(f.sub, px + 10, topY + 17); }
     }
     if (movable && hitOut) hitOut.push({ px, topY, move: f.move, year: f.year });
   });
@@ -5302,7 +5409,7 @@ function drawPlannerChart(model) {
 
   // gridlines + y labels
   ctx.strokeStyle = themeColor("--border", "#ddd"); ctx.fillStyle = themeColor("--ink-faint", "#999");
-  ctx.lineWidth = 1; ctx.font = "13px " + SANS; ctx.textAlign = "right";
+  ctx.lineWidth = 1; ctx.font = chartFont(13); ctx.textAlign = "right";
   for (let g = 0; g <= 4; g++) {
     const v = maxV / 4 * g, py = yPix(v);
     ctx.beginPath(); ctx.moveTo(padL, py); ctx.lineTo(W - padR, py); ctx.stroke();
@@ -5404,9 +5511,9 @@ function drawPlannerChart(model) {
     const hy = yPix(baseTarget);
     ctx.beginPath(); ctx.arc(W - padR - 8, hy, 7, 0, Math.PI * 2);
     ctx.fillStyle = crit; ctx.fill();
-    ctx.fillStyle = "#FFFFFF"; ctx.font = "600 9px " + SANS; ctx.textAlign = "center";
+    ctx.fillStyle = "#FFFFFF"; ctx.font = chartFont(9, "600"); ctx.textAlign = "center";
     ctx.fillText("↕", W - padR - 8, hy + 3);
-    ctx.font = "600 11px " + SANS; ctx.textAlign = "right";
+    ctx.font = chartFont(11, "600"); ctx.textAlign = "right";
     const chip = `${gbp0(baseTarget)}/yr${plannerTarget != null ? " (dragged)" : ""}`;
     const cw = ctx.measureText(chip).width + 14;
     ctx.fillStyle = crit;
@@ -5422,7 +5529,7 @@ function drawPlannerChart(model) {
   plannerXform.xToYear = px => domainStart + Math.round((px - padL) / plotW * Math.max(1, domainEnd - domainStart));
 
   // x labels across the full (accumulation + decumulation) span
-  ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center"; ctx.font = "12px " + SANS;
+  ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center"; ctx.font = chartFont(12);
   const span = domainEnd - domainStart;
   const xstep = Math.max(1, Math.ceil(span / 9));
   for (let yy = domainStart; yy <= domainEnd; yy += xstep) ctx.fillText(yy, x(yy), H - 14);
@@ -5448,9 +5555,22 @@ function drawPlannerChart(model) {
       ? `On track: every year meets the target`
       : `${short} of ${years.length} years fall below target`;
     els("plannerVerdict").className = "pill" + (short === 0 ? "" : " warn");
+    describeChart("plannerChart",
+      `Cash-flow chart from ${years[0]} to ${years[years.length - 1]} showing income by source ` +
+      `against a spending target of ${gbp0(baseTarget)} a year. ` +
+      (short === 0 ? "Every year meets the target."
+                   : `${short} of ${years.length} years fall below it.`) +
+      " The year-by-year breakdown below has the same figures as a table.");
+    // Spoken outcome of the edit that triggered this redraw.
+    announceResult(short === 0
+      ? `Plan recalculated. On track: every year meets the ${gbp0(baseTarget)} target.`
+      : `Plan recalculated. ${short} of ${years.length} years fall below the ${gbp0(baseTarget)} target.`);
   } else {
     els("plannerVerdict").textContent = "No target set";
     els("plannerVerdict").className = "pill gold";
+    describeChart("plannerChart",
+      `Cash-flow chart from ${years[0]} to ${years[years.length - 1]} showing income by source. ` +
+      "No spending target is set. The year-by-year breakdown below has the same figures as a table.");
   }
   els("plannerCaption").innerHTML = (wordingMode === "plain"
     ? `The tinted left band is <b>while you're working</b> - salaries plus what you pay into pensions and savings each year. The right band is <b>after retirement</b>, showing where your income comes from. `
@@ -5529,6 +5649,8 @@ function drawBreakdownChart(model) {
   const baseTarget = plannerTarget != null ? plannerTarget : (model.rlsTarget || 0);
   const targetAt = y => targetForYear(model, baseTarget, y);
 
+  buildBreakdownTable(model, years, decYear, layers, targetAt, retYear);
+
   const decMax = Math.max(0, ...years.map(y => { const s = decYear(y); return s ? s.total : 0; }),
     ...years.map(y => targetAt(y)));
   let maxV = Math.max(accMaxPay, decMax, baseTarget) * 1.12;
@@ -5546,7 +5668,7 @@ function drawBreakdownChart(model) {
 
   // gridlines + y labels
   ctx.strokeStyle = themeColor("--border", "#ddd"); ctx.fillStyle = themeColor("--ink-faint", "#999");
-  ctx.lineWidth = 1; ctx.font = "13px " + SANS; ctx.textAlign = "right";
+  ctx.lineWidth = 1; ctx.font = chartFont(13); ctx.textAlign = "right";
   for (let g = 0; g <= 4; g++) {
     const v = maxV / 4 * g, py = yPix(v);
     ctx.beginPath(); ctx.moveTo(padL, py); ctx.lineTo(W - padR, py); ctx.stroke();
@@ -5620,7 +5742,7 @@ function drawBreakdownChart(model) {
     const hy = yPix(baseTarget);
     ctx.beginPath(); ctx.arc(W - padR - 8, hy, 7, 0, Math.PI * 2);
     ctx.fillStyle = crit; ctx.fill();
-    ctx.fillStyle = "#FFFFFF"; ctx.font = "600 9px " + SANS; ctx.textAlign = "center";
+    ctx.fillStyle = "#FFFFFF"; ctx.font = chartFont(9, "600"); ctx.textAlign = "center";
     ctx.fillText("↕", W - padR - 8, hy + 3);
   }
 
@@ -5631,7 +5753,7 @@ function drawBreakdownChart(model) {
   breakdownXform.xToYear = px => domainStart + Math.round((px - padL) / slot - 0.5);
 
   // x labels
-  ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center"; ctx.font = "12px " + SANS;
+  ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center"; ctx.font = chartFont(12);
   const step = Math.max(1, Math.ceil(allYears.length / 9));
   allYears.forEach((y, i) => { if (i % step === 0) ctx.fillText(y, padL + slot * (i + 0.5), H - 12); });
 
@@ -5679,6 +5801,7 @@ function drawBalanceChart(model) {
   const bal = fundingBalances(model);
   if (!bal.rows.length) { balanceXform = null; return; }
   const byYear = {}; bal.rows.forEach(r => { byYear[r.year] = r; });
+  buildBalanceTable(bal);
 
   const padL = narrowScreen() ? 46 : 62, padR = 14, padT = 26, padB = 62; // padB holds the phase band + year labels
   const plotW = W - padL - padR, plotH = H - padT - padB;
@@ -5712,7 +5835,7 @@ function drawBalanceChart(model) {
 
   // gridlines + y labels
   ctx.strokeStyle = themeColor("--border", "#ddd"); ctx.fillStyle = themeColor("--ink-faint", "#999");
-  ctx.lineWidth = 1; ctx.font = "13px " + SANS; ctx.textAlign = "right";
+  ctx.lineWidth = 1; ctx.font = chartFont(13); ctx.textAlign = "right";
   for (let g = 0; g <= 4; g++) {
     const v = maxV / 4 * g, py = yPix(v);
     ctx.beginPath(); ctx.moveTo(padL, py); ctx.lineTo(W - padR, py); ctx.stroke();
@@ -5771,7 +5894,7 @@ function drawBalanceChart(model) {
     ctx.moveTo(px, padT); ctx.lineTo(px, padT + plotH); ctx.stroke(); ctx.setLineDash([]);
     const age = runOut - model.you.dob.y;
     const label = `savings run out ${runOut} · age ${age}`;
-    ctx.font = "600 11px " + SANS;
+    ctx.font = chartFont(11, "600");
     const tw = ctx.measureText(label).width + 12;
     const lx = Math.min(W - padR - tw, Math.max(padL, px - tw / 2));
     ctx.fillStyle = CHART.crit;
@@ -5783,7 +5906,7 @@ function drawBalanceChart(model) {
   drawRetireDivider(ctx, Math.max(padL, Math.min(W - padR, xf(retYear))), padT, plotH);
 
   // x labels
-  ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center"; ctx.font = "12px " + SANS;
+  ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center"; ctx.font = chartFont(12);
   const step = Math.max(1, Math.round(nYears / 12));
   for (let y = domainStart; y <= domainEnd; y += step) {
     ctx.fillText(String(y), xAt(y), padT + plotH + 48);
@@ -5877,7 +6000,7 @@ function drawMcChart() {
   const yPix = v => padT + plotH - v / maxV * plotH;
 
   ctx.strokeStyle = themeColor("--border", "#ddd"); ctx.fillStyle = themeColor("--ink-faint", "#999");
-  ctx.font = "10px " + SANS; ctx.textAlign = "right";
+  ctx.font = chartFont(10); ctx.textAlign = "right";
   for (let g = 0; g <= 4; g++) {
     const v = maxV / 4 * g, py = yPix(v);
     ctx.beginPath(); ctx.moveTo(padL, py); ctx.lineTo(W - padR, py); ctx.stroke();
@@ -5900,6 +6023,10 @@ function drawMcChart() {
   for (let i = 0; i <= years; i += step) ctx.fillText(startYear + i, x(i), H - 8);
 
   const pct = lastMc.successPct;
+  describeChart("mcChart",
+    `Fan chart of ${lastMc.runs.toLocaleString()} market simulations from ${startYear}. ` +
+    `In ${pct.toFixed(0)}% of them the money lasts. Ending pot: low ${gbp0(lastMc.endLow)}, ` +
+    `median ${gbp0(lastMc.endMed)}, high ${gbp0(lastMc.endHigh)}. The caption below repeats these figures.`);
   els("mcVerdict").textContent = `${pct.toFixed(0)}% of runs: money lasts`;
   els("mcVerdict").className = "pill" + (pct >= 85 ? "" : pct >= 60 ? " gold" : " warn");
   els("mcCaption").innerHTML =
@@ -5969,6 +6096,7 @@ function drawLongevityChart(model) {
   const data = longevityData(model);
   const pts = data.points;
   if (!pts.length) return;
+  buildLongevityTable(data);
   const padL = 46, padR = 14, padT = 20, padB = data.hasSpouse ? 48 : 34;
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const a0 = pts[0].ageYou, a1 = pts[pts.length - 1].ageYou;
@@ -5977,7 +6105,7 @@ function drawLongevityChart(model) {
 
   // gridlines + % labels
   ctx.strokeStyle = themeColor("--border", "#ddd"); ctx.fillStyle = themeColor("--ink-faint", "#999");
-  ctx.lineWidth = 1; ctx.font = "12px " + SANS; ctx.textAlign = "right";
+  ctx.lineWidth = 1; ctx.font = chartFont(12); ctx.textAlign = "right";
   for (let g = 0; g <= 5; g++) {
     const p = g / 5, py = yPix(p);
     ctx.beginPath(); ctx.moveTo(padL, py); ctx.lineTo(W - padR, py); ctx.stroke();
@@ -6007,13 +6135,13 @@ function drawLongevityChart(model) {
     const px = x(age);
     ctx.strokeStyle = themeColor("--ink-faint", "#9aa39f"); ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(px, padT); ctx.lineTo(px, padT + plotH); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = themeColor("--ink-muted", "#5b6a63"); ctx.font = "10px " + SANS;
+    ctx.fillStyle = themeColor("--ink-muted", "#5b6a63"); ctx.font = chartFont(10);
     ctx.textAlign = px > padL + plotW * 0.6 ? "right" : "left";
     ctx.fillText(label, px + (ctx.textAlign === "right" ? -5 : 5), ly);
   });
 
   // x labels: your age (and spouse age below for a couple)
-  ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center"; ctx.font = "12px " + SANS;
+  ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center"; ctx.font = chartFont(12);
   const step = Math.max(1, Math.ceil((a1 - a0) / 9));
   for (let a = a0; a <= a1; a += step) {
     ctx.fillText(a, x(a), H - (data.hasSpouse ? 30 : 12));
@@ -6022,7 +6150,7 @@ function drawLongevityChart(model) {
       if (pt) { ctx.fillStyle = themeColor("--ink-faint", "#bcc4bf"); ctx.fillText(pt.ageSp, x(a), H - 12); ctx.fillStyle = themeColor("--ink-faint", "#999"); }
     }
   }
-  ctx.textAlign = "left"; ctx.fillStyle = themeColor("--ink-muted", "#5b6a63"); ctx.font = "11px " + SANS;
+  ctx.textAlign = "left"; ctx.fillStyle = themeColor("--ink-muted", "#5b6a63"); ctx.font = chartFont(11);
   ctx.fillText(data.hasSpouse ? "Your age / spouse age" : "Your age", padL, H - 1);
 
   const h = data.headline;
@@ -6229,8 +6357,14 @@ function updateAgeHeading(model) {
    ========================================================================= */
 
 function activateTab(tabName) {
-  document.querySelectorAll(".tab-btn").forEach(
-    b => b.classList.toggle("active", b.dataset.tab === tabName));
+  // Roving tabindex: only the selected tab is a tab stop, so Tab leaves the
+  // tablist in one press and the arrow keys move within it (ARIA APG pattern).
+  document.querySelectorAll(".tab-btn").forEach(b => {
+    const on = b.dataset.tab === tabName;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-selected", on ? "true" : "false");
+    b.tabIndex = on ? 0 : -1;
+  });
   document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
   els(`tab-${tabName}`).classList.add("active");
   const c = document.querySelector(".content");
@@ -6244,6 +6378,26 @@ function activateTab(tabName) {
 document.addEventListener("click", e => {
   const btn = e.target.closest(".tab-btn");
   if (btn) activateTab(btn.dataset.tab);
+});
+
+/* Keyboard support for the tablist: Left/Right (and Up/Down, since the desktop
+   rail is vertical) step through the tabs, Home/End jump to the ends. The tab
+   is activated as it is focused, which is the APG's "automatic activation"
+   variant - fine here because switching panels is instant. */
+document.addEventListener("keydown", e => {
+  const btn = e.target.closest && e.target.closest('[role="tab"]');
+  if (!btn) return;
+  const list = [...btn.closest('[role="tablist"]').querySelectorAll('[role="tab"]')];
+  const i = list.indexOf(btn);
+  let j = -1;
+  if (e.key === "ArrowRight" || e.key === "ArrowDown") j = (i + 1) % list.length;
+  else if (e.key === "ArrowLeft" || e.key === "ArrowUp") j = (i - 1 + list.length) % list.length;
+  else if (e.key === "Home") j = 0;
+  else if (e.key === "End") j = list.length - 1;
+  if (j < 0) return;
+  e.preventDefault();
+  activateTab(list[j].dataset.tab);
+  list[j].focus();
 });
 
 // Single "View" control: Simple (plain wording + hidden advanced fields) vs
@@ -7484,29 +7638,113 @@ function sliderBoundsFor(inp) {
   return { min, max, step };
 }
 
+/* Two-tier ("zooming") slider steps.
+   A single fine step across a £2m range means ~10,000 positions - on a phone
+   that is a pixel per £200 and impossible to land on a round number. So each
+   slider has two gears:
+     COARSE - the whole range in big round jumps (£5,000 for money), which is
+              what you want while travelling to roughly the right number;
+     FINE   - after you let go, the slider re-scales to a window around where
+              you landed, in small steps, so the same thumb travel now tunes
+              the value precisely.
+   Dragging to either end of the fine window pops back out to coarse, so you
+   can always travel again; typing in the field resets to coarse too. */
+function sliderTiers(inp) {
+  const b = sliderBoundsFor(inp);
+  const money = inp.dataset.money !== undefined;
+  const span = b.max - b.min;
+  let coarse, fine;
+  if (money) {
+    // "in general £5k increments", scaled down for small-money fields such as
+    // the monthly budget rows so their coarse gear isn't the whole range.
+    // Deliberately ignores b.step, which is a generic whole-range step and
+    // would otherwise be coarser than the fine gear.
+    coarse = span >= 50000 ? 5000 : span >= 10000 ? 1000 : span >= 2000 ? 100 : 50;
+    fine = Math.max(coarse / 20, span >= 50000 ? 100 : 10);
+  } else {
+    // years, ages and percentages: a coarse gear well above the natural step,
+    // but never so coarse that the whole range is only a handful of positions
+    fine = b.step || 1;
+    coarse = fine >= 1 ? Math.max(fine * 5, 5) : 1;
+    coarse = Math.min(coarse, Math.max(fine, span / 10));
+  }
+  if (coarse < fine) coarse = fine;
+  return { min: b.min, max: b.max, coarse, fine, window: coarse * 5 };
+}
+
+function sliderGear(r, gear, v) {
+  const t = r._tiers;
+  if (!t) return;
+  const clamp = x => Math.min(t.max, Math.max(t.min, x));
+  v = clamp(v);
+  if (gear === "fine") {
+    // order matters: widen/narrow the bounds and step BEFORE setting the value
+    r.min = clamp(v - t.window);
+    r.max = clamp(v + t.window);
+    r.step = t.fine;
+  } else {
+    r.min = t.min; r.max = t.max; r.step = t.coarse;
+  }
+  r.dataset.gear = gear;
+  r.value = v;
+}
+
 function attachSliders() {
   document.querySelectorAll("input[type=number], input[data-money]").forEach(inp => {
     if (!inp.id || SLIDER_EXCLUDE.has(inp.id) || inp.dataset.hasSlider) return;
     if (inp.closest(".modal")) return;
     inp.dataset.hasSlider = "1";
+    const money = inp.dataset.money !== undefined;
+    const readVal = () => money ? (parseMoney(inp.value) || 0) : (parseFloat(inp.value) || 0);
     const r = document.createElement("input");
-    r.type = "range"; r.className = "fld-slider"; r.tabIndex = -1;
-    r.setAttribute("aria-label", "Adjust " + inp.id);
-    const b = sliderBoundsFor(inp);
-    r.min = b.min; r.max = b.max; r.step = b.step;
-    r.value = inp.dataset.money !== undefined ? (parseMoney(inp.value) || 0) : (parseFloat(inp.value) || 0);
+    r.type = "range"; r.className = "fld-slider";
+    // Reachable by keyboard and announced properly: the visible <label> names
+    // the field, so point the slider at it rather than inventing a name.
+    const lbl = inp.closest(".field") && inp.closest(".field").querySelector("label");
+    const name = lbl ? lbl.textContent.replace(/\s+/g, " ").trim() : inp.id;
+    r.setAttribute("aria-label", "Adjust " + name);
+    r._tiers = sliderTiers(inp);
+    sliderGear(r, "coarse", readVal());
     inp.insertAdjacentElement("afterend", r);
+
+    const announce = () => {
+      const v = Number(r.value);
+      r.setAttribute("aria-valuetext",
+        (money ? CUR() + v.toLocaleString("en-GB") : String(v)) +
+        (r.dataset.gear === "fine" ? " (fine adjustment)" : ""));
+    };
+    announce();
+
     let raf = null;
     r.addEventListener("input", () => { // live: recompute all tables/charts per frame
-      inp.value = inp.dataset.money !== undefined
-        ? Number(r.value).toLocaleString("en-GB") : r.value;
+      inp.value = money ? Number(r.value).toLocaleString("en-GB") : r.value;
+      announce();
       if (raf) return;
       raf = requestAnimationFrame(() => { raf = null; onUserChange(); });
     });
-    inp.addEventListener("change", () => { // typing keeps the slider in step
-      const v = inp.dataset.money !== undefined ? (parseMoney(inp.value) || 0) : (parseFloat(inp.value) || 0);
-      if (v > parseFloat(r.max)) r.max = inp.dataset.money !== undefined ? v * 2 : v; // grow range
-      r.value = v;
+    // Settle into the fine gear when the drag ends near where you landed; if
+    // you ran to the end of a fine window, go back to coarse so you can travel.
+    const settle = () => {
+      const v = Number(r.value);
+      const t = r._tiers;
+      if (r.dataset.gear === "fine") {
+        const atEdge = v <= Number(r.min) + t.fine / 2 || v >= Number(r.max) - t.fine / 2;
+        sliderGear(r, atEdge && t.max - t.min > t.window * 2 ? "coarse" : "fine", v);
+      } else {
+        sliderGear(r, "fine", v);
+      }
+      announce();
+    };
+    r.addEventListener("change", settle);
+    r.addEventListener("pointerup", settle);
+    r.addEventListener("keyup", settle);
+
+    inp.addEventListener("change", () => { // typing resets to the coarse gear
+      const v = readVal();
+      r._tiers = sliderTiers(inp);
+      if (v > r._tiers.max) r._tiers.max = money ? v * 2 : v; // grow to fit
+      sliderGear(r, "coarse", v);
+      announce();
     });
   });
 }
@@ -7516,11 +7754,265 @@ function syncSliders() {
   document.querySelectorAll('input[data-has-slider="1"]').forEach(inp => {
     const r = inp.nextElementSibling;
     if (!r || !r.classList.contains("fld-slider")) return;
-    const v = inp.dataset.money !== undefined ? (parseMoney(inp.value) || 0) : (parseFloat(inp.value) || 0);
-    if (v > parseFloat(r.max)) r.max = inp.dataset.money !== undefined ? v * 2 : v;
-    r.value = v;
+    const money = inp.dataset.money !== undefined;
+    const v = money ? (parseMoney(inp.value) || 0) : (parseFloat(inp.value) || 0);
+    r._tiers = sliderTiers(inp);
+    if (v > r._tiers.max) r._tiers.max = money ? v * 2 : v;
+    sliderGear(r, "coarse", v);   // a freshly loaded profile starts in top gear
   });
 }
+
+/* Text size. A pension tool is used across a very wide age range, so the whole
+   interface scales on request rather than relying on browser zoom (which on a
+   phone also scales the layout sideways and forces horizontal scrolling).
+   Everything is sized in rem, so scaling the root font size scales the UI; the
+   canvas charts read TEXT_SCALE directly since canvas text can't inherit CSS. */
+const TEXT_SCALE_KEY = "pensionPlanner.textScale";
+let TEXT_SCALE = parseFloat(localStorage.getItem(TEXT_SCALE_KEY)) || 1;
+function applyTextScale() {
+  document.documentElement.style.fontSize = (100 * TEXT_SCALE) + "%";
+  document.querySelectorAll(".text-seg button").forEach(b => {
+    const on = Math.abs(parseFloat(b.dataset.textScale) - TEXT_SCALE) < 0.001;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+  });
+  if (typeof lastModel !== "undefined" && lastModel) renderAll();
+}
+document.addEventListener("click", e => {
+  const btn = e.target.closest(".text-seg button");
+  if (!btn) return;
+  TEXT_SCALE = parseFloat(btn.dataset.textScale) || 1;
+  localStorage.setItem(TEXT_SCALE_KEY, String(TEXT_SCALE));
+  applyTextScale();
+});
+// Canvas text can't inherit the CSS scale, so charts build fonts through this.
+function chartFont(px, weight) {
+  return (weight ? weight + " " : "") + Math.round(px * TEXT_SCALE) + "px " + SANS;
+}
+
+/* =========================================================================
+   ACCESSIBILITY PLUMBING
+   The UI is checked against WCAG 2.2 AA, which is what both US Section 508
+   (via 36 CFR 1194 App. A, which adopts WCAG A/AA) and the UK Public Sector
+   Bodies Accessibility Regulations (via EN 301 549) require.
+   ========================================================================= */
+
+/* Every segmented control shows its selection with an .active class. Screen
+   readers can't see a class, so mirror it onto aria-pressed. An observer keeps
+   the two in step wherever the class is set, instead of every apply* function
+   having to remember (WCAG 4.1.2 Name, Role, Value). */
+const SEG_SELECTOR = ".segmented, .wording-seg";
+function syncPressedState(root) {
+  (root || document).querySelectorAll(SEG_SELECTOR).forEach(seg => {
+    seg.querySelectorAll("button").forEach(b => {
+      if (b.hasAttribute("aria-selected")) return;   // tabs manage their own state
+      b.setAttribute("aria-pressed", b.classList.contains("active") ? "true" : "false");
+    });
+  });
+}
+new MutationObserver(muts => {
+  for (const m of muts) {
+    const b = m.target;
+    if (b.tagName === "BUTTON" && b.closest(SEG_SELECTOR) && !b.hasAttribute("aria-selected"))
+      b.setAttribute("aria-pressed", b.classList.contains("active") ? "true" : "false");
+  }
+}).observe(document.documentElement,
+  { subtree: true, attributes: true, attributeFilter: ["class"] });
+
+/* Announce the headline outcome after a recalculation. Debounced, because
+   dragging a slider recalculates every frame and a live region that chatters
+   is worse than none at all. */
+let srTimer = null;
+function announceResult(text) {
+  const el = els("srStatus");
+  if (!el || !text) return;
+  clearTimeout(srTimer);
+  srTimer = setTimeout(() => { el.textContent = text; }, 700);
+}
+
+/* Not every control can carry a <label for>: the asset rows and the budget grid
+   are generated from templates and repeat the same field names, so ids would
+   have to be minted for each. Instead, derive the accessible name from what is
+   already on screen - the field's own <label>, or the budget grid's row and
+   column headers - so every control is named without duplicating text
+   (WCAG 1.3.1 Info and Relationships, 4.1.2 Name Role Value). */
+function nameOrphanControls(root) {
+  const scope = root || document;
+  const clean = t => (t || "").replace(/\s+/g, " ").trim();
+
+  scope.querySelectorAll(".field > label").forEach(lbl => {
+    if (lbl.htmlFor) return;
+    const name = clean(lbl.textContent);
+    if (!name) return;
+    lbl.parentElement.querySelectorAll("input, select, textarea").forEach(c => {
+      if (c.getAttribute("aria-label") || c.getAttribute("aria-labelledby")) return;
+      // range inputs mirror the field above them, so say so
+      c.setAttribute("aria-label", c.type === "range" ? "Adjust " + name : name);
+    });
+  });
+
+  scope.querySelectorAll("table.budget-table tbody tr").forEach(tr => {
+    const rowName = clean((tr.querySelector('th[scope="row"]') || {}).textContent);
+    const heads = [...(tr.closest("table").querySelectorAll('thead th'))].map(h => clean(h.textContent));
+    [...tr.children].forEach((cell, i) => {
+      cell.querySelectorAll("input").forEach(c => {
+        if (c.getAttribute("aria-label")) return;
+        c.setAttribute("aria-label", `${rowName}, ${heads[i] || ""}`.replace(/, $/, ""));
+      });
+    });
+  });
+
+  // "Remove" on its own tells a screen-reader user nothing about which row it
+  // removes (WCAG 2.4.6). Name it after the row's first value.
+  scope.querySelectorAll(".asset-row [data-remove]").forEach(btn => {
+    const row = btn.closest(".asset-row");
+    const first = row.querySelector("select, input[type=text]");
+    const what = clean(first && (first.value || first.options && first.options[first.selectedIndex].text));
+    btn.setAttribute("aria-label", what ? `Remove ${what}` : "Remove this row");
+  });
+}
+// Dynamic lists re-render on almost every edit, so re-name after the DOM
+// settles rather than from a dozen individual call sites.
+let nameTimer = null;
+new MutationObserver(() => {
+  clearTimeout(nameTimer);
+  nameTimer = setTimeout(() => nameOrphanControls(), 60);
+}).observe(document.documentElement, { subtree: true, childList: true });
+
+/* Text alternatives for the canvas charts. A canvas is a picture as far as
+   assistive tech is concerned, so each one gets a one-line aria-label summary
+   and, where there is per-year data behind it, the same figures as a real HTML
+   table in a collapsed <details> (WCAG 1.1.1 Non-text Content). */
+function describeChart(canvasId, label) {
+  const c = els(canvasId);
+  if (c) c.setAttribute("aria-label", label);
+}
+/* "What you have left": one row per year, one column per pot. */
+function buildBalanceTable(bal) {
+  const cols = [
+    ["pot", "Pension pot"], ["pcls", "Tax-free cash"], ["cash", "Cash & savings"],
+    ["cashISA", "Cash ISA"], ["gia", wordingMode === "plain" ? "Other investments" : "GIA / other"],
+    ["ssISA", "Stocks & Shares ISA"],
+  ].filter(([k]) => bal.rows.some(r => (r[k] || 0) > 0.5));
+  const m = v => CUR() + Math.round(v || 0).toLocaleString("en-GB");
+  renderChartTable("balanceTable",
+    "What you have left, by year",
+    ["Year", ...cols.map(c => c[1]), "Total"],
+    bal.rows.map(r => [r.year, ...cols.map(c => m(r[c[0]])), m(r.liquid)]));
+
+  const first = bal.rows[0], last = bal.rows[bal.rows.length - 1];
+  const peak = bal.rows.reduce((a, r) => r.liquid > a.liquid ? r : a, bal.rows[0]);
+  describeChart("balanceChart",
+    `Stacked area chart of savings and pension balances from ${first.year} to ${last.year}. ` +
+    `Starts at ${m(first.liquid)}, peaks at ${m(peak.liquid)} in ${peak.year}, ` +
+    `and ends at ${m(last.liquid)}.` +
+    (bal.exhaustedYear ? ` Money runs out in ${bal.exhaustedYear}.` : "") +
+    " The same figures are in the table below.");
+}
+
+/* "Year-by-year breakdown": retirement income by source, against the target. */
+function buildBreakdownTable(model, years, decYear, layers, targetAt, retYear) {
+  const used = layers.filter(l => years.some(y => { const s = decYear(y); return s && (s[l.key] || 0) > 0.5; }));
+  const m = v => CUR() + Math.round(v || 0).toLocaleString("en-GB");
+  const rows = years.map(y => {
+    const s = decYear(y) || {}, t = targetAt(y), tot = s.total || 0;
+    return [y, ...used.map(l => m(s[l.key])), m(tot), m(t),
+            tot >= t - 0.5 ? "Met" : "Short by " + m(t - tot)];
+  });
+  renderChartTable("breakdownTable",
+    "Retirement income by source each year, against your spending target",
+    ["Year", ...used.map(l => l.label), "Total income", "Target", "Against target"], rows);
+
+  const shortYears = years.filter(y => ((decYear(y) || {}).total || 0) < targetAt(y) - 0.5);
+  describeChart("breakdownChart",
+    `Stacked bar chart of income each year from ${years[0]} to ${years[years.length - 1]}, ` +
+    `split by source, with your spending target as a line. ` +
+    (shortYears.length
+      ? `${shortYears.length} of ${years.length} years fall short of the target, first in ${shortYears[0]}.`
+      : "Every year meets the target.") +
+    " The same figures are in the table below.");
+}
+
+/* Longevity chart: survival, portfolio success and the combined rate by age. */
+function buildLongevityTable(data) {
+  const pts = data.points, pc = p => Math.round((p || 0) * 100) + "%";
+  renderChartTable("longevityTable",
+    "Chance of being alive, and of the money lasting, at each age",
+    ["Your age", "Still alive", "Money lasts", "Both"],
+    pts.map(p => [p.ageYou, pc(p.survival), pc(p.portfolio), pc(p.adjusted)]));
+  describeChart("longevityChart",
+    `Line chart from age ${pts[0].ageYou} to ${pts[pts.length - 1].ageYou}. ` +
+    `A 50% chance of still being alive at ${data.age50}, 10% at ${data.age10}. ` +
+    "The same figures are in the table below.");
+}
+
+function renderChartTable(hostId, caption, headers, rows) {
+  const host = els(hostId);
+  if (!host) return;
+  if (!rows.length) { host.innerHTML = ""; return; }
+  const esc = t => String(t).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  host.innerHTML = '<div class="table-scroll"><table><caption>' + esc(caption) + "</caption><thead><tr>" +
+    headers.map(h => `<th scope="col">${esc(h)}</th>`).join("") + "</tr></thead><tbody>" +
+    rows.map(r => "<tr>" + r.map((c, i) =>
+      i === 0 ? `<th scope="row">${esc(c)}</th>` : `<td>${esc(c)}</td>`).join("") + "</tr>").join("") +
+    "</tbody></table></div>";
+}
+
+/* Dialogs. Every modal here opens by adding .open to its backdrop, so one
+   observer gives all of them the behaviour a dialog owes a keyboard or screen
+   reader user: focus moves in, Tab cycles inside it, Escape closes it, and
+   focus returns to whatever opened it (WCAG 2.1.2 No Keyboard Trap, 2.4.3
+   Focus Order, 2.4.11 Focus Not Obscured). */
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), ' +
+  'select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+let openDialog = null, dialogOpener = null;
+
+function focusablesIn(el) {
+  return [...el.querySelectorAll(FOCUSABLE)].filter(n => n.offsetParent !== null || n === document.activeElement);
+}
+function onDialogOpened(backdrop) {
+  dialogOpener = document.activeElement;
+  openDialog = backdrop;
+  // Everything behind the dialog is inert to assistive tech while it is up.
+  document.querySelectorAll(".app").forEach(n => n.setAttribute("aria-hidden", "true"));
+  const f = focusablesIn(backdrop);
+  // Prefer the first text field - it is what the dialog is asking for.
+  const first = f.find(n => n.tagName === "INPUT" && n.type === "text") || f[0];
+  if (first) setTimeout(() => first.focus(), 0);
+}
+function onDialogClosed() {
+  openDialog = null;
+  document.querySelectorAll(".app").forEach(n => n.removeAttribute("aria-hidden"));
+  if (dialogOpener && document.contains(dialogOpener)) dialogOpener.focus();
+  dialogOpener = null;
+}
+new MutationObserver(muts => {
+  for (const m of muts) {
+    const el = m.target;
+    if (!el.classList || !el.classList.contains("modal-backdrop")) continue;
+    if (el.classList.contains("open")) { if (openDialog !== el) onDialogOpened(el); }
+    else if (openDialog === el) onDialogClosed();
+  }
+}).observe(document.documentElement,
+  { subtree: true, attributes: true, attributeFilter: ["class"] });
+
+document.addEventListener("keydown", e => {
+  if (!openDialog) return;
+  if (e.key === "Escape") {
+    e.preventDefault();
+    openDialog.classList.remove("open");
+    return;
+  }
+  if (e.key !== "Tab") return;
+  const f = focusablesIn(openDialog);
+  if (!f.length) return;
+  const first = f[0], last = f[f.length - 1];
+  if (e.shiftKey && (document.activeElement === first || !openDialog.contains(document.activeElement))) {
+    e.preventDefault(); last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault(); first.focus();
+  }
+});
 
 /* Theme (Night = black & white default, Day = white & black, Forest = green). */
 const THEME_STORAGE_KEY = "pensionPlanner.appTheme";
@@ -7557,6 +8049,9 @@ els("giftStartYear").value = todayObj().y;
 currentCountry = els("country").value || "UK";
 updateCurrencyLabels();
 applyIndexGrowth("you"); applyIndexGrowth("spouse");
+applyTextScale();
+syncPressedState();
+nameOrphanControls();
 renderAssetLists();
 renderEventList();
 renderScenarioList();
