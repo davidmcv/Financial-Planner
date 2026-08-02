@@ -5281,23 +5281,30 @@ function drawPhaseDecor(ctx, xf, retYear, domainEnd, padL, padR, padT, plotH, W)
   const plain = typeof wordingMode !== "undefined" && wordingMode === "plain";
   seg(padL, xRet - 2, "#5b7fa6", plain ? "WHILE WORKING · money going in" : "ACCUMULATION · paying in");
   seg(xRet + 2, xEnd, CHART.private, plain ? "RETIRED · money coming out" : "DECUMULATION · drawing down");
-  drawRetireDivider(ctx, xRet, padT, plotH);
+  drawRetireDivider(ctx, xRet, padT, plotH, padL, xEnd);
   ctx.restore();
 }
 // The retirement divider line + "RETIREMENT" chip. Drawn again on top of the
 // stacked bars on the breakdown chart so the label is never hidden behind them.
-function drawRetireDivider(ctx, xRet, padT, plotH) {
+function drawRetireDivider(ctx, xRet, padT, plotH, leftEdge, rightEdge) {
   ctx.save();
   ctx.strokeStyle = CHART.state; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(xRet, padT); ctx.lineTo(xRet, padT + plotH); ctx.stroke();
+  // "RETIREMENT" doesn't fit beside the divider on a phone, and the chip used
+  // to spill left over the y-axis labels when retirement falls early in the
+  // span - so shorten it on narrow screens and clamp it inside the plot.
+  const text = narrowScreen() ? "RETIRE" : "RETIREMENT";
   ctx.font = chartFont(10, "600"); ctx.textAlign = "center";
-  const rw = ctx.measureText("RETIREMENT").width + 14;
+  const rw = ctx.measureText(text).width + 14;
+  let cx = xRet;
+  if (leftEdge != null) cx = Math.max(cx, leftEdge + rw / 2 + 2);
+  if (rightEdge != null) cx = Math.min(cx, rightEdge - rw / 2 - 2);
   // a dark outline so the chip stays legible over any colour behind it
   ctx.fillStyle = themeColor("--surface", "#000");
-  roundRect(ctx, xRet - rw / 2 - 1.5, padT + plotH - 21.5, rw + 3, 20, 9); ctx.fill();
+  roundRect(ctx, cx - rw / 2 - 1.5, padT + plotH - 21.5, rw + 3, 20, 9); ctx.fill();
   ctx.fillStyle = CHART.state;
-  roundRect(ctx, xRet - rw / 2, padT + plotH - 20, rw, 17, 8); ctx.fill();
-  ctx.fillStyle = "#FFFFFF"; ctx.fillText("RETIREMENT", xRet, padT + plotH - 8);
+  roundRect(ctx, cx - rw / 2, padT + plotH - 20, rw, 17, 8); ctx.fill();
+  ctx.fillStyle = "#FFFFFF"; ctx.fillText(text, cx, padT + plotH - 8);
   ctx.restore();
 }
 
@@ -5320,6 +5327,64 @@ function roundRect(ctx, x, y, w, h, r) {
 const narrowScreen = () => Math.min(window.innerWidth || 9999, document.documentElement.clientWidth || 9999) <= 700;
 // Charts sized for the device: a 560px-tall chart fills a whole phone screen.
 const chartH = (full, compact) => (narrowScreen() ? compact : full);
+
+/* ---- Shared axis helpers -------------------------------------------------
+   On a 393px phone an axis has room for about five y labels and six year
+   labels. Left to itself that produced "£4077k" and a row of years printed on
+   top of each other, so both axes are computed rather than assumed. */
+
+// Round a peak up to the next 1/2/2.5/5 x 10^n so the labels are readable
+// numbers (£4.0m, not £4077k) and the gridlines land on them exactly.
+function niceCeil(v) {
+  if (!(v > 0)) return 1;
+  const mag = Math.pow(10, Math.floor(Math.log10(v)));
+  const f = v / mag;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * mag;
+}
+
+// Money for an axis tick: whole pounds under £1k, then k, then m with one
+// decimal only when it carries information.
+function axisMoney(v) {
+  const a = Math.abs(v);
+  if (a >= 1e6) { const m = v / 1e6; return CUR() + (m >= 10 ? Math.round(m) : m.toFixed(1)) + "m"; }
+  if (a >= 1000) return CUR() + Math.round(v / 1000) + "k";
+  return CUR() + Math.round(v);
+}
+
+// Draw the y gridlines and their labels from a nice maximum.
+function drawMoneyAxis(ctx, maxV, yPix, padL, W, padR, steps) {
+  ctx.strokeStyle = themeColor("--border", "#ddd");
+  ctx.fillStyle = themeColor("--ink-faint", "#999");
+  ctx.lineWidth = 1; ctx.font = chartFont(13); ctx.textAlign = "right";
+  // Divide a nice maximum into ticks that are themselves round: a 5m axis wants
+  // fifths (1,2,3,4,5m), a 2m axis wants quarters (0.5,1,1.5,2m).
+  const lead = maxV / Math.pow(10, Math.floor(Math.log10(maxV)));
+  const n = steps || (Math.abs(lead - 2) < 0.01 ? 4 : 5);
+  for (let g = 0; g <= n; g++) {
+    const v = maxV / n * g, py = yPix(v);
+    ctx.beginPath(); ctx.moveTo(padL, py); ctx.lineTo(W - padR, py); ctx.stroke();
+    ctx.fillText(axisMoney(v), padL - 6, py + 4);
+  }
+}
+
+/* Year labels that can't collide: measure the widest label, work out how many
+   fit in the plot, then step in whole 1/2/5/10-year jumps. Also snaps the
+   first label to a round year so the row reads 2030, 2040, 2050 rather than
+   2026, 2036, 2046. */
+function yearTicks(ctx, from, to, plotW, font) {
+  ctx.font = font || chartFont(12);
+  const wide = ctx.measureText("2058").width + (narrowScreen() ? 14 : 20);
+  const room = Math.max(2, Math.floor(plotW / wide));
+  const span = Math.max(1, to - from);
+  let step = Math.ceil(span / room);
+  step = [1, 2, 5, 10, 20, 25, 50].find(s => s >= step) || Math.ceil(step / 10) * 10;
+  const first = Math.ceil(from / step) * step;
+  const out = [];
+  for (let y = first; y <= to; y += step) out.push(y);
+  // always show where the plan ends, unless that would crowd the last label
+  if (out.length && to - out[out.length - 1] > step * 0.45) out.push(to);
+  return out;
+}
 
 function drawEventFlags(ctx, flags, xf, domainStart, domainEnd, padT, plotH, hitOut) {
   const compact = narrowScreen();
@@ -5397,7 +5462,7 @@ function drawPlannerChart(model) {
     const hs = householdSeries(m);
     return { name: sc.name || "What-if", years: hs.years, byYear: hs.byYear };
   });
-  maxV *= 1.12;
+  maxV = niceCeil(maxV * 1.08);
 
   const x = y => padL + (y - domainStart) / Math.max(1, domainEnd - domainStart) * plotW;
   const yPix = v => padT + plotH - v / maxV * plotH;
@@ -5407,14 +5472,8 @@ function drawPlannerChart(model) {
   // phase bands + retirement divider + phase labels (behind the data)
   drawPhaseDecor(ctx, x, retYear, domainEnd, padL, padR, padT, plotH, W);
 
-  // gridlines + y labels
-  ctx.strokeStyle = themeColor("--border", "#ddd"); ctx.fillStyle = themeColor("--ink-faint", "#999");
-  ctx.lineWidth = 1; ctx.font = chartFont(13); ctx.textAlign = "right";
-  for (let g = 0; g <= 4; g++) {
-    const v = maxV / 4 * g, py = yPix(v);
-    ctx.beginPath(); ctx.moveTo(padL, py); ctx.lineTo(W - padR, py); ctx.stroke();
-    ctx.fillText(CUR() + Math.round(v / 1000) + "k", padL - 6, py + 4);
-  }
+  // gridlines + y labels (nice round ticks, so a phone shows "£4.0m" not "£4077k")
+  drawMoneyAxis(ctx, maxV, yPix, padL, W, padR);
 
   // accumulation phase: stacked household income while working - your salary,
   // spouse's salary, then what's paid into pensions/investments on top
@@ -5530,9 +5589,7 @@ function drawPlannerChart(model) {
 
   // x labels across the full (accumulation + decumulation) span
   ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center"; ctx.font = chartFont(12);
-  const span = domainEnd - domainStart;
-  const xstep = Math.max(1, Math.ceil(span / 9));
-  for (let yy = domainStart; yy <= domainEnd; yy += xstep) ctx.fillText(yy, x(yy), H - 14);
+  yearTicks(ctx, domainStart, domainEnd, plotW).forEach(yy => ctx.fillText(yy, x(yy), H - 14));
 
   // legend + verdict
   els("plannerLegend").innerHTML = [
@@ -5653,7 +5710,7 @@ function drawBreakdownChart(model) {
 
   const decMax = Math.max(0, ...years.map(y => { const s = decYear(y); return s ? s.total : 0; }),
     ...years.map(y => targetAt(y)));
-  let maxV = Math.max(accMaxPay, decMax, baseTarget) * 1.12;
+  let maxV = niceCeil(Math.max(accMaxPay, decMax, baseTarget) * 1.08);
   if (maxV <= 0) maxV = 1;
 
   const yPix = v => padT + plotH - v / maxV * plotH;
@@ -5666,14 +5723,8 @@ function drawBreakdownChart(model) {
 
   drawPhaseDecor(ctx, xf, retYear, domainEnd, padL, padR, padT, plotH, W);
 
-  // gridlines + y labels
-  ctx.strokeStyle = themeColor("--border", "#ddd"); ctx.fillStyle = themeColor("--ink-faint", "#999");
-  ctx.lineWidth = 1; ctx.font = chartFont(13); ctx.textAlign = "right";
-  for (let g = 0; g <= 4; g++) {
-    const v = maxV / 4 * g, py = yPix(v);
-    ctx.beginPath(); ctx.moveTo(padL, py); ctx.lineTo(W - padR, py); ctx.stroke();
-    ctx.fillText(CUR() + Math.round(v / 1000) + "k", padL - 6, py + 4);
-  }
+  // gridlines + y labels (nice round ticks, so a phone shows "£4.0m" not "£4077k")
+  drawMoneyAxis(ctx, maxV, yPix, padL, W, padR);
 
   const bw = Math.max(3, Math.min(34, slot * 0.8));
   const accBarLayers = [
@@ -5724,7 +5775,7 @@ function drawBreakdownChart(model) {
 
   // redraw the retirement divider + label ON TOP so the stacked bars can't
   // hide the "RETIREMENT" chip (it's drawn behind the data by drawPhaseDecor)
-  drawRetireDivider(ctx, Math.max(padL, Math.min(W - padR, xf(retYear))), padT, plotH);
+  drawRetireDivider(ctx, Math.max(padL, Math.min(W - padR, xf(retYear))), padT, plotH, padL, W - padR);
 
   // spending-target line (stepped for go-go / no-go) across decumulation bars
   // - draggable here too, mirroring the chart above
@@ -5754,8 +5805,8 @@ function drawBreakdownChart(model) {
 
   // x labels
   ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center"; ctx.font = chartFont(12);
-  const step = Math.max(1, Math.ceil(allYears.length / 9));
-  allYears.forEach((y, i) => { if (i % step === 0) ctx.fillText(y, padL + slot * (i + 0.5), H - 12); });
+  yearTicks(ctx, domainStart, domainEnd, plotW).forEach(y =>
+    ctx.fillText(y, padL + slot * (y - domainStart + 0.5), H - 12));
 
   const key = (c, t) => `<span class="key"><span class="swatch" style="background:${c}"></span>${t}</span>`;
   els("breakdownLegend").innerHTML = [
@@ -5828,19 +5879,13 @@ function drawBalanceChart(model) {
   ];
 
   const peak = Math.max(1, ...bal.rows.map(r => showProp ? r.total : r.liquid));
-  const maxV = peak * 1.12;
+  const maxV = niceCeil(peak * 1.08);
   const yPix = v => padT + plotH - v / maxV * plotH;
 
   drawPhaseDecor(ctx, xf, retYear, domainEnd, padL, padR, padT, plotH, W);
 
-  // gridlines + y labels
-  ctx.strokeStyle = themeColor("--border", "#ddd"); ctx.fillStyle = themeColor("--ink-faint", "#999");
-  ctx.lineWidth = 1; ctx.font = chartFont(13); ctx.textAlign = "right";
-  for (let g = 0; g <= 4; g++) {
-    const v = maxV / 4 * g, py = yPix(v);
-    ctx.beginPath(); ctx.moveTo(padL, py); ctx.lineTo(W - padR, py); ctx.stroke();
-    ctx.fillText(CUR() + Math.round(v / 1000) + "k", padL - 6, py + 4);
-  }
+  // gridlines + y labels (nice round ticks, so a phone shows "£4.0m" not "£4077k")
+  drawMoneyAxis(ctx, maxV, yPix, padL, W, padR);
 
   // stacked areas, bottom-to-top
   const base = {}; bal.years.forEach(y => { base[y] = 0; });
@@ -5903,14 +5948,12 @@ function drawBalanceChart(model) {
     ctx.fillText(label, lx + tw / 2, padT + 14);
   }
 
-  drawRetireDivider(ctx, Math.max(padL, Math.min(W - padR, xf(retYear))), padT, plotH);
+  drawRetireDivider(ctx, Math.max(padL, Math.min(W - padR, xf(retYear))), padT, plotH, padL, W - padR);
 
   // x labels
   ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center"; ctx.font = chartFont(12);
-  const step = Math.max(1, Math.round(nYears / 12));
-  for (let y = domainStart; y <= domainEnd; y += step) {
-    ctx.fillText(String(y), xAt(y), padT + plotH + 48);
-  }
+  yearTicks(ctx, domainStart, domainEnd, plotW).forEach(y =>
+    ctx.fillText(String(y), xAt(y), padT + plotH + 48));
 
   balanceXform = {
     padL, padT, plotH, slot, domainStart, domainEnd,
@@ -5995,7 +6038,7 @@ function drawMcChart() {
   const { bands, startYear, years } = lastMc;
   const padL = 52, padR = 10, padT = 12, padB = 26;
   const plotW = W - padL - padR, plotH = H - padT - padB;
-  const maxV = Math.max(1, ...bands.map(b => b.p90)) * 1.05;
+  const maxV = niceCeil(Math.max(1, ...bands.map(b => b.p90)) * 1.05);
   const x = i => padL + i / years * plotW;
   const yPix = v => padT + plotH - v / maxV * plotH;
 
@@ -6004,7 +6047,7 @@ function drawMcChart() {
   for (let g = 0; g <= 4; g++) {
     const v = maxV / 4 * g, py = yPix(v);
     ctx.beginPath(); ctx.moveTo(padL, py); ctx.lineTo(W - padR, py); ctx.stroke();
-    ctx.fillText(CUR() + (v >= 1e6 ? (v / 1e6).toFixed(1) + "m" : Math.round(v / 1000) + "k"), padL - 5, py + 3);
+    ctx.fillText(axisMoney(v), padL - 5, py + 3);
   }
   const band = (lo, hi, color) => {
     ctx.beginPath();
@@ -6019,8 +6062,8 @@ function drawMcChart() {
   ctx.stroke();
 
   ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center";
-  const step = Math.ceil(years / 6);
-  for (let i = 0; i <= years; i += step) ctx.fillText(startYear + i, x(i), H - 8);
+  yearTicks(ctx, startYear, startYear + years, W - padL - padR)
+    .forEach(y => ctx.fillText(y, x(y - startYear), H - 8));
 
   const pct = lastMc.successPct;
   describeChart("mcChart",
@@ -6097,7 +6140,7 @@ function drawLongevityChart(model) {
   const pts = data.points;
   if (!pts.length) return;
   buildLongevityTable(data);
-  const padL = 46, padR = 14, padT = 20, padB = data.hasSpouse ? 48 : 34;
+  const padL = 46, padR = 14, padT = 20, padB = (data.hasSpouse && !narrowScreen()) ? 48 : 34;
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const a0 = pts[0].ageYou, a1 = pts[pts.length - 1].ageYou;
   const x = a => padL + (a - a0) / Math.max(1, a1 - a0) * plotW;
@@ -6130,7 +6173,14 @@ function drawLongevityChart(model) {
   line("portfolio", "#5b6cc9", 2.4);   // blue portfolio success
 
   // survival markers: 50% and 10% ages
-  [["50% chance of survival", data.age50, padT + 12], ["10% chance of survival", data.age10, padT + 28]].forEach(([label, age, ly]) => {
+  // On a phone the long "50% chance of survival" captions sat straight across
+  // the plotted lines, so label the markers at the FOOT of their own dashed
+  // line, short, and let the caption below the chart carry the wording.
+  const compactL = narrowScreen();
+  const markers = compactL
+    ? [["50% alive", data.age50, padT + plotH - 6], ["10% alive", data.age10, padT + plotH - 20]]
+    : [["50% chance of survival", data.age50, padT + 12], ["10% chance of survival", data.age10, padT + 28]];
+  markers.forEach(([label, age, ly]) => {
     if (age < a0 || age > a1) return;
     const px = x(age);
     ctx.strokeStyle = themeColor("--ink-faint", "#9aa39f"); ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
@@ -6140,18 +6190,27 @@ function drawLongevityChart(model) {
     ctx.fillText(label, px + (ctx.textAlign === "right" ? -5 : 5), ly);
   });
 
-  // x labels: your age (and spouse age below for a couple)
+  // x labels: your age (and spouse age below for a couple). Two age rows plus a
+  // caption is three lines of chrome - too much on a phone, so a narrow screen
+  // shows your age only and says so in the axis title.
+  const twoRows = data.hasSpouse && !compactL;
   ctx.fillStyle = themeColor("--ink-faint", "#999"); ctx.textAlign = "center"; ctx.font = chartFont(12);
-  const step = Math.max(1, Math.ceil((a1 - a0) / 9));
-  for (let a = a0; a <= a1; a += step) {
-    ctx.fillText(a, x(a), H - (data.hasSpouse ? 30 : 12));
-    if (data.hasSpouse) {
+  // step sized from the measured label width so ages never print on each other
+  const aw = ctx.measureText("000").width + (compactL ? 16 : 22);
+  const perRoom = Math.max(2, Math.floor(plotW / aw));
+  let astep = Math.ceil((a1 - a0) / perRoom);
+  astep = [1, 2, 5, 10, 20].find(v => v >= astep) || astep;
+  for (let a = a0; a <= a1; a += astep) {
+    ctx.fillText(a, x(a), H - (twoRows ? 30 : 12));
+    if (twoRows) {
       const pt = pts.find(p => p.ageYou === a);
       if (pt) { ctx.fillStyle = themeColor("--ink-faint", "#bcc4bf"); ctx.fillText(pt.ageSp, x(a), H - 12); ctx.fillStyle = themeColor("--ink-faint", "#999"); }
     }
   }
-  ctx.textAlign = "left"; ctx.fillStyle = themeColor("--ink-muted", "#5b6a63"); ctx.font = chartFont(11);
-  ctx.fillText(data.hasSpouse ? "Your age / spouse age" : "Your age", padL, H - 1);
+  if (!compactL) {
+    ctx.textAlign = "left"; ctx.fillStyle = themeColor("--ink-muted", "#5b6a63"); ctx.font = chartFont(11);
+    ctx.fillText(data.hasSpouse ? "Your age / spouse age" : "Your age", padL, H - 1);
+  }
 
   const h = data.headline;
   els("longevityLegend").innerHTML = [
