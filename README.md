@@ -278,7 +278,12 @@ A pension planner is used across a very wide age range, so the interface is buil
   thumb-drag crosses the whole range; letting go re-scales it to a **fine window** around where you
   landed, so the same travel now tunes the value precisely. Dragging to the edge of that window pops
   back out to coarse, and typing in the field resets it. Each slider is named from its own label and
-  announces its value through `aria-valuetext`.
+  announces its value through `aria-valuetext`. This covers **every** editable number, including the
+  ones inside dynamically rendered asset rows (employer pensions, share accounts, DB income and start
+  age, property and vehicles) - those are built as markup, so the generic pass never sees them and
+  they are re-geared explicitly each time the rows re-render. Only free-text fields and the Monte
+  Carlo run count are excluded; `slidercover_test.py` fails the build if anything else loses its
+  slider.
 - **Keyboard.** A skip link, a real ARIA tablist (arrow keys, Home/End, roving tabindex), a
   three-pixel two-tone focus ring that clears 3:1 on every theme, and `scroll-margin` so a focused
   control is never left under the sticky bars (SC 2.4.7, 2.4.11, 2.4.13). Dialogs move focus in,

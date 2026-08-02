@@ -2931,8 +2931,8 @@ function assetMoneyField(label, field, value, opts) {
     <input type="text" ${moneyAttr} data-money="0" data-field="${field}" value="${fmtNum(v)}">
     <input type="range" class="fld-slider asset-slider" tabindex="-1" min="0" max="${max}" step="${step}" value="${v}" aria-label="Adjust ${label}"></div>`;
 }
-// A percentage input with an inline slider (for growth rate, release %, etc.).
-function assetPctField(label, field, value, opts) {
+// A plain-number input with an inline slider (growth rate, release %, an age).
+function assetNumField(label, field, value, opts) {
   opts = opts || {};
   const v = value == null ? (opts.def || 0) : Number(value);
   const max = opts.max || 100, step = opts.step || (max <= 15 ? 0.5 : 1);
@@ -2967,15 +2967,11 @@ function renderOwnerAssets(owner) {
           <option value="DB"${isDB ? " selected" : ""}>Defined Benefit</option>
         </select></div>
       ${isDB ? `
-      <div class="field"><label>Annual income (£)</label>
-        <input type="text" ${moneyAttr} data-money="0" data-field="income" value="${fmtNum(a.income)}"></div>
-      <div class="field" style="flex:0 0 90px;"><label>From age</label>
-        <input type="number" data-field="startAge" min="0" max="100" value="${a.startAge}"></div>
+      ${assetMoneyField("Annual income (£)", "income", a.income, { max: 100000 })}
+      ${assetNumField("From age", "startAge", a.startAge, { max: 100, step: 1, flex: "0 0 110px" })}
       ` : `
-      <div class="field"><label>Value today (£)</label>
-        <input type="text" ${moneyAttr} data-money="0" data-field="value" value="${fmtNum(a.value)}"></div>
-      <div class="field"><label>Contribution (£/yr)</label>
-        <input type="text" ${moneyAttr} data-money="0" data-field="contribution" value="${fmtNum(a.contribution)}"></div>
+      ${assetMoneyField("Value today (£)", "value", a.value, { max: 2000000 })}
+      ${assetMoneyField("Contribution (£/yr)", "contribution", a.contribution, { max: 60000 })}
       `}
       <button type="button" class="remove-btn" data-remove="employerPensions" data-owner="${owner}" data-idx="${i}" aria-label="Remove">&times;</button>
     </div>`;
@@ -2985,8 +2981,7 @@ function renderOwnerAssets(owner) {
     <div class="asset-row" data-list="shares" data-owner="${owner}" data-idx="${i}">
       <div class="field"><label>Type</label>
         <select data-field="type">${optionsHtml(SHARE_TYPES, a.type)}</select></div>
-      <div class="field"><label>Value (£)</label>
-        <input type="text" ${moneyAttr} data-money="0" data-field="value" value="${fmtNum(a.value)}"></div>
+      ${assetMoneyField("Value (£)", "value", a.value, { max: 1000000 })}
       <button type="button" class="remove-btn" data-remove="shares" data-owner="${owner}" data-idx="${i}" aria-label="Remove">&times;</button>
     </div>`).join("") : `<div class="asset-empty">No share accounts yet.</div>`;
 
@@ -3006,8 +3001,8 @@ function renderOwnerAssets(owner) {
       ${canDownsize ? `
       <div class="field" style="flex:0 0 110px;"><label>Downsize in year</label>
         <input type="number" data-field="downsizeYear" min="2020" max="2100" placeholder="—" value="${a.downsizeYear || ""}"></div>
-      ${assetPctField("Growth %/yr", "growthPct", growth, { max: 12, def: 3, flex: "0 0 120px" })}
-      ${assetPctField("Release %", "releasePct", relPct, { max: 100, def: 100, flex: "0 0 120px" })}
+      ${assetNumField("Growth %/yr", "growthPct", growth, { max: 12, def: 3, flex: "0 0 120px" })}
+      ${assetNumField("Release %", "releasePct", relPct, { max: 100, def: 100, flex: "0 0 120px" })}
       <div class="field" style="flex:1 1 180px;"><label>Projected release</label>
         <div class="prop-projection" data-projection>${propProjectionText(a)}</div></div>
       ` : ""}
@@ -3037,6 +3032,9 @@ function propProjectionText(a) {
 function renderAssetLists() {
   renderOwnerAssets("you");
   renderOwnerAssets("spouse");
+  // These rows are rebuilt wholesale, so their sliders are new elements each
+  // time and need the two-gear stepping applied again.
+  if (typeof gearAssetSliders === "function") gearAssetSliders();
 }
 
 function fmtNum(n) { return (Number(n) || 0).toLocaleString("en-GB"); }
@@ -7675,9 +7673,10 @@ function seedDemoProfiles() {
    SLIDERS: every static money/number input gets a companion range slider so
    values can be swept while every table and chart updates live.
    ========================================================================= */
+// Free text has nothing to slide, and mcRuns drives a heavy simulation that
+// shouldn't re-run on every thumb movement. Everything else numeric gets one.
 const SLIDER_EXCLUDE = new Set([
-  "profileNameInput", "accountEmail", "accountPassword",
-  "mcRuns", "giftStartYear", "oneOffYear",
+  "profileNameInput", "accountEmail", "accountPassword", "mcRuns",
 ]);
 
 // A few money fields want a different slider ceiling than the generic default.
@@ -7748,6 +7747,53 @@ function sliderGear(r, gear, v) {
   r.value = v;
 }
 
+/* Settle into the fine gear when the drag ends near where you landed; if you
+   ran to the end of a fine window, go back to coarse so you can travel again. */
+function settleSliderGear(r) {
+  const t = r._tiers;
+  if (!t) return;
+  const v = Number(r.value);
+  if (r.dataset.gear === "fine") {
+    const atEdge = v <= Number(r.min) + t.fine / 2 || v >= Number(r.max) - t.fine / 2;
+    sliderGear(r, atEdge && t.max - t.min > t.window * 2 ? "coarse" : "fine", v);
+  } else {
+    sliderGear(r, "fine", v);
+  }
+}
+
+/* Sliders inside asset rows are written as markup by the list renderers, so
+   attachSliders() never sees them - they used to be stuck on one fixed step
+   (a £1,000 step over a £2m property is 2,000 drag positions on a phone).
+   Give them the same two gears, derived from the range the renderer chose. */
+function gearAssetSliders() {
+  document.querySelectorAll("input.asset-slider").forEach(r => {
+    if (r._tiers) return;
+    const paired = r.previousElementSibling;
+    const money = paired && paired.dataset.money !== undefined;
+    const min = Number(r.min) || 0, max = Number(r.max) || 100, span = max - min;
+    let coarse, fine;
+    if (money) {
+      coarse = span >= 50000 ? 5000 : span >= 10000 ? 1000 : span >= 2000 ? 100 : 50;
+      fine = Math.max(coarse / 20, span >= 50000 ? 100 : 10);
+    } else {
+      fine = Number(r.step) || 1;
+      coarse = Math.min(Math.max(fine * 5, 5), Math.max(fine, span / 10));
+    }
+    if (coarse < fine) coarse = fine;
+    r._tiers = { min, max, coarse, fine, window: coarse * 5 };
+    sliderGear(r, "coarse", Number(r.value) || min);
+  });
+}
+// The rows are re-rendered wholesale, so re-gear after any of them change.
+document.addEventListener("pointerup", e => {
+  const r = e.target.closest(".asset-slider");
+  if (r) settleSliderGear(r);
+});
+document.addEventListener("change", e => {
+  const r = e.target.closest(".asset-slider");
+  if (r) settleSliderGear(r);
+});
+
 function attachSliders() {
   document.querySelectorAll("input[type=number], input[data-money]").forEach(inp => {
     if (!inp.id || SLIDER_EXCLUDE.has(inp.id) || inp.dataset.hasSlider) return;
@@ -7781,19 +7827,7 @@ function attachSliders() {
       if (raf) return;
       raf = requestAnimationFrame(() => { raf = null; onUserChange(); });
     });
-    // Settle into the fine gear when the drag ends near where you landed; if
-    // you ran to the end of a fine window, go back to coarse so you can travel.
-    const settle = () => {
-      const v = Number(r.value);
-      const t = r._tiers;
-      if (r.dataset.gear === "fine") {
-        const atEdge = v <= Number(r.min) + t.fine / 2 || v >= Number(r.max) - t.fine / 2;
-        sliderGear(r, atEdge && t.max - t.min > t.window * 2 ? "coarse" : "fine", v);
-      } else {
-        sliderGear(r, "fine", v);
-      }
-      announce();
-    };
+    const settle = () => { settleSliderGear(r); announce(); };
     r.addEventListener("change", settle);
     r.addEventListener("pointerup", settle);
     r.addEventListener("keyup", settle);
