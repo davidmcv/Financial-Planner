@@ -25,14 +25,14 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Ledger &amp; Later">
+<meta name="apple-mobile-web-app-title" content="Quids In">
 <meta name="format-detection" content="telephone=no">
-<title>Pension Planner</title>
+<title>Quids In — Retirement Planner</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>&#127807;</text></svg>">
 <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23000'/><text y='0.86em' x='12' font-size='76'>&#127807;</text></svg>">
 <!-- Manifest inlined as a data URI so the app stays a single portable file:
      "Add to Home Screen" then launches it standalone, like an installed app. -->
-<link rel="manifest" href='data:application/manifest+json,{"name":"Ledger %26 Later — Retirement Planner","short_name":"Ledger %26 Later","display":"standalone","orientation":"portrait-primary","background_color":"%23000000","theme_color":"%23000000","start_url":".","scope":".","icons":[{"src":"data:image/svg%2Bxml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect width=%27100%27 height=%27100%27 rx=%2722%27 fill=%27%23000%27/%3E%3Ctext y=%270.86em%27 x=%2712%27 font-size=%2776%27%3E🌿%3C/text%3E%3C/svg%3E","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}'>
+<link rel="manifest" href='data:application/manifest+json,{"name":"Quids In — Retirement Planner","short_name":"Quids In","display":"standalone","orientation":"portrait-primary","background_color":"%23000000","theme_color":"%23000000","start_url":".","scope":".","icons":[{"src":"data:image/svg%2Bxml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect width=%27100%27 height=%27100%27 rx=%2722%27 fill=%27%23000%27/%3E%3Ctext y=%270.86em%27 x=%2712%27 font-size=%2776%27%3E🌿%3C/text%3E%3C/svg%3E","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}'>
 <style>
   /* THEMES. Default = Night: true black & white (no green). Day = white &
      black. Forest = the previous dark-green look, kept as an option.
@@ -145,9 +145,14 @@
     min-height: 100vh;
   }
 
-  /* ---------- Nav rail ---------- */
+  /* ---------- Nav rail ----------
+     Width is a variable so collapsing is one animated property rather than a
+     pile of coordinated rules. Collapsed, the rail keeps its icons and stays
+     usable; it doesn't vanish, so the tabs are always one click away. */
+  .app { --rail-w: 220px; --rail-w-collapsed: 62px; }
   .rail {
-    flex: 0 0 220px;
+    flex: 0 0 var(--rail-w);
+    width: var(--rail-w);
     background: var(--surface);
     border-right: 1px solid var(--border);
     display: flex;
@@ -157,6 +162,53 @@
     position: sticky;
     top: 0;
     height: 100vh;
+    overflow: hidden;
+    transition: flex-basis 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                padding 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  /* The concertina: the rail narrows, and everything that needs the width
+     folds away with it - labels squeeze to nothing rather than wrapping or
+     being clipped mid-word on the way. */
+  .app.rail-collapsed { --rail-w: var(--rail-w-collapsed); }
+  .app.rail-collapsed .rail { padding-left: 8px; padding-right: 8px; }
+  .rail .fold {
+    overflow: hidden;
+    transition: max-width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.18s ease, margin 0.28s ease;
+    max-width: 200px; opacity: 1; white-space: nowrap;
+  }
+  .app.rail-collapsed .rail .fold { max-width: 0; opacity: 0; margin: 0; }
+  /* Whole blocks that make no sense at 62px wide collapse to zero height. */
+  .app.rail-collapsed .rail .rail-fold-block {
+    max-height: 0; opacity: 0; margin: 0; padding: 0; overflow: hidden;
+    transition: max-height 0.28s ease, opacity 0.15s ease;
+  }
+  .rail .rail-fold-block { max-height: 400px; opacity: 1; transition: max-height 0.3s ease, opacity 0.25s ease 0.05s; }
+  .app.rail-collapsed .tab-btn { justify-content: center; padding-left: 6px; padding-right: 6px; }
+  .app.rail-collapsed .brand { align-items: center; padding: 0; }
+  .app.rail-collapsed .settings-btn { justify-content: center; padding-left: 8px; padding-right: 8px; }
+
+  /* The handle itself. Sits at the top of the rail, rotates its chevron, and
+     stays a full-size target in both states. */
+  .rail-toggle {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    background: var(--surface-2); color: var(--ink-muted);
+    border: 1px solid var(--control-border); border-radius: 9px;
+    font: inherit; font-size: 0.78rem; padding: 7px 10px; cursor: pointer;
+    min-height: 34px; flex: 0 0 auto;
+  }
+  .rail-toggle:hover { border-color: var(--accent); color: var(--ink); }
+  .rail-toggle .chev { transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1); font-size: 0.9rem; line-height: 1; }
+  .app.rail-collapsed .rail-toggle .chev { transform: rotate(180deg); }
+  /* One letter stands in for the wordmark once there is no room for it. */
+  .brand-short { display: none; font-family: var(--font-display); font-weight: 700; }
+  .app.rail-collapsed .brand-short { display: inline; }
+
+  /* Motion is decoration here - the layout must still change instantly for
+     anyone who has asked the OS for less of it (WCAG 2.3.3). */
+  @media (prefers-reduced-motion: reduce) {
+    .rail, .rail .fold, .rail .rail-fold-block, .rail-toggle .chev { transition: none !important; }
   }
   .brand {
     display: flex;
@@ -171,6 +223,7 @@
     color: var(--ink);
   }
   .brand .sub {
+    white-space: normal;
     font-size: 0.72rem;
     color: var(--ink-faint);
     letter-spacing: 0.04em;
@@ -250,8 +303,10 @@
   .card h2 { font-size: 1.05rem; margin-bottom: 14px; }
   .card h3 { font-size: 0.95rem; margin-bottom: 10px; color: var(--ink); }
 
-  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-  @media (max-width: 760px) { .grid-2 { grid-template-columns: 1fr; } }
+  /* Two columns only while both are wide enough to be worth having. Driven by
+     the available space rather than a fixed breakpoint, so it still does the
+     right thing when the rail is collapsed or the window is an odd shape. */
+  .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 18px; }
 
   .field { display: flex; flex-direction: column; gap: 6px; }
   .field label { font-size: 0.78rem; color: var(--ink-muted); letter-spacing: 0.01em; }
@@ -276,7 +331,14 @@
   .field-row .field { min-width: 0; }
   /* Reserve two lines for every field label so a wrapping label doesn't push
      its input below its neighbours - inputs line up across each section. */
-  .field-row > .field > label { min-height: 2.35em; line-height: 1.15; display: flex; align-items: flex-start; }
+  /* Flex makes each child of the label its own item and discards the
+     whitespace text nodes between them, so "Your gross salary £60,000 (slide
+     to vary)" rendered with no spaces at all. The gap puts them back, and
+     wrapping keeps a long label inside its column. */
+  .field-row > .field > label {
+    min-height: 2.35em; line-height: 1.15;
+    display: flex; align-items: flex-start; flex-wrap: wrap; gap: 0 0.34em;
+  }
   .field-row .check-inline { align-self: center; }
 
   /* ---------- Charts (planner + Monte Carlo) ---------- */
@@ -571,6 +633,72 @@
     background: var(--accent-wash); color: var(--accent-strong);
   }
   .pill.gold { background: var(--gold-wash); color: var(--gold); }
+  .pill.good { background: var(--accent-wash); color: var(--good); }
+
+  /* ---------- Tax page ----------------------------------------------------
+     Every block on this page uses ONE four-column grid, so the same idea sits
+     in the same column all the way down: what came in, what tax took, what NI
+     took, what was left. "Salary today" and "First retirement year" used to be
+     separate auto-fit rows with four and three tiles, so nothing lined up -
+     Gross Salary sat above Gross Income only by accident, and Tax above Net.
+     Fixed columns cost an empty cell in retirement (there is no NI on pension
+     income), which is worth saying out loud anyway. */
+  .tax-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    align-items: stretch;
+  }
+  .tax-grid .stat { min-width: 0; }
+  .tax-grid .stat .value { font-size: 1.12rem; }
+  .tax-grid .stat.empty {
+    background: transparent; border: 1px dashed var(--border);
+    justify-content: center;
+  }
+  .tax-grid .stat.empty .label { color: var(--ink-faint); }
+  .tax-grid .stat.empty .sub { color: var(--ink-faint); font-style: italic; }
+  /* Below four legible columns, fold to two - keeping Gross above NI and Tax
+     above Net, which still reads as a table rather than a jumble. */
+  @media (max-width: 720px) { .tax-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @supports (container-type: inline-size) {
+    @container (max-width: 560px) { .tax-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  }
+  .tax-section-head {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    margin: 16px 0 8px; flex-wrap: wrap;
+  }
+  .tax-section-head h3 { margin: 0; }
+  /* --ink-faint is 4.38:1 against the Combined card's tinted background - just
+     under the 4.5:1 AA floor for text this size, so this one steps up a tone. */
+  .tax-section-head .when { font-size: 0.76rem; color: var(--ink-muted); }
+  /* The combined household block leads the page, so it is marked out from the
+     per-person cards below it rather than looking like a third person. */
+  .card.tax-combined { border-color: var(--accent); background: var(--accent-wash); }
+  .card.tax-combined .stat { background: var(--surface); }
+
+  /* One optimisation option. */
+  .taxopt {
+    border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;
+    margin-bottom: 10px; background: var(--surface-2);
+  }
+  .taxopt.na { opacity: 0.72; }
+  .taxopt-head { display: flex; align-items: baseline; gap: 10px; justify-content: space-between; flex-wrap: wrap; }
+  .taxopt-head h4 { margin: 0; font-size: 0.92rem; font-family: var(--font-display); }
+  .taxopt-save { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+  .taxopt-save.yes { color: var(--good); }
+  .taxopt-save.no { color: var(--ink-faint); font-weight: 400; }
+  .taxopt p { margin: 6px 0 0; font-size: 0.84rem; color: var(--ink-muted); line-height: 1.45; }
+  /* An inline "reset" that reads as a link but is a real button. */
+  .link-btn {
+    background: none; border: none; padding: 0; font: inherit; font-size: inherit;
+    color: var(--accent-strong, var(--accent)); text-decoration: underline;
+    cursor: pointer; min-height: 0; min-width: 0;
+  }
+  .taxopt .tag {
+    font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 2px 7px; border-radius: 5px; background: var(--surface); color: var(--ink-faint);
+    border: 1px solid var(--border); white-space: nowrap;
+  }
   .pill.warn { background: var(--critical-wash); color: var(--critical); }
 
   .person-card { display: flex; flex-direction: column; gap: 14px; }
@@ -648,6 +776,10 @@
     border: none; padding: 6px 12px; cursor: pointer;
   }
   .wording-seg button.active { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+  /* In the rail there is no room for four across; wrap instead of clipping. */
+  .rail .wording-seg { flex-wrap: wrap; border-radius: 10px; }
+  .rail .wording-seg button { flex: 1 1 44%; min-width: 0; }
+  .rail .profile-box .hint { font-size: 0.68rem; line-height: 1.3; }
 
   /* ---------- Mobile top bar + bottom nav (hidden on desktop) ---------- */
   .mobilebar, .bottomnav { display: none; }
@@ -752,6 +884,72 @@
     .stat-row { gap: 8px; }
   }
 
+  /* ---------- Responding to the real size of the screen -------------------
+     The app used to change at exactly one width (860px) and was otherwise
+     fixed, so every size in between - a tablet, a half-width desktop window,
+     a landscape phone - got a layout meant for something else. These rules
+     scale it continuously instead, on BOTH axes. */
+
+  /* Tablets and narrow desktop windows: a slimmer rail rather than the full
+     220px, which is dead space at that size. */
+  @media (min-width: 861px) and (max-width: 1100px) {
+    .app { --rail-w: 178px; }
+    .rail { padding: 16px 10px; gap: 14px; }
+    .tab-btn { font-size: 0.86rem; padding: 9px 8px; }
+  }
+
+  /* Very wide screens: let the content breathe instead of stranding it in a
+     1040px column with acres of empty space either side. */
+  @media (min-width: 1500px) { .content { max-width: 1320px; } }
+  @media (min-width: 1900px) { .content { max-width: 1560px; } }
+
+  /* SHORT screens - a landscape phone, or a small laptop with the browser
+     chrome eating half the height. Height matters as much as width here and
+     nothing was reacting to it: the sticky rail and the fixed bottom bar
+     between them could leave almost nothing to read. */
+  @media (max-height: 560px) {
+    .rail { padding-top: 10px; padding-bottom: 10px; gap: 10px; overflow-y: auto; }
+    .brand .sub { display: none; }
+    .panel { gap: 12px; }
+    .card { padding: 14px 16px; }
+    .panel-head { margin-bottom: 0; }
+    .panel-head p { display: none; }   /* the explanatory paragraph is the first thing to go */
+  }
+  @media (max-height: 560px) and (max-width: 860px) {
+    .bottomnav { padding-top: 2px; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 2px); }
+    .bottomnav .tab-btn { min-height: 38px; font-size: 0.55rem; }
+    .bottomnav .tab-btn .icon { font-size: 0.95rem; }
+    .mobilebar { padding-top: calc(env(safe-area-inset-top, 0px) + 4px); padding-bottom: 4px; }
+    .content { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 62px); }
+  }
+
+  /* Fine-pointer vs touch: coarse pointers need bigger targets whatever the
+     screen size, which is a better test than guessing from width alone (a
+     large tablet is touch; a small laptop window is not). */
+  @media (pointer: coarse) {
+    .field input, .field select, .profile-row select { min-height: 44px; }
+    .icon-btn, .remove-btn { min-width: 40px; min-height: 40px; }
+    input.fld-slider { height: 6px; }
+    input.fld-slider::-webkit-slider-thumb { width: 22px; height: 22px; }
+    input.fld-slider::-moz-range-thumb { width: 22px; height: 22px; }
+  }
+
+  /* Cards lay themselves out from THEIR OWN width, not the window's, so a card
+     in a narrow column stacks even on a wide screen - which is what happens
+     the moment the rail expands or a panel is split. */
+  @supports (container-type: inline-size) {
+    .card { container-type: inline-size; }
+    @container (max-width: 460px) {
+      .field-row { grid-template-columns: 1fr; }
+      .stat-row { grid-template-columns: 1fr 1fr; }
+      .asset-row { flex-direction: column; align-items: stretch; }
+      .asset-row .remove-btn { align-self: flex-end; }
+    }
+    @container (max-width: 300px) {
+      .stat-row { grid-template-columns: 1fr; }
+    }
+  }
+
   /* Launched from the home screen: no browser chrome, so the app itself must
      pad for the status bar and the home indicator. */
   @media (display-mode: standalone) {
@@ -849,38 +1047,43 @@
 
 <a class="skip-link" href="#mainContent">Skip to the planner</a>
 <div class="app">
-  <aside class="rail">
+  <aside class="rail" id="rail">
+    <button type="button" class="rail-toggle" id="railToggle" aria-expanded="true" aria-controls="rail"
+            title="Collapse the menu (Ctrl + \)">
+      <span class="chev" aria-hidden="true">&#9666;</span>
+      <span class="fold" id="railToggleText">Collapse</span>
+    </button>
     <div class="brand">
-      <span class="mark">Ledger &amp; Later</span>
-      <span class="sub">Retirement &amp; Pension Planner</span>
+      <span class="mark"><span class="brand-short" aria-hidden="true">Q</span><span class="fold">Quids In</span></span>
+      <span class="sub rail-fold-block">Retirement &amp; Pension Planner</span>
     </div>
     <!-- A real ARIA tablist: arrow keys move between tabs, Home/End jump to the
          ends, and only the selected tab is a tab stop (roving tabindex). The
          emoji are decoration, so they are hidden from screen readers. -->
     <nav class="tabs" id="tabs" role="tablist" aria-label="Planner sections">
-      <button class="tab-btn active" id="tabbtn-people" role="tab" aria-selected="true" aria-controls="tab-people" data-tab="people"><span class="icon" aria-hidden="true">&#128100;</span>People</button>
-      <button class="tab-btn" id="tabbtn-salary" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-salary" data-tab="salary"><span class="icon" aria-hidden="true">&#8681;</span>Paying In</button>
-      <button class="tab-btn" id="tabbtn-projection" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-projection" data-tab="projection"><span class="icon" aria-hidden="true">&#8679;</span>Paying Out</button>
-      <button class="tab-btn" id="tabbtn-planner" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-planner" data-tab="planner"><span class="icon" aria-hidden="true">&#128506;</span>Planner</button>
-      <button class="tab-btn" id="tabbtn-tax" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-tax" data-tab="tax"><span class="icon" aria-hidden="true">&#9878;</span>Tax</button>
-      <button class="tab-btn" id="tabbtn-gifting" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-gifting" data-tab="gifting"><span class="icon" aria-hidden="true">&#127873;</span>Gifting</button>
+      <button class="tab-btn active" id="tabbtn-people" role="tab" aria-selected="true" aria-controls="tab-people" data-tab="people"><span class="icon" aria-hidden="true">&#128100;</span><span class="fold">People</span></button>
+      <button class="tab-btn" id="tabbtn-salary" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-salary" data-tab="salary"><span class="icon" aria-hidden="true">&#8681;</span><span class="fold">Paying In</span></button>
+      <button class="tab-btn" id="tabbtn-projection" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-projection" data-tab="projection"><span class="icon" aria-hidden="true">&#8679;</span><span class="fold">Paying Out</span></button>
+      <button class="tab-btn" id="tabbtn-planner" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-planner" data-tab="planner"><span class="icon" aria-hidden="true">&#128506;</span><span class="fold">Planner</span></button>
+      <button class="tab-btn" id="tabbtn-tax" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-tax" data-tab="tax"><span class="icon" aria-hidden="true">&#9878;</span><span class="fold">Tax</span></button>
+      <button class="tab-btn" id="tabbtn-gifting" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-gifting" data-tab="gifting"><span class="icon" aria-hidden="true">&#127873;</span><span class="fold">Gifting</span></button>
     </nav>
     <div class="rail-footer">
-      <div class="profile-box" style="padding: 0;">
+      <div class="rail-fold-block profile-box" style="padding: 0;">
         <span class="profile-label" id="viewLevelLabel">View</span>
         <div class="wording-seg level-seg" style="width: 100%;" role="group" aria-labelledby="viewLevelLabel">
           <button data-level="simple" style="flex:1;" aria-pressed="false">Simple</button>
           <button data-level="advanced" style="flex:1;" aria-pressed="false">Advanced</button>
         </div>
       </div>
-      <div class="profile-box" style="padding: 0;">
+      <div class="rail-fold-block profile-box" style="padding: 0;">
         <span class="profile-label" id="themeLabel">Theme</span>
         <div class="wording-seg theme-seg" style="width: 100%;" role="group" aria-labelledby="themeLabel">
           <button data-app-theme="night" style="flex:1;" aria-pressed="false">Night</button>
           <button data-app-theme="day" style="flex:1;" aria-pressed="false">Day</button>
         </div>
       </div>
-      <div class="profile-box" style="padding: 0;">
+      <div class="rail-fold-block profile-box" style="padding: 0;">
         <span class="profile-label" id="textSizeLabel">Text size</span>
         <div class="wording-seg text-seg" style="width: 100%;" role="group" aria-labelledby="textSizeLabel">
           <button data-text-scale="1" style="flex:1; font-size: 0.72rem;" aria-label="Normal text size">A</button>
@@ -889,7 +1092,7 @@
           <button data-text-scale="1.5" style="flex:1; font-size: 1.12rem;" aria-label="Largest text size">A</button>
         </div>
       </div>
-      <div class="profile-box" style="padding: 0;">
+      <div class="rail-fold-block profile-box" style="padding: 0;">
         <span class="profile-label" id="chartModeLabel">Charts on a phone</span>
         <div class="wording-seg chartmode-seg" style="width: 100%;" role="group" aria-labelledby="chartModeLabel">
           <button data-chart-mode="full" style="flex:1;" aria-pressed="false">Full</button>
@@ -899,13 +1102,13 @@
         </div>
         <span class="hint" style="padding: 0 2px 4px;">Applies on phone-width screens (under 700px).</span>
       </div>
-      <button class="settings-btn" id="openSettings"><span aria-hidden="true">&#9881;</span> Assumptions</button>
+      <button class="settings-btn" id="openSettings" title="Shared assumptions"><span aria-hidden="true">&#9881;</span><span class="fold">Assumptions</span></button>
     </div>
   </aside>
 
   <!-- Mobile top bar -->
   <header class="mobilebar">
-    <span class="mark">Ledger &amp; Later</span>
+    <span class="mark">Quids In</span>
     <span class="spacer"></span>
     <div class="wording-seg level-seg" role="group" aria-label="Detail level">
       <button data-level="simple" aria-pressed="false">Simple</button>
@@ -1850,6 +2053,22 @@
         </div>
       </div>
       <div id="taxCards"></div>
+
+      <div class="card" id="taxOptimiseCard">
+        <div class="person-title">
+          <h2>&#128161; Ways to pay less tax</h2>
+          <span class="pill" id="taxOptCount"></span>
+        </div>
+        <p class="caption" style="margin: -4px 0 10px;">Checked against <b>your</b> figures, not general advice &mdash; each one
+          says whether it applies to you and what it is worth. Ordered by size of saving.</p>
+        <div class="wording-seg taxopt-seg" role="group" aria-label="Which options to show" style="margin-bottom: 12px;">
+          <button data-taxopt="all" class="active">All</button>
+          <button data-taxopt="working">While working</button>
+          <button data-taxopt="retired">In retirement</button>
+        </div>
+        <div id="taxOptimiseList"></div>
+      </div>
+
       <p class="caption">Simplified models of each country's headline income tax (UK includes National Insurance and the Scotland/rest-of-UK band differences; Australia includes the Medicare levy and tax-free super from 60; US is federal only; France is the bar&egrave;me with household parts, excluding social charges). Planning estimates, not tax advice.</p>
     </section>
 
@@ -7377,6 +7596,235 @@ function renderStrategies(model) {
 /* =========================================================================
    TAX TAB
    ========================================================================= */
+/* =========================================================================
+   WAYS TO PAY LESS TAX
+   Each option is checked against the plan's own figures and carries the money
+   it is worth, so the list ranks itself and says plainly when something does
+   not apply. Generic tips would be easy to write and useless to act on.
+
+   UK-specific thresholds are named constants read from TAXDATA where they
+   exist, so they move with the tax tables rather than being frozen here.
+   ========================================================================= */
+const UK_THRESHOLDS = {
+  marriageAllowance: 1260,       // transferable slice of the personal allowance
+  taperFrom: 100000,             // personal allowance taper start
+  cgtAllowance: 3000,            // annual exempt amount, 2025/26
+};
+
+function taxOptimisations(model, you, spouse) {
+  const opts = [];
+  const uk = currentCountry === "UK";
+  const PA = TAXDATA.UK.pa, HR = TAXDATA.UK.bands[1][0];   // 12,570 / 50,270
+  const taperTo = TAXDATA.UK.bands[2][0];                  // 125,140
+  const scot = model.inp.scotland === "scot";
+  const money = v => gbp0(v);
+  const add = o => opts.push(Object.assign({ phase: "working", saving: 0, applies: false }, o));
+
+  if (!uk) {
+    add({ id: "nonuk", phase: "working", title: "Country-specific reliefs", applies: false,
+      why: `These options are modelled for the <b>UK</b>. This plan is set to
+            ${COUNTRIES[currentCountry].name}, so they aren't checked against your figures.` });
+    return opts;
+  }
+
+  const people = [you].concat(spouse ? [spouse] : []);
+  const label = f => (f.who === "spouse" ? "Your spouse" : "You");
+  const verb = f => (f.who === "spouse" ? "is" : "are");
+
+  /* ---- While working ---------------------------------------------------- */
+
+  // 1. The 60% band. Between £100,000 and £125,140 the personal allowance is
+  //    withdrawn £1 for every £2, so each extra £1 of salary is taxed twice
+  //    over. A pension contribution back down to £100,000 is the single
+  //    biggest lever in the UK system.
+  people.forEach(f => {
+    const sal = f.salary;
+    if (sal > UK_THRESHOLDS.taperFrom && sal <= taperTo + 5000) {
+      const excess = Math.min(sal, taperTo) - UK_THRESHOLDS.taperFrom;
+      // 40% on the slice, plus 40% on the allowance lost (half the slice)
+      const saving = excess * 0.40 + Math.min(excess / 2, PA) * 0.40;
+      add({ id: "taper" + f.who, phase: "working", applies: true, saving,
+        title: `${label(f)}: pay ${money(excess)} into a pension to escape the 60% band`,
+        why: `${label(f)} ${verb(f)} on ${money(sal)}, inside the
+              ${money(UK_THRESHOLDS.taperFrom)}&ndash;${money(taperTo)} band where every extra
+              pound of salary also takes 50p of personal allowance away &mdash; an effective
+              <b>60%</b> rate. Paying the ${money(excess)} above ${money(UK_THRESHOLDS.taperFrom)}
+              into a pension restores the allowance in full. The money is still yours; it is just
+              in the pension instead of taxed away.` });
+    } else if (sal > HR) {
+      const excess = Math.min(sal, UK_THRESHOLDS.taperFrom) - HR;
+      const rate = scot ? 0.42 : 0.40;
+      add({ id: "hr" + f.who, phase: "working", applies: excess > 0, saving: excess * rate,
+        title: `${label(f)}: ${money(excess)} of salary is taxed at ${Math.round(rate * 100)}%`,
+        why: `Anything ${label(f).toLowerCase()} pay${f.who === "spouse" ? "s" : ""} into a pension
+              from that slice gets ${Math.round(rate * 100)}% relief &mdash; and by salary sacrifice
+              it also escapes National Insurance. Contributing the whole ${money(excess)} would take
+              ${label(f).toLowerCase()} back to the basic rate.` });
+    }
+  });
+
+  // 2. Marriage Allowance: only when one is a genuine non-taxpayer and the
+  //    other is a basic-rate payer. It is withdrawn entirely at higher rate,
+  //    which is why it is worth nothing to most couples who ask about it.
+  if (spouse) {
+    const low = you.salary <= spouse.salary ? you : spouse;
+    const high = low === you ? spouse : you;
+    const eligible = low.salary < PA && high.salary > PA && high.salary <= HR;
+    add({ id: "marriage", phase: "working", applies: eligible,
+      saving: eligible ? Math.round(UK_THRESHOLDS.marriageAllowance * 0.20) : 0,
+      title: "Marriage Allowance",
+      why: eligible
+        ? `${label(low)} earn${low.who === "spouse" ? "s" : ""} ${money(low.salary)}, under the
+           ${money(PA)} allowance, and ${label(high).toLowerCase()} ${verb(high)} a basic-rate
+           taxpayer. ${money(UK_THRESHOLDS.marriageAllowance)} of the unused allowance can be
+           transferred, worth ${money(UK_THRESHOLDS.marriageAllowance * 0.2)} a year, and can be
+           backdated four years.`
+        : `Needs one of you under the ${money(PA)} personal allowance and the other a
+           <b>basic-rate</b> taxpayer. It is withdrawn completely once the higher earner reaches
+           ${money(HR)}, so it doesn't apply here.` });
+  }
+
+  // 3. Income sitting in the wrong name. Two allowances and two basic-rate
+  //    bands are only any use if both are actually filled.
+  if (spouse) {
+    const gap = Math.max(0, Math.max(you.salary, spouse.salary) - HR);
+    const room = Math.max(0, HR - Math.min(you.salary, spouse.salary));
+    const shift = Math.min(gap, room);
+    add({ id: "split", phase: "working", applies: shift > 1000, saving: shift * (scot ? 0.42 : 0.40) - shift * 0.20,
+      title: "Hold savings and investments in the lower earner's name",
+      why: shift > 1000
+        ? `One of you is ${money(gap)} into higher rate while the other has ${money(room)} of
+           basic-rate band spare. Interest, dividends and taxable gains on assets held by the
+           lower earner are taxed at the lower rate &mdash; and transfers between spouses are
+           free of both CGT and IHT, so moving them costs nothing.`
+        : `Both of you are already in the same tax band, so moving assets between you wouldn't
+           change the tax. Worth revisiting if one of your salaries changes.` });
+  }
+
+  // 4. ISA allowance: the simplest shelter there is, and unlike a pension the
+  //    money comes back out completely untaxed.
+  const isaPeople = spouse ? 2 : 1;
+  add({ id: "isa", phase: "working", applies: true, saving: 0, noFigure: true,
+    title: `Use the ISA allowance &mdash; ${money(ISA_ANNUAL_LIMIT)} each, ${money(ISA_ANNUAL_LIMIT * isaPeople)} between you`,
+    why: `Unused allowance cannot be carried forward: what isn't used by 5 April is gone. Inside an
+          ISA there is no tax on interest, dividends or gains, and nothing to declare on the way
+          out &mdash; which makes it the natural place for money you may want before pension age,
+          and the bridge that lets you retire early.` });
+
+  /* ---- In retirement ---------------------------------------------------- */
+
+  people.forEach(f => {
+    if (!f.ret) return;
+    // Taxable part of a drawdown on the UFPLS basis
+    const taxablePart = f.ret.gross * (1 - TAXDATA.UK.ufplsTaxFree);
+
+    // 5. Unused personal allowance: income you could take at 0% and aren't.
+    if (taxablePart < PA - 500) {
+      const headroom = PA - taxablePart;
+      const extraGross = headroom / (1 - TAXDATA.UK.ufplsTaxFree);
+      add({ id: "pa" + f.who, phase: "retired", applies: true, saving: headroom * 0.20,
+        title: `${label(f)}: ${money(headroom)} of personal allowance going unused`,
+        why: `Only ${money(taxablePart)} of ${label(f).toLowerCase()}${f.who === "spouse" ? "'s" : "r"}
+              first-year income is taxable, against a ${money(PA)} allowance. Drawing about
+              ${money(extraGross)} more from the pension that year would still be taxed at
+              <b>nothing</b>, and could go straight into an ISA. Allowance not used in a tax year
+              is lost &mdash; this is the single most wasted relief in retirement.` });
+    }
+
+    // 6. Being pushed into higher rate by the pension itself.
+    if (taxablePart > HR) {
+      const over = taxablePart - HR;
+      add({ id: "hrret" + f.who, phase: "retired", applies: true, saving: over * 0.20,
+        title: `${label(f)}: ${money(over)} of retirement income is taxed at 40%`,
+        why: `Taking that slice from an <b>ISA or general savings instead</b> would leave the
+              pension untouched and the income out of higher rate. The same spending, ${money(over * 0.20)}
+              less tax &mdash; and it leaves more in the pension, which is outside the estate for
+              inheritance tax before April 2027.` });
+    }
+  });
+
+  // 7. Levelling retirement income between two people - the same household
+  //    total, split to use both sets of allowances and bands.
+  if (spouse && you.ret && spouse.ret) {
+    const a = you.ret.gross * (1 - TAXDATA.UK.ufplsTaxFree);
+    const b = spouse.ret.gross * (1 - TAXDATA.UK.ufplsTaxFree);
+    const now = ukIncomeTax(a, scot) + ukIncomeTax(b, model.inp.spouseScottish);
+    const even = (a + b) / 2;
+    const levelled = ukIncomeTax(even, scot) + ukIncomeTax(even, model.inp.spouseScottish);
+    const saving = Math.max(0, now - levelled);
+    add({ id: "level", phase: "retired", applies: saving > 50, saving,
+      title: "Even out what each of you draws",
+      why: saving > 50
+        ? `Your first-year incomes are lopsided, so one of you is paying at a higher rate while the
+           other has allowance to spare. Drawing the same household total but splitting it evenly
+           would cost ${money(saving)} less tax that year. Which pot the money comes out of is
+           usually yours to choose.`
+        : `Your two incomes already use both sets of allowances and bands about as well as they
+           can &mdash; levelling them further wouldn't save anything worth having.` });
+  }
+
+  // 8. Bed & ISA: moving taxable investments into the shelter a bit at a time.
+  add({ id: "bedisa", phase: "retired", applies: true, saving: 0, noFigure: true,
+    title: "Move taxable investments into an ISA each year",
+    why: `Selling up to the ${money(UK_THRESHOLDS.cgtAllowance)} capital gains allowance and buying
+          the same thing back inside an ISA moves it out of tax for good, at no cost while the gain
+          stays within the allowance. Done every year it steadily shrinks the taxable pot &mdash;
+          and there is a 30-day rule on buying back <i>outside</i> an ISA, which is exactly why the
+          ISA version works.` });
+
+  // 9. Order of withdrawal, and the IHT reason behind it.
+  add({ id: "order", phase: "retired", applies: true, saving: 0, noFigure: true,
+    title: "Draw in the right order: allowance, then ISA, then pension",
+    why: `Fill the ${money(PA)} personal allowance from the pension first because it costs no tax;
+          take anything above that from ISAs and savings, which are already taxed; and leave the
+          pension alone after that. Pensions sit <b>outside the estate</b> for inheritance tax on
+          deaths before April 2027, so a pound left in a pension is worth more to whoever inherits
+          it than a pound left in an ISA.` });
+
+  return opts;
+}
+
+let taxOptFilter = "all";
+
+function renderTaxOptimiser(model, you, spouse) {
+  const list = els("taxOptimiseList");
+  if (!list) return;
+  const opts = taxOptimisations(model, you, spouse)
+    .filter(o => taxOptFilter === "all" || o.phase === taxOptFilter)
+    // biggest saving first; the ones that apply always beat the ones that don't
+    .sort((a, b) => (b.applies - a.applies) || (b.saving - a.saving));
+
+  const totalSaving = opts.filter(o => o.applies).reduce((s, o) => s + o.saving, 0);
+  const count = opts.filter(o => o.applies).length;
+  const pill = els("taxOptCount");
+  if (pill) {
+    pill.textContent = count
+      ? `${count} apply${totalSaving > 0 ? ` · up to ${gbp0(totalSaving)}/yr` : ""}`
+      : "none apply";
+    pill.className = "pill" + (totalSaving > 0 ? " good" : "");
+  }
+
+  list.innerHTML = opts.map(o => `
+    <div class="taxopt${o.applies ? "" : " na"}">
+      <div class="taxopt-head">
+        <h4>${o.title}</h4>
+        <span class="taxopt-save ${o.applies && o.saving > 0 ? "yes" : "no"}">
+          ${o.applies
+            ? (o.noFigure ? `<span class="tag">worth doing</span>` : `saves ~${gbp0(o.saving)}/yr`)
+            : `<span class="tag">doesn't apply</span>`}
+        </span>
+      </div>
+      <p>${o.why}</p>
+    </div>`).join("") ||
+    `<div class="notice empty"><span class="icon">&#8505;</span>Nothing to show for this filter.</div>`;
+}
+
+/* Per-person "what if I took £X in my first retirement year?" overrides. They
+   change what the Tax page SHOWS, not the plan itself - this is a tax explorer
+   for choosing a withdrawal, and silently rewriting the whole projection from
+   a slider on another page would be a nasty surprise. null = follow the plan. */
+let taxRetireOverride = { you: null, spouse: null };
+
 function renderTax(model) {
   const c = COUNTRIES[currentCountry];
   const scottish = els("scotland").value === "scot";
@@ -7386,34 +7834,111 @@ function renderTax(model) {
       ? `<br><b>Your spouse - ${sc.name}${model.inp.spouseCountry === "UK" ? (model.inp.spouseScottish ? " (Scotland)" : " (England / Wales / NI)") : ""}.</b> ${sc.note}` : "");
   els("scotlandField").style.display = currentCountry === "UK" ? "" : "none";
 
-  const card = (label, salary, row, country, scot) => {
-    const s = taxOnSalary(salary, country, scot);
-    const isUK = (country || currentCountry) === "UK";
-    let retire = "";
-    if (row) {
-      const gross = row.annual, net = row.net;
-      retire = `
-        <h3 style="margin-top:14px;">First retirement year (${row.date.y}, age ${row.age})</h3>
-        <div class="stat-row">
-          <div class="stat"><span class="label">Gross income</span><span class="value">${gbp0(gross)}</span></div>
-          <div class="stat"><span class="label">Tax</span><span class="value">${gbp0(gross - net)}</span></div>
-          <div class="stat"><span class="label">Net income</span><span class="value">${gbp0(net)}</span>
-            <span class="sub">${gross > 0 ? ((gross - net) / gross * 100).toFixed(1) : 0}% effective rate</span></div>
-        </div>`;
-    }
-    return `<div class="card person-card">
-      <div class="person-title"><h2>${label}</h2></div>
-      <h3>Salary today</h3>
-      <div class="stat-row">
-        <div class="stat"><span class="label">Gross salary</span><span class="value">${gbp0(salary)}</span></div>
-        <div class="stat"><span class="label">Income tax</span><span class="value">${gbp0(s.tax)}</span></div>
-        ${isUK ? `<div class="stat"><span class="label">National Insurance</span><span class="value">${gbp0(s.ni)}</span></div>` : ""}
-        <div class="stat"><span class="label">Net</span><span class="value">${gbp0(s.net)}</span>
-          <span class="sub">${s.effective.toFixed(1)}% effective rate</span></div>
-      </div>
-      ${retire}
-    </div>`;
+  const isUKof = ctry => (ctry || currentCountry) === "UK";
+  const tile = (label, value, sub, cls) =>
+    `<div class="stat${cls ? " " + cls : ""}"><span class="label">${label}</span>` +
+    `<span class="value">${value}</span>${sub ? `<span class="sub">${sub}</span>` : ""}</div>`;
+
+  /* One row, always the same four columns: what came in, income tax, National
+     Insurance, what was left. Retirement income pays no NI, so that cell is
+     explicitly empty rather than missing - which keeps the column intact AND
+     makes the point. */
+  const row = (inLabel, gross, tax, ni, net, opts) => {
+    const o = opts || {};
+    const rate = gross > 0 ? ((tax + ni) / gross * 100).toFixed(1) + "% effective rate" : "";
+    return `<div class="tax-grid">` +
+      tile(inLabel, gbp0(gross), o.grossSub || "") +
+      tile("Income tax", gbp0(tax), o.taxSub || "") +
+      (o.noNI
+        ? tile("National Insurance", "&mdash;", "not charged on pension income", "empty")
+        : tile("National Insurance", gbp0(ni), o.niSub || "")) +
+      tile(o.netLabel || "Net income", gbp0(net), rate) +
+      `</div>`;
   };
+
+  // Everything a person contributes to the page, in one place, so the combined
+  // block is a sum of the same numbers rather than a second calculation.
+  const figuresFor = (who, salary, planRow, ctry, scot) => {
+    const s = taxOnSalary(salary, ctry, scot);
+    let ret = null;
+    if (planRow) {
+      const planned = planRow.annual;
+      const override = taxRetireOverride[who];
+      const gross = override != null ? override : planned;
+      // taxOnRetirement returns the NET of a given gross on the UFPLS basis
+      const net = taxOnRetirement(gross, 0, planRow.age, ctry, scot);
+      ret = { year: planRow.date.y, age: planRow.age, planned, gross, net, tax: gross - net,
+              overridden: override != null };
+    }
+    return { who, salary, s, ret, ctry, scot };
+  };
+
+  const you = figuresFor("you", model.inp.yourSalary,
+    model.yourRows.find(r => !r.isBridge) || model.yourRows[0], currentCountry, scottish);
+  const spouse = model.spouse
+    ? figuresFor("spouse", model.inp.spouseSalary,
+        model.spouseRows.find(r => !r.isBridge) || model.spouseRows[0],
+        model.inp.spouseCountry, model.inp.spouseScottish)
+    : null;
+
+  // A slider for the first retirement year, per person: drag it to see what a
+  // different withdrawal that year costs in tax and leaves in hand.
+  const retireSlider = f => {
+    if (!f.ret) return "";
+    const max = Math.max(120000, Math.ceil(f.ret.planned * 2 / 5000) * 5000);
+    return `
+      <div class="field" style="margin-top: 10px;">
+        <label for="taxRetireSlider_${f.who}">Try a different first-year income
+          <b id="taxRetireVal_${f.who}">${gbp0(f.ret.gross)}</b>
+          <span class="hint-inline">${f.ret.overridden
+            ? `(plan says ${gbp0(f.ret.planned)} &mdash; <button type="button" class="link-btn" data-tax-reset="${f.who}">reset</button>)`
+            : "(what-if only &mdash; it doesn't change your plan)"}</span></label>
+        <input type="range" id="taxRetireSlider_${f.who}" class="fld-slider" min="0" max="${max}"
+               step="500" value="${Math.round(f.ret.gross)}" data-tax-retire="${f.who}"
+               aria-label="First retirement year gross income for ${f.who === "spouse" ? "your spouse" : "you"}">
+      </div>`;
+  };
+
+  const personCard = (label, f) => `
+    <div class="card person-card">
+      <div class="person-title"><h2>${label}</h2></div>
+      <div class="tax-section-head"><h3>Salary today</h3></div>
+      ${row("Gross salary", f.salary, f.s.tax, f.s.ni, f.s.net, { noNI: !isUKof(f.ctry) ? false : false, netLabel: "Net pay" })}
+      ${f.ret ? `
+        <div class="tax-section-head">
+          <h3>First retirement year</h3>
+          <span class="when">${f.ret.year} &middot; age ${f.ret.age}${f.ret.overridden ? " &middot; what-if" : ""}</span>
+        </div>
+        ${row("Gross income", f.ret.gross, f.ret.tax, 0, f.ret.net, { noNI: true })}
+        ${retireSlider(f)}` : ""}
+    </div>`;
+
+  // Combined household block, above the individuals, when there are two people.
+  let html = "";
+  if (spouse) {
+    const salGross = you.salary + spouse.salary;
+    const salTax = you.s.tax + spouse.s.tax, salNI = you.s.ni + spouse.s.ni;
+    const salNet = you.s.net + spouse.s.net;
+    const bothRet = you.ret && spouse.ret;
+    html += `
+      <div class="card person-card tax-combined">
+        <div class="person-title"><h2>Combined</h2>
+          <span class="pill">Household</span></div>
+        <div class="tax-section-head"><h3>Salary today</h3>
+          <span class="when">both salaries, each taxed on their own allowance and bands</span></div>
+        ${row("Gross salary", salGross, salTax, salNI, salNet, { netLabel: "Net pay" })}
+        ${bothRet ? `
+          <div class="tax-section-head"><h3>First retirement year</h3>
+            <span class="when">${Math.min(you.ret.year, spouse.ret.year)}&ndash;${Math.max(you.ret.year, spouse.ret.year)}
+              &middot; each person's own first year</span></div>
+          ${row("Gross income", you.ret.gross + spouse.ret.gross,
+                you.ret.tax + spouse.ret.tax, 0,
+                you.ret.net + spouse.ret.net, { noNI: true })}` : ""}
+      </div>`;
+  }
+  html += personCard("You", you);
+  if (spouse) html += personCard("Your spouse", spouse);
+  els("taxCards").innerHTML = html;
 
   const syncMirror = (sid, vid, v) => {
     const r = els(sid); if (!r) return;
@@ -7424,9 +7949,8 @@ function renderTax(model) {
   syncMirror("taxSalarySlider", "taxSalaryVal", model.inp.yourSalary);
   syncMirror("taxSpouseSalarySlider", "taxSpouseSalaryVal", model.inp.spouseSalary);
   const tsf = els("taxSpouseSalaryField"); if (tsf) tsf.style.display = model.spouse ? "" : "none";
-  let html = card("You", model.inp.yourSalary, model.yourRows.find(r => !r.isBridge) || model.yourRows[0], currentCountry, scottish);
-  if (model.spouse) html += card("Your spouse", model.inp.spouseSalary, model.spouseRows.find(r => !r.isBridge) || model.spouseRows[0], model.inp.spouseCountry, model.inp.spouseScottish);
-  els("taxCards").innerHTML = html;
+
+  renderTaxOptimiser(model, you, spouse);
 }
 
 function renderAll() {
@@ -9167,6 +9691,79 @@ function chartFont(px, weight) {
 }
 
 /* =========================================================================
+   THE COLLAPSING NAV RAIL
+   Folds the sidebar down to an icon strip and back, remembering the choice.
+   Below the mobile breakpoint the rail isn't on screen at all (the bottom tab
+   bar takes over), so the toggle hides itself rather than collapsing nothing.
+   ========================================================================= */
+const RAIL_KEY = "pensionPlanner.railCollapsed";
+let railCollapsed = localStorage.getItem(RAIL_KEY) === "1";
+
+function applyRail() {
+  const app = document.querySelector(".app");
+  const btn = els("railToggle");
+  if (!app || !btn) return;
+  app.classList.toggle("rail-collapsed", railCollapsed);
+  btn.setAttribute("aria-expanded", railCollapsed ? "false" : "true");
+  btn.title = (railCollapsed ? "Expand" : "Collapse") + " the menu (Ctrl + \\)";
+  const txt = els("railToggleText");
+  if (txt) txt.textContent = railCollapsed ? "Expand" : "Collapse";
+  btn.setAttribute("aria-label", (railCollapsed ? "Expand" : "Collapse") + " the navigation menu");
+}
+function toggleRail() {
+  railCollapsed = !railCollapsed;
+  localStorage.setItem(RAIL_KEY, railCollapsed ? "1" : "0");
+  applyRail();
+  /* The charts measure their container, and the container just changed width.
+     Redraw once the concertina has finished rather than mid-animation, or
+     they size themselves to a width that no longer exists. */
+  setTimeout(() => {
+    if (lastModel && els("tab-planner").classList.contains("active")) renderAll();
+    scheduleTableScrollbars();
+  }, 320);
+}
+/* Tax page: the per-person first-retirement-year slider, its reset, and the
+   working/retired filter. Delegated, because the cards are rebuilt on every
+   render and direct listeners would die with them. */
+document.addEventListener("input", e => {
+  const r = e.target.closest("[data-tax-retire]");
+  if (!r) return;
+  const who = r.dataset.taxRetire;
+  taxRetireOverride[who] = parseFloat(r.value) || 0;
+  const out = els("taxRetireVal_" + who);
+  if (out) out.textContent = gbp0(taxRetireOverride[who]);
+  // Re-render the tax page only - the plan hasn't changed, so nothing else has.
+  if (lastModel) renderTax(lastModel);
+  const again = els("taxRetireSlider_" + who);
+  if (again) again.focus({ preventScroll: true });   // keep the drag alive after the rebuild
+});
+document.addEventListener("click", e => {
+  const reset = e.target.closest("[data-tax-reset]");
+  if (reset) {
+    taxRetireOverride[reset.dataset.taxReset] = null;
+    if (lastModel) renderTax(lastModel);
+    return;
+  }
+  const seg = e.target.closest(".taxopt-seg button");
+  if (seg) {
+    taxOptFilter = seg.dataset.taxopt || "all";
+    document.querySelectorAll(".taxopt-seg button").forEach(b => {
+      const on = b === seg;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    if (lastModel) renderTax(lastModel);
+  }
+});
+
+els("railToggle").addEventListener("click", toggleRail);
+// Ctrl + \ is the same shortcut editors use for a sidebar, and doesn't collide
+// with anything the form fields need.
+document.addEventListener("keydown", e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "\\") { e.preventDefault(); toggleRail(); }
+});
+
+/* =========================================================================
    PHONE CHART MODES - the UI side
    The drawing side lives with the chart helpers further up; this is the
    control, the folding, the zoom bar and the pinch gesture.
@@ -9682,6 +10279,7 @@ currentCountry = els("country").value || "UK";
 updateCurrencyLabels();
 applyIndexGrowth("you"); applyIndexGrowth("spouse");
 applyTextScale();
+applyRail();
 normaliseCheckLabels();
 syncTableScrollbars();
 applyChartMode(false);   // renderAll() hasn't run yet, so no redraw to ask for
