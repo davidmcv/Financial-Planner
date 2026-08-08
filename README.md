@@ -1,8 +1,7 @@
-# Financial Planner
-A multi-country retirement and financial planning tool (UK, US, France, Australia): a
-self-contained web app plus a command-line program that calculates when a person can receive
-their State Pension, when they can access a private pension, their average life expectancy, and
-a year-by-year projected retirement income table.
+# pensionYear
+A program to calculate what year a person in the UK can receive the UK Government State Pension,
+when they can access a private pension (SIPP), their average UK life expectancy, and an optional
+year-by-year projected pension income table.
 
 ## Web app
 
@@ -20,6 +19,14 @@ Everything is a simplified planning model - not financial or tax advice.
   e.g. an inheritance in or a house purchase out);
 - a Voyant Go-style **year-by-year breakdown**: a stacked bar chart underneath, one bar per year
   split by income source, with your spending target drawn across so short years are obvious;
+- **"What you have left"**: the charts above are *flows* (money arriving each year); this one is the
+  *stock* — a stacked area of every remaining pot (pension, tax-free cash, cash, Cash ISA, S&S ISA,
+  other investments), rising as you pay in and falling as you spend it. Stacked rather than a single
+  line so you can see **which pot empties first**, sharing the x-axis and phase band with the
+  breakdown chart so the two line up. A marker calls out the year the money actually runs out (kept
+  distinct from the year the plan first *falls short of the target*, which can come earlier while a
+  fixed-percentage drawdown still leaves a large pot). Property is deliberately excluded from the
+  bands — a house dwarfs the liquid pots — and available as an optional dashed line instead;
 - both charts span the whole life, splitting the **Accumulation** (what you pay in each year) and
   **Decumulation** (household income by source) phases with a labelled retirement divider; every
   event flag shows the person's age and the date. **Movable event flags** (retirements and your own
@@ -178,12 +185,24 @@ employer pots fold into your drawdown pot, and **Defined Benefit** pensions add 
 their own start age. (These are simplified planning assumptions - e.g. DB income is flat, DC pots
 grow at your pot's rate, and cash/shares are only drawn during an early-retirement gap.)
 
-The layout is mobile-first and app-like: on a phone the tabs sit in a fixed bottom navigation bar
+The layout is mobile-first and app-like. On a phone the tabs sit in a fixed bottom navigation bar
 (no horizontal scrolling), the desktop sidebar collapses into a compact top bar, stat tiles reflow
-two-up, and safe-area insets keep content clear of the notch/home indicator. (A true installable
-React Native app isn't shippable as a single self-contained web file - RN compiles to a native
-iOS/Android binary requiring Xcode/Android Studio and app-store distribution - so this delivers the
-native *feel* as a mobile web app.)
+two-up, and safe-area insets keep content clear of the notch and home indicator. Specifically:
+
+- every text control is **>=16px**, the threshold below which iOS zooms the page in on focus and
+  never zooms back out, and taps land on ~**44px** targets;
+- **dialogs are bottom sheets** - flush to the bottom edge within thumb reach, rounded on top, with
+  a grab handle and stacked full-width actions;
+- charts **resize for the device**, and event flags drop to **icon-only** on a narrow screen (their
+  labels would otherwise run off the edge); tap a bar for the detail;
+- no tap-highlight flash, no page rubber-banding, momentum scrolling inside tables and charts, and
+  pressed states instead of hover states;
+- it is **installable**: an inlined web-app manifest, theme colour and Apple meta mean *Add to Home
+  Screen* launches it full-screen, with no browser chrome.
+
+A true React Native app isn't shippable as a single self-contained web file - RN compiles to a
+native binary needing Xcode/Android Studio and app-store distribution - so this delivers the native
+*feel*, installable from the browser.
 
 The **View** toggle (top bar and sidebar) switches all jargon between novice-friendly
 phrasing and the accurate terms, so both a beginner and an expert can use it - e.g. "When you can
@@ -216,7 +235,13 @@ browser's local storage only; served by the backend below, an Account card appea
 profiles also sync to the server - across devices, and shareable with an adviser.
 
 Profiles can also be **saved to and loaded from a file**. "Save to file" opens a dialog where you
-**name the file** (independent of the saved-profile name) and then writes a `.pension.json` through
+give the plan a **name**: that name is used for both the **saved profile in the dropdown** and the
+file, so saving always leaves the plan somewhere you can find again rather than only producing a
+file. The box is pre-filled with the current profile's name, so pressing Save **updates that
+profile in place**; typing a different name saves a copy under the new name and leaves the original
+untouched. Once saved, the plan is the current profile, so ordinary edits keep saving back into it.
+The profile is stored *before* the file is written, so cancelling or blocking the file dialog never
+loses your edits. Saving then writes a `.pension.json` through
 the system save dialog (Chrome/Edge), which reaches local folders, **Google Drive** (via Drive for
 desktop) and **iCloud Drive** wherever the OS mounts them. On an **iPad or iPhone** (and Android)
 the native **share sheet** opens instead - choose *Save to Files* to put the file in iCloud Drive
@@ -237,6 +262,60 @@ live projected-value readout) rather than a flat cash figure; the **bonus split*
 deferred cash / RSUs) auto-balances to 100% as you drag; savings-account balances have sliders and
 new accounts default to a £20,000 Cash ISA; and the **spending-phase** rows show what each phase
 costs as gross / tax / net income and an effective rate, yearly and monthly.
+
+### Accessibility
+
+A pension planner is used across a very wide age range, so the interface is built and tested against
+**WCAG 2.2 AA** - the standard behind both US **Section 508** (which adopts WCAG A/AA through
+36 CFR 1194) and the UK Public Sector Bodies Accessibility Regulations (through **EN 301 549**).
+
+- **Text size.** A four-step control (in the sidebar and in Assumptions) scales the whole interface,
+  including the canvas charts, which can't inherit CSS and so read the scale directly. The choice
+  persists. Layout reflows without horizontal scrolling at every step (SC 1.4.10), and browser zoom
+  still works on top.
+- **Two-gear sliders.** Every editable figure has a slider under it. It starts in a **coarse gear**
+  (£5,000 steps for money, scaled down for small-money fields such as monthly budget rows) so a
+  thumb-drag crosses the whole range; letting go re-scales it to a **fine window** around where you
+  landed, so the same travel now tunes the value precisely. Dragging to the edge of that window pops
+  back out to coarse, and typing in the field resets it. Each slider is named from its own label and
+  announces its value through `aria-valuetext`. This covers **every** editable number, including the
+  ones inside dynamically rendered asset rows (employer pensions, share accounts, DB income and start
+  age, property and vehicles) - those are built as markup, so the generic pass never sees them and
+  they are re-geared explicitly each time the rows re-render. Only free-text fields and the Monte
+  Carlo run count are excluded; `slidercover_test.py` fails the build if anything else loses its
+  slider.
+- **Keyboard.** A skip link, a real ARIA tablist (arrow keys, Home/End, roving tabindex), a
+  three-pixel two-tone focus ring that clears 3:1 on every theme, and `scroll-margin` so a focused
+  control is never left under the sticky bars (SC 2.4.7, 2.4.11, 2.4.13). Dialogs move focus in,
+  cycle Tab inside themselves, close on Escape and hand focus back to whatever opened them.
+- **Screen readers.** Every control is named - including the generated asset rows and the budget
+  grid, which take their names from the field label or the row and column headers rather than
+  duplicating text. Segmented controls expose `aria-pressed`; the spouse toggle is a real
+  `role="switch"`. Recalculated results are announced through a polite live region.
+- **Charts.** Each canvas is `role="img"` with a description carrying the actual figures, and the
+  three data charts publish the same numbers as a scoped HTML table under *"Show these figures as a
+  table"* (SC 1.1.1). Nothing is conveyed by colour alone.
+- **Pointer.** Every target is at least 24x24 CSS px (44px on phones), and every draggable thing -
+  the target line, the retirement markers, the event flags - has a slider or number field that does
+  the same job without dragging (SC 2.5.7, 2.5.8).
+- **Colour and motion.** All text meets 4.5:1 and all control boundaries 3:1, verified across the
+  Night, Day and Forest themes. `prefers-reduced-motion` disables transitions, animations and smooth
+  scrolling.
+
+Three Playwright suites hold this in place: `a11y_test.py` (structure, naming, keyboard, dialogs,
+chart alternatives, target sizes), `contrast_test.py` (computes every visible element's contrast
+ratio against its real background, on all three themes and all six tabs) and `chartaxis_test.py`
+(axis readability at iPhone 15 width).
+
+### Chart axes on a phone
+
+On a 393px screen an axis has room for about five money labels and four year labels, so both are
+computed rather than assumed. Money maxima round up to the next 1/2/2.5/5&times;10&#8319; and the ticks
+divide into round numbers, so the axis reads &pound;0 / &pound;1.0m / ... / &pound;5.0m instead of
+&pound;4077k. Year labels are spaced from the *measured* width of a four-digit label, snapped to whole
+decades, so they cannot print on top of each other at any width. The retirement marker shortens to
+"RETIRE" and is clamped inside the plot so it stops covering the &pound;0 label, and the longevity
+chart drops its second age row and shortens its survival markers on a narrow screen.
 
 ## Server backend
 
