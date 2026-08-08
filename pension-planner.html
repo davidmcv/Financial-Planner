@@ -203,6 +203,11 @@
   .app.rail-collapsed .rail-toggle .chev { transform: rotate(180deg); }
   /* One letter stands in for the wordmark once there is no room for it. */
   .brand-short { display: none; font-family: var(--font-display); font-weight: 700; }
+  /* The fold keeps text on one line so it can slide away cleanly, but the
+     wordmark has to be allowed to wrap or it overruns a narrow rail at the
+     larger text sizes. */
+  .brand .fold { white-space: normal; overflow-wrap: anywhere; }
+  .brand .mark { line-height: 1.15; }
   .app.rail-collapsed .brand-short { display: inline; }
 
   /* Motion is decoration here - the layout must still change instantly for
@@ -262,7 +267,9 @@
     cursor: pointer;
     transition: background 0.12s ease, color 0.12s ease;
   }
-  .tab-btn .icon { width: 18px; text-align: center; opacity: 0.85; }
+  /* Sized in em so the icon grows with the text scale. A fixed 18px box
+     clipped the emoji at 150%. */
+  .tab-btn .icon { width: 1.25em; min-width: 1.25em; flex: 0 0 auto; text-align: center; opacity: 0.85; }
   .tab-btn:hover { background: var(--surface-2); color: var(--ink); }
   .tab-btn.active { background: var(--accent-wash); color: var(--accent-strong); font-weight: 600; }
 
@@ -327,8 +334,10 @@
   .field .hint { font-size: 0.74rem; color: var(--ink-faint); }
   /* Uniform grid so fields line up in straight columns within each section
      (grid ignores the per-field flex overrides that made rows ragged). */
-  .field-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; align-items: start; }
+  .field-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12em), 1fr)); gap: 14px; align-items: start; }
   .field-row .field { min-width: 0; }
+  /* An input must never be wider than the column it sits in. */
+  .field input, .field select { min-width: 0; max-width: 100%; }
   /* Reserve two lines for every field label so a wrapping label doesn't push
      its input below its neighbours - inputs line up across each section. */
   /* Flex makes each child of the label its own item and discards the
@@ -442,7 +451,9 @@
      whether or not the label wraps - keeps the row's inputs on a straight line
      even when some fields carry a slider underneath (e.g. Property & Vehicles). */
   .asset-row .field > label { min-height: 1.9em; display: flex; align-items: flex-start; }
-  .asset-row .field { flex: 1 1 120px; gap: 4px; }
+  .asset-row .field { flex: 1 1 120px; gap: 4px; min-width: 0; }
+  /* A <select> takes its width from its longest option unless told not to. */
+  .asset-row select, .asset-row input { max-width: 100%; min-width: 0; }
   .asset-row .field label { font-size: 0.7rem; }
   .asset-row .field input, .asset-row .field select {
     background: var(--surface); font-size: 0.88rem; padding: 7px 9px;
@@ -452,12 +463,50 @@
     color: var(--ink-faint); border-radius: 8px; padding: 6px 9px; cursor: pointer; font-size: 0.95rem;
   }
   .asset-row .remove-btn:hover { border-color: var(--critical); color: var(--critical); }
-  .asset-row .field input.asset-slider { padding: 0; margin-top: 3px; }
+  .asset-row .field input.asset-slider { padding: 0; margin: 3px 0 0; }
   .prop-projection {
     font-size: 0.82rem; color: var(--ink-muted); padding: 7px 0 0; line-height: 1.35;
   }
   .prop-projection b { color: var(--ink); }
+  /* ---- People page: less scrolling ---------------------------------------
+     The two Key Dates cards say the same seven things about each person, one
+     after the other, so on anything wide enough they sit SIDE BY SIDE and
+     become one screen instead of two. They fall back to stacking below ~420px
+     of card width, where two columns would squeeze the figures. */
+  #ageCards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+    gap: 18px;
+    align-items: start;
+  }
+  /* The two input cards pair up only when each column is still wide enough to
+     hold its four fields in one row. Measured: at a 1040px content width two
+     columns are TALLER than one (676px vs 641px), because halving the width
+     wraps each card's fields onto an extra row and the taller card sets the
+     height for both. Measured again at 1600px, where the columns are roomier,
+     two beats one (1696px vs 1823px). 560px is the floor that splits those
+     two cases. */
+  .people-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 560px), 1fr));
+    gap: 18px;
+    align-items: start;
+  }
+  /* Denser tiles inside a half-width card: the numbers are short, so they do
+     not need 150px columns once the card itself is narrower. */
+  .people-grid { margin-bottom: 0; }
+  #ageCards .stat-row { grid-template-columns: repeat(auto-fit, minmax(min(100%, 8em), 1fr)); gap: 10px; }
+  #ageCards .stat { padding: 10px 12px; }
+  #ageCards .stat .value { font-size: 1.05rem; }
+  #ageCards .stat .sub { font-size: 0.72rem; }
+
   /* People timeline (above Key Dates) */
+  .tl-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex-wrap: wrap; margin-bottom: 10px;
+  }
+  .tl-head h2 { font-size: 1.05rem; }
+  .tlscale-seg button { white-space: nowrap; }
   #timelineCard { overflow-x: auto; }
   .timeline { min-width: 520px; }
   .tl-track { display: flex; align-items: center; gap: 10px; min-height: 132px; }
@@ -559,7 +608,10 @@
   /* companion sliders under editable numbers */
   input.fld-slider {
     -webkit-appearance: none; appearance: none; width: 100%; height: 4px;
-    margin-top: 7px; background: var(--surface-2); border-radius: 2px;
+    /* The UA stylesheet puts a 2px margin on a range input, which pushed a
+       100%-wide slider 2px past its container - a small clip, but on every
+       field that has one. Set all four explicitly. */
+    margin: 7px 0 0; background: var(--surface-2); border-radius: 2px;
     outline: none; cursor: pointer; padding: 0; border: none;
   }
   input.fld-slider::-webkit-slider-thumb {
@@ -591,6 +643,14 @@
   /* the parenthetical hint after a label reads as part of the same sentence */
   .check-inline .hint-inline { font-weight: 400; }
 
+  /* A row of tick-boxes that flows. A grid would give every option the same
+     column width whether it needed it or not, so a short one wasted space and
+     a long one wrapped inside a column narrower than its own text. Here each
+     takes the width of its text, up to the full row, and the rest roll onto
+     the next line. */
+  .check-row { display: flex; flex-wrap: wrap; gap: 2px 22px; align-items: flex-start; }
+  .check-row .check-inline { flex: 0 1 auto; max-width: 100%; margin: 2px 0; }
+
   /* ---------- Wide tables: a scrollbar at the top as well as the bottom ----
      A table wider than the panel puts its scrollbar at the very bottom, which
      on a tall table is off-screen - you cannot tell there is more to the right,
@@ -617,7 +677,10 @@
   .divider { height: 1px; background: var(--border); margin: 4px 0; }
 
   /* ---------- Stat tiles ---------- */
-  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+  /* minmax in em, not px: the root font size is what the text-size control
+     changes, so the columns grow with the words in them instead of clipping
+     them. */
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.4em), 1fr)); gap: 14px; }
   .stat {
     background: var(--surface-2); border-radius: 10px; padding: 13px 15px;
     display: flex; flex-direction: column; gap: 4px;
@@ -776,9 +839,15 @@
     border: none; padding: 6px 12px; cursor: pointer;
   }
   .wording-seg button.active { background: var(--accent); color: var(--on-accent); font-weight: 600; }
-  /* In the rail there is no room for four across; wrap instead of clipping. */
+  /* In the rail there is no room for four word-labels across. They wrap two
+     by two instead of being clipped - and the button sizes itself from its own
+     text (flex-basis auto), because a fixed basis is what squeezed "Decades"
+     and "Numbers" into a column narrower than the word. */
   .rail .wording-seg { flex-wrap: wrap; border-radius: 10px; }
-  .rail .wording-seg button { flex: 1 1 44%; min-width: 0; }
+  .rail .wording-seg button {
+    flex: 1 0 auto; min-width: 0; padding: 6px 8px;
+    font-size: 0.72rem; white-space: nowrap;
+  }
   .rail .profile-box .hint { font-size: 0.68rem; line-height: 1.3; }
 
   /* ---------- Mobile top bar + bottom nav (hidden on desktop) ---------- */
@@ -813,7 +882,7 @@
     .card { padding: 16px; border-radius: var(--radius); }
 
     /* two-up stat tiles so a person's key numbers fit one screen */
-    .stat-row { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat-row { grid-template-columns: repeat(auto-fit, minmax(min(100%, 8em), 1fr)); gap: 10px; }
     .stat { padding: 11px 12px; }
     .stat .value { font-size: 1.05rem; }
     .phase-explainer { grid-template-columns: 1fr; gap: 10px; padding: 14px; }
@@ -875,8 +944,15 @@
        them wrap onto as many rows as they need instead. */
     .segmented { display: flex; flex-wrap: wrap; width: 100%; max-width: 100% !important; }
     .segmented button { flex: 1 1 44%; border-bottom: 1px solid var(--border); }
-    .wording-seg { flex-wrap: nowrap; width: auto; }
-    .wording-seg button { flex: 0 0 auto; border-bottom: none; }
+    /* Only the top bar's toggle must stay on one line - it shares a row with
+       the brand and the gear. Segmented controls in the content wrap like
+       anything else, or they run off the side at the larger text sizes. */
+    .mobilebar .wording-seg { flex-wrap: nowrap; width: auto; }
+    .mobilebar .wording-seg button { flex: 0 0 auto; border-bottom: none; }
+    .content .wording-seg { flex-wrap: wrap; max-width: 100%; }
+    .content .wording-seg button { flex: 1 1 auto; border-bottom: none; }
+    /* At the largest text sizes even the top bar needs two lines. */
+    .mobilebar { flex-wrap: wrap; row-gap: 6px; }
   }
 
   @media (max-width: 400px) {
@@ -943,7 +1019,11 @@
       .field-row { grid-template-columns: 1fr; }
       .stat-row { grid-template-columns: 1fr 1fr; }
       .asset-row { flex-direction: column; align-items: stretch; }
-      .asset-row .remove-btn { align-self: flex-end; }
+      /* Stacked, each field must take the row's CONTENT width. Left to
+         stretch alone a <select> pushed its field to its own intrinsic width
+         and out past the padding. */
+      .asset-row > * { width: 100%; max-width: 100%; }
+      .asset-row .remove-btn { align-self: flex-end; width: auto; }
     }
     @container (max-width: 300px) {
       .stat-row { grid-template-columns: 1fr; }
@@ -1095,10 +1175,10 @@
       <div class="rail-fold-block profile-box" style="padding: 0;">
         <span class="profile-label" id="chartModeLabel">Charts on a phone</span>
         <div class="wording-seg chartmode-seg" style="width: 100%;" role="group" aria-labelledby="chartModeLabel">
-          <button data-chart-mode="full" style="flex:1;" aria-pressed="false">Full</button>
-          <button data-chart-mode="zoom" style="flex:1;" aria-pressed="false">Zoom</button>
-          <button data-chart-mode="decade" style="flex:1;" aria-pressed="false">Decades</button>
-          <button data-chart-mode="numbers" style="flex:1;" aria-pressed="false">Numbers</button>
+          <button data-chart-mode="full" aria-pressed="false">Full</button>
+          <button data-chart-mode="zoom" aria-pressed="false">Zoom</button>
+          <button data-chart-mode="decade" aria-pressed="false">Decades</button>
+          <button data-chart-mode="numbers" aria-pressed="false">Numbers</button>
         </div>
         <span class="hint" style="padding: 0 2px 4px;">Applies on phone-width screens (under 700px).</span>
       </div>
@@ -1192,6 +1272,10 @@
         <p class="hint" id="dataSourceNote" style="margin: 0.6rem 0 0;"></p>
       </div>
 
+      <!-- The two people side by side once there is room: they ask the same
+           four questions each, so stacking them doubled the scrolling for
+           nothing. Falls back to one column when a card would be cramped. -->
+      <div class="people-grid">
       <div class="card">
         <h2>You</h2>
         <div class="field-row">
@@ -1208,7 +1292,7 @@
             <span class="hint">Only affects results if born before 6 Apr 1955</span>
           </div>
           <div class="field">
-            <label for="retireDate">Planned retirement date</label>
+            <label for="retireDate">Planned retirement date <b id="retireAgeP"></b></label>
             <input type="date" id="retireDate" value="2028-03-01">
             <input type="range" id="retireSliderP" class="fld-slider" min="2026" max="2070" step="1" aria-label="Adjust your planned retirement year">
             <span class="hint">When you stop earning. If before a pension starts, savings bridge the gap.</span>
@@ -1243,7 +1327,7 @@
               </select>
             </div>
             <div class="field">
-              <label for="spouseRetireDate">Planned retirement date</label>
+              <label for="spouseRetireDate">Planned retirement date <b id="spouseRetireAgeP"></b></label>
               <input type="date" id="spouseRetireDate" value="2033-04-01">
               <input type="range" id="spouseRetireSliderP" class="fld-slider" min="2026" max="2070" step="1" aria-label="Adjust your spouse's planned retirement year">
             </div>
@@ -1271,8 +1355,18 @@
       </div>
 
       <h2 style="margin-top: 4px;">Key dates</h2>
+      </div>
+
       <div class="card" id="timelineCard">
+        <div class="tl-head">
+          <h2>Your key dates</h2>
+          <div class="wording-seg tlscale-seg" role="group" aria-label="Timeline scale">
+            <button data-tlscale="power" aria-pressed="true">Near years expanded</button>
+            <button data-tlscale="even" aria-pressed="false">Even years</button>
+          </div>
+        </div>
         <div id="ageTimeline"></div>
+        <p class="caption" id="timelineScaleNote" style="margin-top: 6px;"></p>
       </div>
       <div id="ageCards"></div>
     </section>
@@ -1676,13 +1770,16 @@
             <input type="range" id="spouseRetireSlider" class="fld-slider" min="2026" max="2070" step="1">
           </div>
         </div>
-        <div class="field-row" style="margin-top: 4px;">
+        <!-- A wrapping row of options, not a grid: each one takes exactly the
+             width its own text needs and the rest flow onto the next line, so
+             nothing is squeezed into a column too narrow for it. -->
+        <div class="check-row" style="margin-top: 4px;">
           <label class="check-inline"><input type="checkbox" id="toMaxAge" checked> Run the plan to the <b>maximum modelled age</b>
             <span class="hint-inline">(life expectancy is the halfway point &mdash; half of people outlive it)</span></label>
-          <label class="check-inline"><input type="checkbox" id="showSurvival"> Show the <b>chance of still being alive</b> at each age on the charts</label>
           <label class="check-inline"><input type="checkbox" id="targetInflationOn" checked> Income target rises with inflation each year (keeps pace with the cost of living)</label>
           <label class="check-inline"><input type="checkbox" id="flatMoney"> Show flat, today's-money numbers (strip inflation-style growth)</label>
           <label class="check-inline"><input type="checkbox" id="levelOn"> Level income: draw the pension as needed &amp; bank surplus to close gaps</label>
+          <label class="check-inline"><input type="checkbox" id="showSurvival"> Show the <b>chance of still being alive</b> at each age on the charts</label>
         </div>
         <div class="chart-legend" id="plannerLegend"></div>
         <p class="caption" id="plannerCaption"></p>
@@ -5065,6 +5162,11 @@ function renderAge(model) {
 // A horizontal, responsive timeline above the Key Dates cards: one track per
 // person, with an icon marker for each milestone positioned by date so you can
 // see them relative to one another and to today.
+/* Which timeline scale is in use. A view preference, so it lives beside the
+   text scale in localStorage rather than in the saved plan. */
+const TL_SCALE_KEY = "pensionPlanner.timelineScale";
+let timelineScale = localStorage.getItem(TL_SCALE_KEY) === "even" ? "even" : "power";
+
 function renderTimeline(model) {
   const host = els("ageTimeline");
   if (!host) return;
@@ -5080,7 +5182,33 @@ function renderTimeline(model) {
     yearsOf(p).concat(ret ? [ret.y] : []).forEach(y => { hi = Math.max(hi, y); });
   });
   const span = Math.max(1, hi - lo);
-  const pct = y => ((y - lo) / span) * 100;
+
+  /* ---- The scale ---------------------------------------------------------
+     A straight linear year axis is the wrong shape for this data. The events
+     people are actually deciding about - retirement, first pension access -
+     are usually within a few years, while life expectancy is thirty or forty
+     out. Linear crushes the near ones into the first inch and leaves the rest
+     of the track nearly empty.
+
+     So distance from today is raised to a power (<1), which stretches the near
+     years and compresses the far ones. It stays monotonic and continuous, so
+     the axis still reads as real dates and every marker keeps its true order -
+     unlike ranking them evenly, which would make the gaps meaningless.
+
+     A true log scale can't be used: log(0) is undefined and today sits at
+     exactly zero years out. This is the same idea without the singularity, and
+     the exponent controls how hard it pulls.
+
+     Worked example, 55 years of span: retirement 2 years out moves from 4% of
+     the track to 13%, State Pension at 14 years from 25% to 43%, and life
+     expectancy at 32 from 58% to 72%. Nothing is hidden and nothing is
+     bunched. "Even years" puts the linear scale back for anyone comparing
+     durations by eye. */
+  const TIMELINE_POWER = 0.62;
+  const pct = y => {
+    const frac = Math.max(0, Math.min(1, (y - lo) / span));
+    return (timelineScale === "even" ? frac : Math.pow(frac, TIMELINE_POWER)) * 100;
+  };
 
   const trackHtml = (label, owner, p, ret) => {
     const curAge = ageAtDate(p.dob, today);
@@ -5115,14 +5243,47 @@ function renderTimeline(model) {
     </div>`;
   };
 
+  /* Axis labels are placed at round years and positioned BY THE SAME SCALE, so
+     they sit unevenly - which is the honest way to draw a compressed axis. The
+     ticks are chosen from where there is room rather than at a fixed step, and
+     any that would collide with the one before are dropped. */
   const axis = [];
-  const axisStep = Math.max(1, Math.ceil(span / 8));
-  for (let y = lo; y <= hi; y += axisStep) axis.push(`<span style="left:${pct(y)}%">${y}</span>`);
+  const ticks = [];
+  if (timelineScale === "even") {
+    const step = Math.max(1, Math.ceil(span / 8));
+    for (let y = lo; y <= hi; y += step) ticks.push(y);
+  } else {
+    // near years first, thinning out as the scale compresses
+    [0, 1, 2, 3, 5, 7, 10, 15, 20, 25, 30, 40, 50, 60, 70].forEach(d => {
+      if (d <= span) ticks.push(lo + d);
+    });
+    if (ticks[ticks.length - 1] !== hi) ticks.push(hi);
+  }
+  let lastX = -99;
+  ticks.forEach(y => {
+    const x = pct(y);
+    if (x - lastX < 7) return;      // no room for this one
+    lastX = x;
+    axis.push(`<span style="left:${x}%">${y}</span>`);
+  });
 
-  host.innerHTML = `<div class="timeline" data-lo="${lo}" data-hi="${hi}">
+  host.innerHTML = `<div class="timeline" data-lo="${lo}" data-hi="${hi}" data-scale="${timelineScale}">
     ${people.map(([l, p, r], i) => trackHtml(l, i === 0 ? "you" : "spouse", p, r)).join("")}
     <div class="tl-axis">${axis.join("")}</div>
   </div>`;
+  const note = els("timelineScaleNote");
+  if (note) {
+    note.innerHTML = timelineScale === "even"
+      ? `Even years: every year takes the same width, so distant milestones sit far right and the near ones crowd together.`
+      : `<b>Near years expanded:</b> the next few years take more of the track than the distant ones, so today, retirement,
+         pension age and life expectancy are all readable at once. Dates are still in true order &mdash; only the spacing
+         is compressed further out.`;
+  }
+  document.querySelectorAll(".tlscale-seg button").forEach(b => {
+    const on = b.dataset.tlscale === timelineScale;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+  });
 }
 
 function renderSalary(model) {
@@ -6422,7 +6583,10 @@ function drawEventFlags(ctx, flags, xf, domainStart, domainEnd, padT, plotH, hit
       ctx.textAlign = "left"; ctx.font = chartFont(10.5, "600");
       ctx.fillStyle = f.custom ? CHART.bridge : themeColor("--ink", "#0F1D19");
       ctx.fillText(f.label, px + 10, topY + 6);
-      if (f.sub) { ctx.font = chartFont(9); ctx.fillStyle = themeColor("--ink-faint", "#8A968F"); ctx.fillText(f.sub, px + 10, topY + 17); }
+      // The age/date line under each flag used to be --ink-faint, which on the
+      // Night theme is grey-on-dark and barely there. --ink-muted is a clear
+      // step brighter and still reads as secondary to the label above it.
+      if (f.sub) { ctx.font = chartFont(9); ctx.fillStyle = themeColor("--ink-muted", "#B9C6C0"); ctx.fillText(f.sub, px + 10, topY + 17); }
     }
     if (movable && hitOut) hitOut.push({ px, topY, move: f.move, year: f.year });
   });
@@ -6621,7 +6785,6 @@ function drawPlannerChart(model) {
   const baseTarget = plannerTarget != null ? plannerTarget : (model.rlsTarget || 0);
   const targetAt = y => targetForYear(model, baseTarget, y);
   updateTargetSliders(baseTarget, maxV);
-  updateRetireSliders(model);
   if (baseTarget > 0) {
     const crit = CHART.crit;
     ctx.beginPath(); ctx.setLineDash([6, 4]); ctx.strokeStyle = crit; ctx.lineWidth = 2.5;
@@ -7973,6 +8136,11 @@ function renderAll() {
   renderTax(model);
   renderPhaseTax(model);
   renderBudget(model);
+  /* Slider read-outs are NOT chart furniture: they sit beside their inputs on
+     the People and Planner pages alike, so they are refreshed on every render
+     rather than only when the planner charts happen to be drawn. Moving the
+     retirement slider on People used to leave the age beside it stale. */
+  updateRetireSliders(model);
   // spouse-specific controls must never show when no spouse is included
   ["spouseRetireField", "spouseRetireField2", "spouseCareFields", "spouseCareStayFields",
     "stratSpouseContribLabel"].forEach(id => {
@@ -8640,10 +8808,10 @@ function updateRetireSliders(model) {
   const inp = model.inp;
   [["retireSlider", "retireSliderVal", inp.retireDate, model.you.dob, null],
    ["retireSlider2", "retireSliderVal2", inp.retireDate, model.you.dob, null],
-   ["retireSliderP", null, inp.retireDate, model.you.dob, null],
+   ["retireSliderP", "retireAgeP", inp.retireDate, model.you.dob, null],
    ["spouseRetireSlider", "spouseRetireSliderVal", inp.spouseRetireDate, model.spouse && model.spouse.dob, "spouseRetireField"],
    ["spouseRetireSlider2", "spouseRetireSliderVal2", inp.spouseRetireDate, model.spouse && model.spouse.dob, "spouseRetireField2"],
-   ["spouseRetireSliderP", null, inp.spouseRetireDate, model.spouse && model.spouse.dob, null]]
+   ["spouseRetireSliderP", "spouseRetireAgeP", inp.spouseRetireDate, model.spouse && model.spouse.dob, null]]
   .forEach(([sid, vid, d, dob, fieldId]) => {
     const r = els(sid);
     if (!r) return;
@@ -8654,7 +8822,14 @@ function updateRetireSliders(model) {
     if (+r.max !== max) r.max = max;
     if (+r.value !== d.y) r.value = d.y;
     const out = vid && els(vid);
-    if (out) out.textContent = `${d.y} (age ${d.y - dob.y})`;
+    if (!out) return;
+    /* Beside the date field on People the year is already on screen in the
+       input below, so the label adds only the age - which is the thing you
+       actually want when you drag the slider. On the Planner the read-out is
+       standalone and needs both. */
+    out.textContent = /AgeP$/.test(vid)
+      ? `· age ${d.y - dob.y}`
+      : `${d.y} (age ${d.y - dob.y})`;
   });
 }
 
@@ -9754,6 +9929,14 @@ document.addEventListener("click", e => {
     });
     if (lastModel) renderTax(lastModel);
   }
+});
+
+document.addEventListener("click", e => {
+  const b = e.target.closest(".tlscale-seg button");
+  if (!b) return;
+  timelineScale = b.dataset.tlscale === "even" ? "even" : "power";
+  localStorage.setItem(TL_SCALE_KEY, timelineScale);
+  if (lastModel) renderTimeline(lastModel);
 });
 
 els("railToggle").addEventListener("click", toggleRail);
