@@ -1417,13 +1417,14 @@
       <div class="card" id="timelineCard">
         <div class="tl-head">
           <h2>Your key dates</h2>
+          <!-- Each option carries its own explanation on hover, so the card
+               doesn't need a paragraph underneath repeating them both. -->
           <div class="wording-seg tlscale-seg" role="group" aria-label="Timeline scale">
-            <button data-tlscale="power" aria-pressed="true">Near years expanded</button>
-            <button data-tlscale="even" aria-pressed="false">Even years</button>
+            <button data-tlscale="power" data-def="tlPower" aria-pressed="true">Near years expanded</button>
+            <button data-tlscale="even" data-def="tlEven" aria-pressed="false">Even years</button>
           </div>
         </div>
         <div id="ageTimeline"></div>
-        <p class="caption" id="timelineScaleNote" style="margin-top: 6px;"></p>
       </div>
       <div id="ageCards"></div>
     </section>
@@ -3514,6 +3515,19 @@ const DEFINITIONS = {
     plain: "Money from savings that covers the gap between stopping work and your pensions starting.",
     expert: "The bridging period: non-pension assets fund the interval between cessation of earnings and the commencement of pension income, avoiding early crystallisation.",
   },
+  /* Attached by hand via data-def rather than found in the text: these two
+     name a control, not a concept, and the text they replace used to sit in a
+     paragraph under the timeline explaining both at once. */
+  tlPower: {
+    phrases: [],
+    plain: "Spreads out the next few years and squeezes up the distant ones, so today, your retirement, your pension ages and your life expectancy are all easy to see at once. The dates stay in the right order - only the spacing changes.",
+    expert: "Non-linear axis: distance from today is raised to the power 0.62, expanding the near term and compressing the tail. Monotonic and continuous, so ordering and date labels remain truthful; a true logarithmic scale is unusable because today sits at zero years out.",
+  },
+  tlEven: {
+    phrases: [],
+    plain: "Every year gets the same amount of space. Good for comparing how long things are, but the next few years end up squashed together on the left.",
+    expert: "Linear year axis. Preserves proportionality of durations at the cost of resolution in the near term, where the decisions actually sit.",
+  },
   triplelock: {
     phrases: ["triple lock"],
     plain: "The promise that the State Pension rises each year by whichever is biggest: wages, prices, or 2.5%.",
@@ -3722,7 +3736,11 @@ function refreshDefPop() {
 }
 
 function initDefPopovers() {
-  const trig = e => e.target instanceof Element ? e.target.closest(".def-term") : null;
+  /* Any element carrying data-def explains itself, whether the tagger put it
+     there or it was written into the markup by hand (a control that needs
+     explaining is not a word in a sentence). Only .def-term gets the dotted
+     underline - a button already looks like something you can point at. */
+  const trig = e => e.target instanceof Element ? e.target.closest("[data-def]") : null;
   document.addEventListener("pointerover", e => {
     if (e.pointerType === "touch") return;          // touch is handled by click
     const t = trig(e);
@@ -3738,10 +3756,10 @@ function initDefPopovers() {
   document.addEventListener("click", e => {
     const t = trig(e);
     if (!t) { if (!e.target.closest || !e.target.closest(".def-pop")) hideDefPop(0); return; }
-    // Inside a label, a click belongs to the control the label is for - hijacking
-    // it would tick a tick-box the reader only meant to hover over. Hover and
-    // keyboard focus still explain those.
-    if (t.closest("label")) return;
+    // Inside a control, a click belongs to the control - hijacking it would
+    // tick a tick-box, or fail to press a button, that the reader only meant to
+    // point at. Hover and keyboard focus still explain those.
+    if (t.closest("label, button, a")) return;
     if (defPopTrigger === t) hideDefPop(0); else showDefPop(t, 0);
   });
   document.addEventListener("keydown", e => {
@@ -5720,21 +5738,16 @@ function renderTimeline(model) {
     ];
     if (ret) marks.push({ y: ret.y, ico: "&#127958;&#65039;", name: "Retire", age: ageAtDate(p.dob, ret), move: true });
     marks.sort((a, b) => a.y - b.y);
-    // Stack labels into lanes when markers crowd together: consecutive close
-    // markers step further from the line, alternating above / below, so no two
-    // flags overlap.
-    let lastPct = -99, cluster = 0;
+    /* Only the horizontal placement is decided here. Which lane a flag ends up
+       in, and whether it sits above or below the line, is settled by
+       layoutTimelineFlags() once the flags exist and can be measured - a guess
+       made from percentages cannot know how wide the words turned out. */
     const markHtml = marks.map(m => {
       const x = pct(m.y);
-      cluster = (x - lastPct < 13) ? cluster + 1 : 0;
-      lastPct = x;
-      const up = cluster % 2 === 0;
-      const dist = 26 + Math.floor(cluster / 2) * 34;
       const edge = x < 12 ? " edge-l" : x > 88 ? " edge-r" : "";
-      const off = `${up ? "bottom" : "top"}:${dist}px`;
       const mv = m.move ? " tl-move" : "";
-      return `<div class="tl-marker ${m.cls || ""} ${up ? "up" : "down"}${edge}${mv}" style="left:${x}%"${m.move ? ` data-retire="${owner}"` : ""}>
-        <span class="tl-flag" style="${off}"><b>${m.name}</b><span class="tl-sub">age ${m.age} &middot; ${m.y}</span></span>
+      return `<div class="tl-marker ${m.cls || ""} up${edge}${mv}" style="left:${x}%"${m.move ? ` data-retire="${owner}"` : ""}>
+        <span class="tl-flag"><b>${m.name}</b><span class="tl-sub">age ${m.age} &middot; ${m.y}</span></span>
         <span class="tl-ico">${m.ico}</span></div>`;
     }).join("");
     return `<div class="tl-track" data-owner="${owner}">
@@ -5771,18 +5784,87 @@ function renderTimeline(model) {
     ${people.map(([l, p, r], i) => trackHtml(l, i === 0 ? "you" : "spouse", p, r)).join("")}
     <div class="tl-axis">${axis.join("")}</div>
   </div>`;
-  const note = els("timelineScaleNote");
-  if (note) {
-    note.innerHTML = timelineScale === "even"
-      ? `Even years: every year takes the same width, so distant milestones sit far right and the near ones crowd together.`
-      : `<b>Near years expanded:</b> the next few years take more of the track than the distant ones, so today, retirement,
-         pension age and life expectancy are all readable at once. Dates are still in true order &mdash; only the spacing
-         is compressed further out.`;
-  }
   document.querySelectorAll(".tlscale-seg button").forEach(b => {
     const on = b.dataset.tlscale === timelineScale;
     b.classList.toggle("active", on);
     b.setAttribute("aria-pressed", on ? "true" : "false");
+  });
+  layoutTimelineFlags();
+}
+
+/* ---- Flags that never sit on top of each other -------------------------
+   Where a flag goes cannot be decided while writing the HTML, because how
+   wide it is depends on its words, the text-size setting, the theme's font
+   and how wide the card happens to be. The old rule guessed - "if the next
+   marker is within 13% of the track, step it out one lane" - and guessed
+   wrong whenever a flag was wider than 13% of the track, which at the larger
+   text sizes is most of them.
+
+   So: draw them, MEASURE them, then place them. Each flag goes in the first
+   lane on its side of the line where it clears the flag before it; sides
+   alternate so the picture stays balanced; and the line's margins grow to
+   make room for however many lanes that took. */
+function layoutTimelineFlags() {
+  const host = els("ageTimeline");
+  if (!host) return;
+  const GUTTER = 6;    // clear space between two flags in the same lane
+  const BASE = 26;     // first lane's distance from the line
+  const GAP = 5;       // between lanes
+  host.querySelectorAll(".tl-track").forEach(track => {
+    const line = track.querySelector(".tl-line");
+    const markers = [...track.querySelectorAll(".tl-marker")];
+    if (!line || !markers.length) return;
+
+    // Measure from one common baseline: the vertical offset doesn't change a
+    // flag's width, so one pass of measurements serves every lane.
+    markers.forEach(m => {
+      m.classList.add("up");
+      m.classList.remove("down");
+      const f = m.querySelector(".tl-flag");
+      if (f) { f.style.bottom = ""; f.style.top = ""; }
+    });
+    const items = markers
+      .map(m => {
+        const f = m.querySelector(".tl-flag");
+        if (!f) return null;
+        const r = f.getBoundingClientRect();
+        return { m, f, left: r.left, right: r.right, h: r.height };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.left - b.left);
+    if (!items.length) return;
+
+    const up = [], down = [];      // right-hand edge occupied in each lane
+    let preferUp = true;
+    items.forEach(it => {
+      const fits = lanes => lanes.findIndex(edge => it.left >= edge + GUTTER);
+      let side = preferUp ? up : down;
+      let isUp = preferUp;
+      let lane = fits(side);
+      if (lane < 0) {
+        const other = preferUp ? down : up;
+        const l2 = fits(other);
+        if (l2 >= 0) { side = other; isUp = !preferUp; lane = l2; }
+        else { lane = side.length; }        // a brand-new lane, further out
+      }
+      side[lane] = it.right;
+      it.m.classList.toggle("up", isUp);
+      it.m.classList.toggle("down", !isUp);
+      const offset = BASE + lane * (it.h + GAP);
+      it.f.style[isUp ? "bottom" : "top"] = offset + "px";
+      it.f.style[isUp ? "top" : "bottom"] = "";
+      it.lane = lane; it.isUp = isUp;
+      preferUp = !isUp;
+    });
+
+    // Grow the track to fit the deepest lane on each side, rather than relying
+    // on a fixed min-height that two lanes of flags already overflow.
+    const depth = side => items.filter(i => i.isUp === side)
+      .reduce((mx, i) => Math.max(mx, BASE + i.lane * (i.h + GAP) + i.h), 0);
+    const above = depth(true), below = depth(false);
+    line.style.marginTop = Math.round(above + 10) + "px";
+    line.style.marginBottom = Math.round(below + 10) + "px";
+    track.style.minHeight = "0";
   });
 }
 
@@ -9520,10 +9602,27 @@ window.addEventListener("resize", () => {
   // crossing the phone/desktop boundary switches the chart mode on or off
   applyChartMode(false);
   scheduleTableScrollbars();
+  // A narrower track puts flags on top of each other; they are laid out from
+  // measurements, so the measurements have to be taken again.
+  layoutTimelineFlags();
   if (els("tab-planner").classList.contains("active") && lastModel) {
     drawPlannerChart(lastModel); drawBreakdownChart(lastModel); drawBalanceChart(lastModel); drawMcChart(); drawLongevityChart(lastModel);
   }
 });
+
+/* The window isn't the only thing that changes the track's width: collapsing
+   the rail, switching tabs and changing the text size all do, and none of them
+   fire a resize event. */
+if (typeof ResizeObserver !== "undefined") {
+  const tlCard = els("timelineCard");
+  if (tlCard) {
+    let tlRaf = null;
+    new ResizeObserver(() => {
+      if (tlRaf) return;
+      tlRaf = requestAnimationFrame(() => { tlRaf = null; layoutTimelineFlags(); });
+    }).observe(tlCard);
+  }
+}
 
 els("openSettingsMobile").addEventListener("click", () => els("settingsModal").classList.add("open"));
 
