@@ -134,44 +134,51 @@ with sync_playwright() as p:
 
     # 9. THE GRID CLAIM: within one asset list, the same column starts at the
     #    same x on every row. That is what "look inline correctly" means.
-    # The asset lists live on the Salary & savings page, not People - measuring
-    # them on a hidden panel would compare a column of zeroes and prove nothing.
-    pg.evaluate("() => activateTab('salary')")
-    pg.wait_for_timeout(700)
+    # The savings and property lists live on the Savings page and the employer
+    # pensions on Pensions - measuring them on a hidden panel would compare a
+    # column of zeroes and prove nothing.
     # Give each list enough rows to compare against each other, including a DB
     # pension (which carries a whole-row note) next to a DC one (which does not)
     # - the mixed case is exactly where the flex version went ragged.
     pg.evaluate("""() => document.querySelectorAll('details').forEach(d => d.open = true)""")
-    for kind in ["savings", "employerPensions", "property"]:
+    LISTS = {"savings": ("savings", "savingsList_you"),
+             "savings2": ("property", "propertyList_you"),
+             "salary": ("employerPensions", "employerPensionList_you")}
+    cols, seen = [], []
+    for tab, (kind, listId) in [("savings", LISTS["savings"]), ("savings", LISTS["savings2"]),
+                                ("salary", LISTS["salary"])]:
+        pg.evaluate("(t) => activateTab(t)", tab)
+        pg.wait_for_timeout(600)
         for _ in range(2):
             pg.evaluate("(k) => document.querySelector(`.add-btn[data-add=\"${k}\"][data-owner=you]`).click()", kind)
             pg.wait_for_timeout(250)
-    pg.evaluate("""() => { const s = document.querySelector(
-        '#employerPensionList_you .asset-row select[data-field=kind]');
-      if (s) { s.value = 'DB'; s.dispatchEvent(new Event('change', { bubbles: true })); } }""")
-    pg.wait_for_timeout(700)
-    cols = pg.evaluate("""() => {
-      const out = [];
-      document.querySelectorAll('[id^=propertyList], [id^=employerPensionList], [id^=savingsList]')
-        .forEach(list => {
-          const rows = [...list.querySelectorAll('.asset-row')];
-          if (rows.length < 2) return;
+        if kind == "employerPensions":
+            pg.evaluate("""() => { const s = document.querySelector(
+                '#employerPensionList_you .asset-row select[data-field=kind]');
+              if (s) { s.value = 'DB'; s.dispatchEvent(new Event('change', { bubbles: true })); } }""")
+            pg.wait_for_timeout(700)
+        assert pg.evaluate("(id) => !!document.getElementById(id).offsetParent", listId), \
+            f"{listId} is on a hidden panel - a column of zeroes proves nothing"
+        got = pg.evaluate("""(id) => {
+          const out = [];
+          const rows = [...document.getElementById(id).querySelectorAll('.asset-row')];
+          if (rows.length < 2) return out;
           const xs = rows.map(r => [...r.querySelectorAll(':scope > .field')]
             .map(f => Math.round(f.getBoundingClientRect().left)));
           const n = Math.min(...xs.map(a => a.length));
           for (let c = 0; c < n; c++) {
             const spread = Math.max(...xs.map(a => a[c])) - Math.min(...xs.map(a => a[c]));
-            out.push({ list: list.id, col: c, spread });
+            out.push({ list: id, col: c, spread });
           }
-        });
-      return out; }""")
-    assert cols, "no multi-row asset list to check"
-    assert pg.evaluate("() => !!document.getElementById('employerPensionList_you').offsetParent"), \
-        "measured a hidden panel"
-    assert any(c["list"] for c in cols) and len(cols) >= 6, cols
+          return out; }""", listId)
+        assert got, f"{listId} did not gain enough rows to compare"
+        cols += got
+        seen.append(listId)
+    assert len(cols) >= 6, cols
     worst = max(c["spread"] for c in cols)
     assert worst <= 1, [c for c in cols if c["spread"] > 1]
-    print(f"9. every column lines up across {len(cols)} column/row pairs (worst drift {worst}px)")
+    print(f"9. every column lines up across {len(cols)} column/row pairs in "
+          f"{len(seen)} lists (worst drift {worst}px)")
 
     # 10. And the rows really are grids now, with whole-row notes spanning.
     grid = pg.evaluate("""() => { const r = document.querySelector('.asset-row');
