@@ -191,18 +191,26 @@
 
   /* The handle itself. Sits at the top of the rail, rotates its chevron, and
      stays a full-size target in both states. */
+  /* An icon, not a word: it sits above the wordmark in both states and needs
+     to look the same width open or closed, so the concertina doesn't jump. */
   .rail-toggle {
-    display: flex; align-items: center; justify-content: center; gap: 8px;
+    display: flex; align-items: center; justify-content: center;
     background: var(--surface-2); color: var(--ink-muted);
     border: 1px solid var(--control-border); border-radius: 9px;
-    font: inherit; font-size: 0.78rem; padding: 7px 10px; cursor: pointer;
-    min-height: 34px; flex: 0 0 auto;
+    font: inherit; cursor: pointer; align-self: flex-end;
+    width: 34px; height: 34px; min-height: 34px; padding: 0; flex: 0 0 auto;
   }
+  .app.rail-collapsed .rail-toggle { align-self: center; }
   .rail-toggle:hover { border-color: var(--accent); color: var(--ink); }
-  .rail-toggle .chev { transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1); font-size: 0.9rem; line-height: 1; }
+  .rail-toggle .chev { transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1); font-size: 1rem; line-height: 1; }
   .app.rail-collapsed .rail-toggle .chev { transform: rotate(180deg); }
   /* One letter stands in for the wordmark once there is no room for it. */
   .brand-short { display: none; font-family: var(--font-display); font-weight: 700; }
+  /* The fold keeps text on one line so it can slide away cleanly, but the
+     wordmark has to be allowed to wrap or it overruns a narrow rail at the
+     larger text sizes. */
+  .brand .fold { white-space: normal; overflow-wrap: anywhere; }
+  .brand .mark { line-height: 1.15; }
   .app.rail-collapsed .brand-short { display: inline; }
 
   /* Motion is decoration here - the layout must still change instantly for
@@ -262,7 +270,9 @@
     cursor: pointer;
     transition: background 0.12s ease, color 0.12s ease;
   }
-  .tab-btn .icon { width: 18px; text-align: center; opacity: 0.85; }
+  /* Sized in em so the icon grows with the text scale. A fixed 18px box
+     clipped the emoji at 150%. */
+  .tab-btn .icon { width: 1.25em; min-width: 1.25em; flex: 0 0 auto; text-align: center; opacity: 0.85; }
   .tab-btn:hover { background: var(--surface-2); color: var(--ink); }
   .tab-btn.active { background: var(--accent-wash); color: var(--accent-strong); font-weight: 600; }
 
@@ -315,6 +325,42 @@
     margin-left: 3px; opacity: 0.75; cursor: help; vertical-align: baseline;
   }
   .def-link:hover { opacity: 1; text-decoration: none; }
+
+  /* ---------- Explain-on-hover ----------
+     Any jargon anywhere on the page is underlined with a faint dotted rule and
+     explains itself on hover or keyboard focus. The trigger is a plain inline
+     span so it never disturbs the line it sits in - no padding, no box, no
+     change to the line height. */
+  .def-term {
+    border-bottom: 1px dotted var(--ink-faint);
+    cursor: help;
+    /* Focusable for keyboard users; the outline only appears for them. */
+    outline: none;
+  }
+  .def-term:hover, .def-term.is-open { border-bottom-color: var(--accent); }
+  .def-term:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+  .def-pop {
+    position: fixed; z-index: 90; max-width: min(30em, calc(100vw - 24px));
+    background: var(--surface); color: var(--ink);
+    border: 1px solid var(--border); border-radius: 11px;
+    box-shadow: var(--shadow); padding: 11px 13px;
+    font-size: 0.82rem; line-height: 1.45;
+    opacity: 0; transform: translateY(3px); pointer-events: none;
+    transition: opacity 0.13s ease, transform 0.13s ease;
+  }
+  .def-pop.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+  .def-pop h4 { margin: 0 0 5px; font-size: 0.85rem; font-weight: 650; }
+  .def-pop p { margin: 0; color: var(--ink-muted); }
+  .def-pop .def-pop-foot {
+    margin-top: 8px; padding-top: 7px; border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; flex-wrap: wrap; font-size: 0.72rem; color: var(--ink-faint);
+  }
+  .def-pop .def-pop-foot a { color: var(--accent-strong, var(--accent)); text-decoration: none; }
+  .def-pop .def-pop-foot a:hover { text-decoration: underline; }
+  @media (prefers-reduced-motion: reduce) {
+    .def-pop { transition: none; }
+  }
   .field input, .field select {
     font: inherit; font-size: 0.94rem;
     padding: 9px 11px;
@@ -327,8 +373,10 @@
   .field .hint { font-size: 0.74rem; color: var(--ink-faint); }
   /* Uniform grid so fields line up in straight columns within each section
      (grid ignores the per-field flex overrides that made rows ragged). */
-  .field-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; align-items: start; }
+  .field-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12em), 1fr)); gap: 14px; align-items: start; }
   .field-row .field { min-width: 0; }
+  /* An input must never be wider than the column it sits in. */
+  .field input, .field select { min-width: 0; max-width: 100%; }
   /* Reserve two lines for every field label so a wrapping label doesn't push
      its input below its neighbours - inputs line up across each section. */
   /* Flex makes each child of the label its own item and discards the
@@ -340,6 +388,9 @@
     display: flex; align-items: flex-start; flex-wrap: wrap; gap: 0 0.34em;
   }
   .field-row .check-inline { align-self: center; }
+  /* A field that is a sentence rather than a box takes the whole row - squeezed
+     into one 12em column it would be a ten-line ribbon beside empty space. */
+  .field-row > .row-full, .field-row > p, .field-row > .hint { grid-column: 1 / -1; }
 
   /* ---------- Charts (planner + Monte Carlo) ---------- */
   .chart-wrap { width: 100%; overflow: hidden; border-radius: 10px; background: var(--surface-2); }
@@ -433,31 +484,87 @@
   /* ---------- Incremental asset lists ---------- */
   .list-label { font-size: 0.78rem; color: var(--ink-muted); margin-bottom: 8px; }
   .asset-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+  /* A grid, not a flex row. Under flex every field took its own basis width, so
+     the same field landed at a different x on each asset - "Value today" over
+     here on one line and over there on the next. On a grid the columns are the
+     same for every row of the same width, so the boxes read as columns. */
   .asset-row {
-    display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-start;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 9.5em), 1fr));
+    gap: 8px 12px; align-items: start;
     background: var(--surface-2); border: 1px solid var(--border);
-    border-radius: 10px; padding: 10px 12px;
+    border-radius: 10px; padding: 10px 42px 10px 12px;
+    position: relative;   /* the remove button is pinned, see below */
+  }
+  /* Anything that is a note about the whole row, rather than one box in it,
+     takes the full width. */
+  .asset-row > p, .asset-row > .hint, .asset-row > .check-inline, .asset-row > .row-full {
+    grid-column: 1 / -1;
   }
   /* Reserve one label line so every field's input starts at the same height,
      whether or not the label wraps - keeps the row's inputs on a straight line
      even when some fields carry a slider underneath (e.g. Property & Vehicles). */
   .asset-row .field > label { min-height: 1.9em; display: flex; align-items: flex-start; }
-  .asset-row .field { flex: 1 1 120px; gap: 4px; }
+  .asset-row .field { gap: 4px; min-width: 0; }
+  /* A <select> takes its width from its longest option unless told not to. */
+  .asset-row select, .asset-row input { max-width: 100%; min-width: 0; }
   .asset-row .field label { font-size: 0.7rem; }
   .asset-row .field input, .asset-row .field select {
     background: var(--surface); font-size: 0.88rem; padding: 7px 9px;
   }
+  /* Pinned to the row's top-right rather than left in the grid: as a grid item
+     it took whichever cell came next, so on a row with an odd number of fields
+     the little x floated in the middle of an empty line. Out of flow it is in
+     the same place on every row, and the row reserves the space for it. */
   .asset-row .remove-btn {
-    flex: 0 0 auto; align-self: center; background: none; border: 1px solid var(--border);
+    position: absolute; top: 9px; right: 9px;
+    background: none; border: 1px solid var(--border);
     color: var(--ink-faint); border-radius: 8px; padding: 6px 9px; cursor: pointer; font-size: 0.95rem;
   }
   .asset-row .remove-btn:hover { border-color: var(--critical); color: var(--critical); }
-  .asset-row .field input.asset-slider { padding: 0; margin-top: 3px; }
+  .asset-row .field input.asset-slider { padding: 0; margin: 3px 0 0; }
   .prop-projection {
     font-size: 0.82rem; color: var(--ink-muted); padding: 7px 0 0; line-height: 1.35;
   }
   .prop-projection b { color: var(--ink); }
+  /* ---- People page: less scrolling ---------------------------------------
+     The two Key Dates cards say the same seven things about each person, one
+     after the other, so on anything wide enough they sit SIDE BY SIDE and
+     become one screen instead of two. They fall back to stacking below ~420px
+     of card width, where two columns would squeeze the figures. */
+  #ageCards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+    gap: 18px;
+    align-items: start;
+  }
+  /* The two input cards pair up only when each column is still wide enough to
+     hold its four fields in one row. Measured: at a 1040px content width two
+     columns are TALLER than one (676px vs 641px), because halving the width
+     wraps each card's fields onto an extra row and the taller card sets the
+     height for both. Measured again at 1600px, where the columns are roomier,
+     two beats one (1696px vs 1823px). 560px is the floor that splits those
+     two cases. */
+  .people-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 560px), 1fr));
+    gap: 18px;
+    align-items: start;
+  }
+  /* Denser tiles inside a half-width card: the numbers are short, so they do
+     not need 150px columns once the card itself is narrower. */
+  .people-grid { margin-bottom: 0; }
+  #ageCards .stat-row { grid-template-columns: repeat(auto-fit, minmax(min(100%, 8em), 1fr)); gap: 10px; }
+  #ageCards .stat { padding: 10px 12px; }
+  #ageCards .stat .value { font-size: 1.05rem; }
+  #ageCards .stat .sub { font-size: 0.72rem; }
+
   /* People timeline (above Key Dates) */
+  .tl-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex-wrap: wrap; margin-bottom: 10px;
+  }
+  .tl-head h2 { font-size: 1.05rem; }
+  .tlscale-seg button { white-space: nowrap; }
   #timelineCard { overflow-x: auto; }
   .timeline { min-width: 520px; }
   .tl-track { display: flex; align-items: center; gap: 10px; min-height: 132px; }
@@ -559,7 +666,10 @@
   /* companion sliders under editable numbers */
   input.fld-slider {
     -webkit-appearance: none; appearance: none; width: 100%; height: 4px;
-    margin-top: 7px; background: var(--surface-2); border-radius: 2px;
+    /* The UA stylesheet puts a 2px margin on a range input, which pushed a
+       100%-wide slider 2px past its container - a small clip, but on every
+       field that has one. Set all four explicitly. */
+    margin: 7px 0 0; background: var(--surface-2); border-radius: 2px;
     outline: none; cursor: pointer; padding: 0; border: none;
   }
   input.fld-slider::-webkit-slider-thumb {
@@ -591,6 +701,14 @@
   /* the parenthetical hint after a label reads as part of the same sentence */
   .check-inline .hint-inline { font-weight: 400; }
 
+  /* A row of tick-boxes that flows. A grid would give every option the same
+     column width whether it needed it or not, so a short one wasted space and
+     a long one wrapped inside a column narrower than its own text. Here each
+     takes the width of its text, up to the full row, and the rest roll onto
+     the next line. */
+  .check-row { display: flex; flex-wrap: wrap; gap: 2px 22px; align-items: flex-start; }
+  .check-row .check-inline { flex: 0 1 auto; max-width: 100%; margin: 2px 0; }
+
   /* ---------- Wide tables: a scrollbar at the top as well as the bottom ----
      A table wider than the panel puts its scrollbar at the very bottom, which
      on a tall table is off-screen - you cannot tell there is more to the right,
@@ -617,7 +735,10 @@
   .divider { height: 1px; background: var(--border); margin: 4px 0; }
 
   /* ---------- Stat tiles ---------- */
-  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+  /* minmax in em, not px: the root font size is what the text-size control
+     changes, so the columns grow with the words in them instead of clipping
+     them. */
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.4em), 1fr)); gap: 14px; }
   .stat {
     background: var(--surface-2); border-radius: 10px; padding: 13px 15px;
     display: flex; flex-direction: column; gap: 4px;
@@ -739,6 +860,24 @@
   .notice.info .icon { color: var(--accent-strong); }
   .notice.empty { background: var(--surface-2); border-color: var(--border); color: var(--ink-muted); }
   .notice.empty .icon { color: var(--ink-faint); }
+  .notice.good { background: var(--accent-wash); border-color: var(--accent); }
+  .notice.good .icon { color: var(--accent-strong); }
+  .notice.warn { background: var(--gold-wash); border-color: var(--gold); }
+
+  /* How much of this year's ISA allowance is spoken for. A bar, because the
+     thing worth seeing is the proportion left, not the number. */
+  .isa-bar {
+    height: 9px; border-radius: 5px; background: var(--surface-2);
+    border: 1px solid var(--border); overflow: hidden; margin: 4px 0 10px;
+  }
+  .isa-bar span { display: block; height: 100%; background: var(--accent); }
+
+  .backup-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 0.82rem;
+  }
+  .backup-row:last-child { border-bottom: none; }
+  .backup-row button { padding: 3px 9px; font-size: 0.78rem; }
 
   .transition-note {
     font-size: 0.78rem; color: var(--warn); display: flex; gap: 6px; align-items: baseline;
@@ -776,9 +915,15 @@
     border: none; padding: 6px 12px; cursor: pointer;
   }
   .wording-seg button.active { background: var(--accent); color: var(--on-accent); font-weight: 600; }
-  /* In the rail there is no room for four across; wrap instead of clipping. */
+  /* In the rail there is no room for four word-labels across. They wrap two
+     by two instead of being clipped - and the button sizes itself from its own
+     text (flex-basis auto), because a fixed basis is what squeezed "Decades"
+     and "Numbers" into a column narrower than the word. */
   .rail .wording-seg { flex-wrap: wrap; border-radius: 10px; }
-  .rail .wording-seg button { flex: 1 1 44%; min-width: 0; }
+  .rail .wording-seg button {
+    flex: 1 0 auto; min-width: 0; padding: 6px 8px;
+    font-size: 0.72rem; white-space: nowrap;
+  }
   .rail .profile-box .hint { font-size: 0.68rem; line-height: 1.3; }
 
   /* ---------- Mobile top bar + bottom nav (hidden on desktop) ---------- */
@@ -813,11 +958,11 @@
     .card { padding: 16px; border-radius: var(--radius); }
 
     /* two-up stat tiles so a person's key numbers fit one screen */
-    .stat-row { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat-row { grid-template-columns: repeat(auto-fit, minmax(min(100%, 8em), 1fr)); gap: 10px; }
     .stat { padding: 11px 12px; }
     .stat .value { font-size: 1.05rem; }
     .phase-explainer { grid-template-columns: 1fr; gap: 10px; padding: 14px; }
-    .field-row .field { flex: 1 1 140px; }
+    .field-row { grid-template-columns: repeat(auto-fit, minmax(min(100%, 10em), 1fr)); }
 
     .bottomnav {
       display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
@@ -875,8 +1020,15 @@
        them wrap onto as many rows as they need instead. */
     .segmented { display: flex; flex-wrap: wrap; width: 100%; max-width: 100% !important; }
     .segmented button { flex: 1 1 44%; border-bottom: 1px solid var(--border); }
-    .wording-seg { flex-wrap: nowrap; width: auto; }
-    .wording-seg button { flex: 0 0 auto; border-bottom: none; }
+    /* Only the top bar's toggle must stay on one line - it shares a row with
+       the brand and the gear. Segmented controls in the content wrap like
+       anything else, or they run off the side at the larger text sizes. */
+    .mobilebar .wording-seg { flex-wrap: nowrap; width: auto; }
+    .mobilebar .wording-seg button { flex: 0 0 auto; border-bottom: none; }
+    .content .wording-seg { flex-wrap: wrap; max-width: 100%; }
+    .content .wording-seg button { flex: 1 1 auto; border-bottom: none; }
+    /* At the largest text sizes even the top bar needs two lines. */
+    .mobilebar { flex-wrap: wrap; row-gap: 6px; }
   }
 
   @media (max-width: 400px) {
@@ -942,8 +1094,12 @@
     @container (max-width: 460px) {
       .field-row { grid-template-columns: 1fr; }
       .stat-row { grid-template-columns: 1fr 1fr; }
-      .asset-row { flex-direction: column; align-items: stretch; }
-      .asset-row .remove-btn { align-self: flex-end; }
+      .asset-row { grid-template-columns: 1fr; align-items: stretch; }
+      /* Stacked, each field must take the row's CONTENT width. Left to
+         stretch alone a <select> pushed its field to its own intrinsic width
+         and out past the padding. */
+      .asset-row > * { width: 100%; max-width: 100%; min-width: 0; }
+      .asset-row .remove-btn { width: auto; }
     }
     @container (max-width: 300px) {
       .stat-row { grid-template-columns: 1fr; }
@@ -1050,8 +1206,7 @@
   <aside class="rail" id="rail">
     <button type="button" class="rail-toggle" id="railToggle" aria-expanded="true" aria-controls="rail"
             title="Collapse the menu (Ctrl + \)">
-      <span class="chev" aria-hidden="true">&#9666;</span>
-      <span class="fold" id="railToggleText">Collapse</span>
+      <span class="chev" aria-hidden="true">&#11164;</span>
     </button>
     <div class="brand">
       <span class="mark"><span class="brand-short" aria-hidden="true">Q</span><span class="fold">Quids In</span></span>
@@ -1062,7 +1217,8 @@
          emoji are decoration, so they are hidden from screen readers. -->
     <nav class="tabs" id="tabs" role="tablist" aria-label="Planner sections">
       <button class="tab-btn active" id="tabbtn-people" role="tab" aria-selected="true" aria-controls="tab-people" data-tab="people"><span class="icon" aria-hidden="true">&#128100;</span><span class="fold">People</span></button>
-      <button class="tab-btn" id="tabbtn-salary" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-salary" data-tab="salary"><span class="icon" aria-hidden="true">&#8681;</span><span class="fold">Paying In</span></button>
+      <button class="tab-btn" id="tabbtn-savings" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-savings" data-tab="savings"><span class="icon" aria-hidden="true">&#128176;</span><span class="fold">Savings</span></button>
+      <button class="tab-btn" id="tabbtn-salary" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-salary" data-tab="salary"><span class="icon" aria-hidden="true">&#127963;</span><span class="fold">Pensions</span></button>
       <button class="tab-btn" id="tabbtn-projection" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-projection" data-tab="projection"><span class="icon" aria-hidden="true">&#8679;</span><span class="fold">Paying Out</span></button>
       <button class="tab-btn" id="tabbtn-planner" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-planner" data-tab="planner"><span class="icon" aria-hidden="true">&#128506;</span><span class="fold">Planner</span></button>
       <button class="tab-btn" id="tabbtn-tax" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-tax" data-tab="tax"><span class="icon" aria-hidden="true">&#9878;</span><span class="fold">Tax</span></button>
@@ -1095,10 +1251,10 @@
       <div class="rail-fold-block profile-box" style="padding: 0;">
         <span class="profile-label" id="chartModeLabel">Charts on a phone</span>
         <div class="wording-seg chartmode-seg" style="width: 100%;" role="group" aria-labelledby="chartModeLabel">
-          <button data-chart-mode="full" style="flex:1;" aria-pressed="false">Full</button>
-          <button data-chart-mode="zoom" style="flex:1;" aria-pressed="false">Zoom</button>
-          <button data-chart-mode="decade" style="flex:1;" aria-pressed="false">Decades</button>
-          <button data-chart-mode="numbers" style="flex:1;" aria-pressed="false">Numbers</button>
+          <button data-chart-mode="full" aria-pressed="false">Full</button>
+          <button data-chart-mode="zoom" aria-pressed="false">Zoom</button>
+          <button data-chart-mode="decade" aria-pressed="false">Decades</button>
+          <button data-chart-mode="numbers" aria-pressed="false">Numbers</button>
         </div>
         <span class="hint" style="padding: 0 2px 4px;">Applies on phone-width screens (under 700px).</span>
       </div>
@@ -1133,13 +1289,13 @@
       <div class="card">
         <div class="field-row settings-row">
           <div class="field">
-            <label for="profileSelect">Saved profile</label>
+            <label for="profileSelect">Saved plan</label>
             <div class="profile-row">
               <select id="profileSelect"></select>
               <button class="icon-btn" id="profileExportBtn" title="Save this plan to a file" aria-label="Save to file">&#128190;</button>
               <button class="icon-btn" id="profileImportBtn" title="Load a plan from a file" aria-label="Load from file">&#128193;</button>
-              <button class="icon-btn" id="shareProfile" title="Share this profile with another account" aria-label="Share profile" style="display: none;">&#128101;</button>
-              <button class="icon-btn" id="deleteProfile" title="Delete this profile" aria-label="Delete profile">&#128465;</button>
+              <button class="icon-btn" id="shareProfile" title="Share this plan with another account" aria-label="Share plan" style="display: none;">&#128101;</button>
+              <button class="icon-btn" id="deleteProfile" title="Delete this plan" aria-label="Delete plan">&#128465;</button>
               <input type="file" id="profileImportInput" accept=".json,application/json" style="display: none;" aria-label="Choose a saved plan file to load">
             </div>
             <span class="hint" id="profileFileMsg" style="display: none; font-weight: 600;"></span>
@@ -1168,13 +1324,13 @@
       <div class="card" id="accountCard" style="display: none;">
         <h2>Account</h2>
         <div id="accountSignedOut">
-          <p class="hint" style="margin: 0 0 0.6rem;">Sign in to keep your saved profiles on the server - synced across devices and shareable with an adviser. Without an account, everything stays in this browser only.</p>
+          <p class="hint" style="margin: 0 0 0.6rem;">Sign in to keep your saved plans on the server - synced across devices and shareable with an adviser. Without an account, everything stays in this browser only.</p>
           <div class="field-row">
-            <div class="field" style="flex: 1 1 180px;">
+            <div class="field">
               <label for="accountEmail">Email</label>
               <input type="email" id="accountEmail" autocomplete="email" placeholder="you@example.com">
             </div>
-            <div class="field" style="flex: 1 1 150px;">
+            <div class="field">
               <label for="accountPassword">Password <span class="hint-inline">(8+ characters)</span></label>
               <input type="password" id="accountPassword" autocomplete="current-password">
             </div>
@@ -1186,12 +1342,16 @@
           <p class="hint" id="accountError" style="display: none; color: var(--critical); margin: 0.5rem 0 0;"></p>
         </div>
         <div id="accountSignedIn" style="display: none;">
-          <p style="margin: 0 0 0.6rem;">Signed in as <strong id="accountWho"></strong>. Saved profiles sync to the server; the &#128101; button next to the profile picker shares the selected profile with another account.</p>
+          <p style="margin: 0 0 0.6rem;">Signed in as <strong id="accountWho"></strong>. Saved plans sync to the server; the &#128101; button next to the plan picker shares the selected plan with another account.</p>
           <button type="button" class="btn-ghost" id="signOutBtn">Sign out</button>
         </div>
         <p class="hint" id="dataSourceNote" style="margin: 0.6rem 0 0;"></p>
       </div>
 
+      <!-- The two people side by side once there is room: they ask the same
+           four questions each, so stacking them doubled the scrolling for
+           nothing. Falls back to one column when a card would be cramped. -->
+      <div class="people-grid">
       <div class="card">
         <h2>You</h2>
         <div class="field-row">
@@ -1208,7 +1368,7 @@
             <span class="hint">Only affects results if born before 6 Apr 1955</span>
           </div>
           <div class="field">
-            <label for="retireDate">Planned retirement date</label>
+            <label for="retireDate">Planned retirement date <b id="retireAgeP"></b></label>
             <input type="date" id="retireDate" value="2028-03-01">
             <input type="range" id="retireSliderP" class="fld-slider" min="2026" max="2070" step="1" aria-label="Adjust your planned retirement year">
             <span class="hint">When you stop earning. If before a pension starts, savings bridge the gap.</span>
@@ -1243,7 +1403,7 @@
               </select>
             </div>
             <div class="field">
-              <label for="spouseRetireDate">Planned retirement date</label>
+              <label for="spouseRetireDate">Planned retirement date <b id="spouseRetireAgeP"></b></label>
               <input type="date" id="spouseRetireDate" value="2033-04-01">
               <input type="range" id="spouseRetireSliderP" class="fld-slider" min="2026" max="2070" step="1" aria-label="Adjust your spouse's planned retirement year">
             </div>
@@ -1271,7 +1431,18 @@
       </div>
 
       <h2 style="margin-top: 4px;">Key dates</h2>
+      </div>
+
       <div class="card" id="timelineCard">
+        <div class="tl-head">
+          <h2>Your key dates</h2>
+          <!-- Each option carries its own explanation on hover, so the card
+               doesn't need a paragraph underneath repeating them both. -->
+          <div class="wording-seg tlscale-seg" role="group" aria-label="Timeline scale">
+            <button data-tlscale="power" data-def="tlPower" aria-pressed="true">Near years expanded</button>
+            <button data-tlscale="even" data-def="tlEven" aria-pressed="false">Even years</button>
+          </div>
+        </div>
         <div id="ageTimeline"></div>
       </div>
       <div id="ageCards"></div>
@@ -1280,8 +1451,8 @@
     <!-- PAYING IN (was Salary & Pot) -->
     <section class="panel" id="tab-salary" role="tabpanel" aria-labelledby="tabbtn-salary">
       <div class="panel-head">
-        <h1>Paying In</h1>
-        <p>Everything building up before you retire: your pension pot and contributions, cash savings, employer pensions, and share accounts. This is the <b data-term="accumulationShort">accumulation</b> phase.</p>
+        <h1>Pensions</h1>
+        <p data-term-plain="Everything to do with your pensions: the pot you already have, what goes in each year, the top-up the government adds, and any scheme from work. Savings, investments and property are on the <b>Savings</b> page." data-term-expert="Everything on the pension side: existing pot value and growth assumption, employer and employee contributions, the relief mechanism that applies in your country, the annual allowance, and any DB or DC scheme from an employer. Non-pension assets are on the <b>Savings</b> page. This is the <b>accumulation phase</b>."></p>
       </div>
 
       <div class="phase-explainer">
@@ -1510,35 +1681,13 @@
         </div>
       </div>
 
-      <!-- YOUR savings, pensions & investments -->
+      <!-- YOUR employer pensions. Savings, shares and property are on the
+           Savings page; only pensions belong here. -->
       <div class="card" id="assetsYouGroup">
-        <div class="person-title"><h2>Your savings, pensions &amp; investments</h2></div>
-        <p class="caption" style="margin-top:-6px;">Cash and shares bridge any early-retirement gap; defined-contribution
-          employer pots add to your drawdown pot; defined-benefit pensions pay a set income from their own start age.</p>
-        <h3>&#128181; Cash savings</h3>
-        <div class="field-row">
-          <div class="field">
-            <label for="cashCurrent">Current account balance (<span class="cur">&pound;</span>)</label>
-            <input type="text" inputmode="decimal" data-money="0" id="cashCurrent" value="10,000">
-          </div>
-        </div>
-        <div class="list-label">Savings accounts</div>
-        <div id="savingsList_you" class="asset-list"></div>
-        <button type="button" class="add-btn" data-add="savings" data-owner="you">+ Add savings account</button>
-        <div class="divider" style="margin: 12px 0;"></div>
-        <h3>&#127963; Employer pensions</h3>
+        <div class="person-title"><h2>Your employer pensions</h2></div>
         <p class="hint" style="margin:-6px 0 8px;">Add as many as you like &mdash; several <b>Defined Contribution</b> pots (each with its own value &amp; contribution) and several <b>Defined Benefit</b> pensions (each with its own income &amp; start age) can all run together.</p>
         <div id="employerPensionList_you" class="asset-list"></div>
         <button type="button" class="add-btn" data-add="employerPensions" data-owner="you">+ Add employer pension</button>
-        <div class="divider" style="margin: 12px 0;"></div>
-        <h3>&#128200; Shares &amp; investments</h3>
-        <div id="shareList_you" class="asset-list"></div>
-        <button type="button" class="add-btn" data-add="shares" data-owner="you">+ Add share account</button>
-        <div class="divider" style="margin: 12px 0;"></div>
-        <h3>&#127968; Property &amp; vehicles</h3>
-        <div id="propertyList_you" class="asset-list"></div>
-        <button type="button" class="add-btn" data-add="property" data-owner="you">+ Add property or vehicle</button>
-        <p class="caption" style="margin-top:6px;">Homes and cars count towards net worth. For a home you can set a <b>downsize year</b> and the equity released, which is added to your retirement funding from that year.</p>
       </div>
 
       <div class="card person-card" id="spousePotCard">
@@ -1595,9 +1744,98 @@
         </div>
       </div>
 
-      <!-- YOUR SPOUSE's savings, pensions & investments -->
+      <!-- YOUR SPOUSE's employer pensions -->
       <div class="card" id="assetsSpouseGroup">
-        <div class="person-title"><h2>Your spouse's savings, pensions &amp; investments</h2></div>
+        <div class="person-title"><h2>Your spouse's employer pensions</h2></div>
+        <p class="hint" style="margin:-6px 0 8px;">Add as many as you like &mdash; several <b>Defined Contribution</b> pots and several <b>Defined Benefit</b> pensions (each with its own income &amp; start age) can all run together.</p>
+        <div id="employerPensionList_spouse" class="asset-list"></div>
+        <button type="button" class="add-btn" data-add="employerPensions" data-owner="spouse">+ Add employer pension</button>
+      </div>
+    </section>
+
+    <!-- SAVINGS: everything you own that isn't a pension -->
+    <section class="panel" id="tab-savings" role="tabpanel" aria-labelledby="tabbtn-savings">
+      <div class="panel-head">
+        <h1>Savings</h1>
+        <p data-term-plain="Everything you own that isn't a pension: cash, ISAs, shares, property and vehicles &mdash; and what you owe against them. This is the money that keeps you going if you stop work before you can touch a pension." data-term-expert="Non-pension assets and liabilities: cash, ISAs, taxable investments, property and vehicles, net of borrowing. These fund the bridging period between cessation of earnings and first pension access, and they are drawn before any pension is crystallised."></p>
+      </div>
+
+      <!-- EMERGENCY FUND -->
+      <div class="card">
+        <div class="person-title"><h2>&#128737; Emergency fund</h2></div>
+        <p class="caption" style="margin-top:-6px;">Money you keep back for a boiler, a car or a redundancy, so a bad month
+          doesn't force you to sell investments at the worst moment. It is held out of the plan's spending, not added to it.</p>
+        <div class="field-row">
+          <label class="check-inline"><input type="checkbox" id="emergencyOn"> Keep an emergency fund</label>
+        </div>
+        <div class="field-row" id="emergencyFields" style="display:none;">
+          <div class="field">
+            <label for="emergencyMonths">Months of spending to hold back</label>
+            <input type="number" id="emergencyMonths" value="6" min="0" max="36" step="1">
+            <span class="hint">Three months is a common floor; six is the usual advice; twelve if your income is lumpy.</span>
+          </div>
+          <div class="field">
+            <label>Target</label>
+            <div class="num" id="emergencyTarget" style="padding: 9px 0; font-size: 0.94rem;"><span class="cur">&pound;</span>0</div>
+          </div>
+          <div class="field">
+            <label>Cover you have today</label>
+            <div class="num" id="emergencyCover" style="padding: 9px 0; font-size: 0.94rem;">&mdash;</div>
+          </div>
+          <p class="hint row-full" id="emergencyNote" style="margin: 2px 0 0;"></p>
+        </div>
+      </div>
+
+      <!-- YOUR savings & investments -->
+      <div class="card" id="savingsYouGroup">
+        <div class="person-title"><h2>Your savings &amp; investments</h2></div>
+        <p class="caption" style="margin-top:-6px;">Cash and shares bridge any early-retirement gap &mdash; they are what you
+          live on between stopping work and the first pension you can touch.</p>
+        <h3>&#128181; Cash savings</h3>
+        <div class="field-row">
+          <div class="field">
+            <label for="cashCurrent">Current account balance (<span class="cur">&pound;</span>)</label>
+            <input type="text" inputmode="decimal" data-money="0" id="cashCurrent" value="10,000">
+          </div>
+        </div>
+        <div class="list-label">Savings accounts</div>
+        <div id="savingsList_you" class="asset-list"></div>
+        <button type="button" class="add-btn" data-add="savings" data-owner="you">+ Add savings account</button>
+        <div class="divider" style="margin: 12px 0;"></div>
+        <h3>&#128200; Shares &amp; investments</h3>
+        <div id="shareList_you" class="asset-list"></div>
+        <button type="button" class="add-btn" data-add="shares" data-owner="you">+ Add share account</button>
+        <div class="divider" style="margin: 12px 0;"></div>
+        <h3>&#127974; Premium Bonds &amp; NS&amp;I</h3>
+        <p class="hint" style="margin:-6px 0 8px;">Held apart from ordinary savings because the return is a prize draw, not
+          interest: it pays nothing towards your Personal Savings Allowance and nothing in tax. The prize rate is an average
+          &mdash; a typical holding wins rather less than it.</p>
+        <div class="field-row">
+          <div class="field">
+            <label for="premiumBonds">Premium Bonds held (<span class="cur">&pound;</span>)</label>
+            <input type="text" inputmode="decimal" data-money="0" id="premiumBonds" value="0">
+            <span class="hint">Maximum holding &pound;50,000 per person.</span>
+          </div>
+          <div class="field">
+            <label for="premiumBondsRate">Prize rate (%)</label>
+            <input type="number" id="premiumBondsRate" value="3.6" min="0" max="10" step="0.1">
+            <span class="hint">NS&amp;I's published annual prize-fund rate.</span>
+          </div>
+          <div class="field">
+            <label>Expected, tax-free</label>
+            <div class="num" id="premiumBondsYield" style="padding: 9px 0; font-size: 0.94rem;"><span class="cur">&pound;</span>0 / year</div>
+          </div>
+        </div>
+        <div class="divider" style="margin: 12px 0;"></div>
+        <h3>&#127968; Property &amp; vehicles</h3>
+        <div id="propertyList_you" class="asset-list"></div>
+        <button type="button" class="add-btn" data-add="property" data-owner="you">+ Add property or vehicle</button>
+        <p class="caption" style="margin-top:6px;">Homes and cars count towards net worth. For a home you can set a <b>downsize year</b> and the equity released, which is added to your retirement funding from that year.</p>
+      </div>
+
+      <!-- SPOUSE savings & investments -->
+      <div class="card" id="savingsSpouseGroup">
+        <div class="person-title"><h2>Your spouse's savings &amp; investments</h2></div>
         <h3>&#128181; Cash savings</h3>
         <div class="field-row">
           <div class="field">
@@ -1609,18 +1847,54 @@
         <div id="savingsList_spouse" class="asset-list"></div>
         <button type="button" class="add-btn" data-add="savings" data-owner="spouse">+ Add savings account</button>
         <div class="divider" style="margin: 12px 0;"></div>
-        <h3>&#127963; Employer pensions</h3>
-        <p class="hint" style="margin:-6px 0 8px;">Add as many as you like &mdash; several <b>Defined Contribution</b> pots and several <b>Defined Benefit</b> pensions (each with its own income &amp; start age) can all run together.</p>
-        <div id="employerPensionList_spouse" class="asset-list"></div>
-        <button type="button" class="add-btn" data-add="employerPensions" data-owner="spouse">+ Add employer pension</button>
-        <div class="divider" style="margin: 12px 0;"></div>
         <h3>&#128200; Shares &amp; investments</h3>
         <div id="shareList_spouse" class="asset-list"></div>
         <button type="button" class="add-btn" data-add="shares" data-owner="spouse">+ Add share account</button>
         <div class="divider" style="margin: 12px 0;"></div>
+        <h3>&#127974; Premium Bonds &amp; NS&amp;I</h3>
+        <div class="field-row">
+          <div class="field">
+            <label for="spousePremiumBonds">Premium Bonds held (<span class="cur">&pound;</span>)</label>
+            <input type="text" inputmode="decimal" data-money="0" id="spousePremiumBonds" value="0">
+          </div>
+          <div class="field">
+            <label>Expected, tax-free</label>
+            <div class="num" id="spousePremiumBondsYield" style="padding: 9px 0; font-size: 0.94rem;"><span class="cur">&pound;</span>0 / year</div>
+          </div>
+        </div>
+        <div class="divider" style="margin: 12px 0;"></div>
         <h3>&#127968; Property &amp; vehicles</h3>
         <div id="propertyList_spouse" class="asset-list"></div>
         <button type="button" class="add-btn" data-add="property" data-owner="spouse">+ Add property or vehicle</button>
+      </div>
+
+      <!-- ISA ALLOWANCE -->
+      <div class="card">
+        <div class="person-title"><h2>&#127974; ISA allowance this tax year</h2></div>
+        <p class="caption" style="margin-top:-6px;">&pound;20,000 a year each, across every kind of ISA together &mdash; not
+          &pound;20,000 per ISA. Unused allowance does not carry over: on 6 April whatever is left simply goes.</p>
+        <div class="field-row">
+          <div class="field">
+            <label for="isaPaidYou">You have paid in so far this tax year (<span class="cur">&pound;</span>)</label>
+            <input type="text" inputmode="decimal" data-money="0" id="isaPaidYou" value="0">
+          </div>
+          <div class="field" id="isaPaidSpouseField">
+            <label for="isaPaidSpouse">Your spouse has paid in (<span class="cur">&pound;</span>)</label>
+            <input type="text" inputmode="decimal" data-money="0" id="isaPaidSpouse" value="0">
+          </div>
+        </div>
+        <div id="isaAllowance"></div>
+      </div>
+
+      <!-- DEBTS -->
+      <div class="card">
+        <div class="person-title"><h2>&#128179; Debts &amp; mortgages</h2></div>
+        <p class="caption" style="margin-top:-6px;">What you owe comes off your net worth, and the interest is a guaranteed
+          loss where investment growth is only a hope. Anything charging more than your assumed growth rate is worth clearing
+          before saving more.</p>
+        <div id="debtList" class="asset-list"></div>
+        <button type="button" class="add-btn" data-add="debts" data-owner="you">+ Add a debt or mortgage</button>
+        <div id="debtVerdict" style="margin-top: 10px;"></div>
       </div>
 
       <!-- ASSETS SUMMARY -->
@@ -1634,7 +1908,7 @@
     <section class="panel" id="tab-projection" role="tabpanel" aria-labelledby="tabbtn-projection">
       <div class="panel-head">
         <h1>Paying Out</h1>
-        <p>Your income year by year in retirement &mdash; from your retirement date to average life expectancy. If you retire before a pension starts, cash then shares bridge the gap.</p>
+        <p data-term-plain="What you'd have coming in each year once you stop work, from the day you retire to an average lifetime. If you stop before a pension starts, your cash and then your shares carry you through." data-term-expert="Year-by-year retirement income from the retirement date to median life expectancy, by source. Where retirement precedes first pension access, cash is drawn first and taxable investments second to bridge the gap."></p>
       </div>
       <div id="projectionCards"></div>
     </section>
@@ -1643,7 +1917,7 @@
     <section class="panel" id="tab-planner" role="tabpanel" aria-labelledby="tabbtn-planner">
       <div class="panel-head">
         <h1>Lifetime planner</h1>
-        <p>Your whole retirement on one chart: income each year, major life events, a living-standard target, market-history stress testing, and what-if scenarios.</p>
+        <p data-term-plain="Your whole retirement on one chart: what comes in each year, the big moments, how much you want to live on, how it would have coped with real market history, and a few what-ifs." data-term-expert="The full plan on one chart: annual income by source, dated life events, a living-standard target line, Monte Carlo and historical-sequence stress testing, and scenario comparison."></p>
       </div>
 
       <div class="card">
@@ -1676,13 +1950,16 @@
             <input type="range" id="spouseRetireSlider" class="fld-slider" min="2026" max="2070" step="1">
           </div>
         </div>
-        <div class="field-row" style="margin-top: 4px;">
+        <!-- A wrapping row of options, not a grid: each one takes exactly the
+             width its own text needs and the rest flow onto the next line, so
+             nothing is squeezed into a column too narrow for it. -->
+        <div class="check-row" style="margin-top: 4px;">
           <label class="check-inline"><input type="checkbox" id="toMaxAge" checked> Run the plan to the <b>maximum modelled age</b>
             <span class="hint-inline">(life expectancy is the halfway point &mdash; half of people outlive it)</span></label>
-          <label class="check-inline"><input type="checkbox" id="showSurvival"> Show the <b>chance of still being alive</b> at each age on the charts</label>
           <label class="check-inline"><input type="checkbox" id="targetInflationOn" checked> Income target rises with inflation each year (keeps pace with the cost of living)</label>
           <label class="check-inline"><input type="checkbox" id="flatMoney"> Show flat, today's-money numbers (strip inflation-style growth)</label>
           <label class="check-inline"><input type="checkbox" id="levelOn"> Level income: draw the pension as needed &amp; bank surplus to close gaps</label>
+          <label class="check-inline"><input type="checkbox" id="showSurvival"> Show the <b>chance of still being alive</b> at each age on the charts</label>
         </div>
         <div class="chart-legend" id="plannerLegend"></div>
         <p class="caption" id="plannerCaption"></p>
@@ -1930,11 +2207,11 @@
         </div>
         <p class="caption" style="margin-top:-4px;">Replays your household plan against ~100 years of (approximate) real annual returns for a UK/global equity portfolio, resampled in random multi-year blocks, to ask: <b>how often does the money last?</b> Withdrawals each year = your spending target minus guaranteed income (State + DB). Historical patterns are no guarantee of the future.</p>
         <div class="field-row" style="margin: 10px 0;">
-          <div class="field" style="flex:0 0 140px;">
+          <div class="field">
             <label for="mcRuns">Simulations</label>
             <select id="mcRuns"><option>200</option><option selected>500</option><option>1000</option></select>
           </div>
-          <div class="field" style="flex:0 0 200px;">
+          <div class="field">
             <label for="mcSpend">Spending target (<span class="cur">&pound;</span>/yr, today's money)</label>
             <input type="text" inputmode="decimal" data-money="0" id="mcSpend" value="">
             <span class="hint">Blank = use living-standard target above</span>
@@ -1983,7 +2260,7 @@
 
         <label class="check-inline"><input type="checkbox" id="stratPclsOn"> Take 25% tax-free cash at access age, into spouse's investment account</label>
         <div class="field-row" id="stratPclsFields" style="display:none;">
-          <div class="field" style="flex:1 1 100%;">
+          <div class="field row-full">
             <span class="hint">Takes your tax-free lump sum (up to <span class="cur">&pound;</span>268,275) at your pension access age and invests it in a General Investment Account in your spouse's name, so future gains are taxed at their lower rate.</span>
           </div>
         </div>
@@ -2143,7 +2420,8 @@
   <!-- Mobile bottom tab bar (all tabs, no horizontal scroll) -->
   <nav class="bottomnav" id="bottomnav" role="tablist" aria-label="Planner sections">
     <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="tab-people" aria-label="People" data-tab="people"><span class="icon" aria-hidden="true">&#128100;</span>People</button>
-    <button class="tab-btn" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-salary" aria-label="Paying In" data-tab="salary"><span class="icon" aria-hidden="true">&#8681;</span>In</button>
+    <button class="tab-btn" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-savings" aria-label="Savings" data-tab="savings"><span class="icon" aria-hidden="true">&#128176;</span>Savings</button>
+    <button class="tab-btn" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-salary" aria-label="Pensions" data-tab="salary"><span class="icon" aria-hidden="true">&#127963;</span>Pension</button>
     <button class="tab-btn" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-projection" aria-label="Paying Out" data-tab="projection"><span class="icon" aria-hidden="true">&#8679;</span>Out</button>
     <button class="tab-btn" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-planner" aria-label="Planner" data-tab="planner"><span class="icon" aria-hidden="true">&#128506;</span>Planner</button>
     <button class="tab-btn" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-tax" aria-label="Tax" data-tab="tax"><span class="icon" aria-hidden="true">&#9878;</span>Tax</button>
@@ -2209,18 +2487,20 @@
   </div>
 </div>
 
-<!-- PROFILE MODAL (inline replacement for prompt()/confirm(), which
-     sandboxed pages block - the reason "+ New profile" did nothing) -->
+<!-- PLAN MODAL (inline replacement for prompt()/confirm(), which sandboxed
+     pages block - the reason "+ New plan" did nothing). The storage keys and
+     element ids still say "profile": renaming what the reader sees is not a
+     reason to break every plan already saved in someone's browser. -->
 <div class="modal-backdrop" id="profileModal">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
     <div class="modal-head">
-      <h2 id="profileModalTitle">New profile</h2>
+      <h2 id="profileModalTitle">New plan</h2>
       <button class="icon-btn" id="closeProfileModal" aria-label="Close">&#10005;</button>
     </div>
     <div class="field" id="profileNameField">
-      <label for="profileNameInput" id="profileNameLabel">Profile name</label>
+      <label for="profileNameInput" id="profileNameLabel">Plan name</label>
       <input type="text" id="profileNameInput" placeholder='e.g. David, or "Household"' maxlength="120">
-      <span class="hint" id="profileNameHint">Saves all current inputs in this browser only</span>
+      <span class="hint" id="profileNameHint">Saves everything you have entered, in this browser only</span>
     </div>
     <div class="field" id="sharePermissionField" style="display: none;">
       <label for="sharePermission">Access</label>
@@ -2251,8 +2531,8 @@
         <input type="text" id="saveFileName" maxlength="120" placeholder="My pension plan">
         <span class="filename-ext">.pension.json</span>
       </div>
-      <span class="hint">This names the file <b>and</b> the saved profile in the dropdown. Keep the name to update
-        that profile; change it to save a copy under the new name.</span>
+      <span class="hint">This names the file <b>and</b> the saved plan in the dropdown. Keep the name to update
+        that plan; change it to save a copy under the new name.</span>
     </div>
     <div class="save-where" id="saveFileWhere"></div>
     <p class="hint" style="margin: 0;">Can't save here? Copy the plan text below and paste it into a file yourself.</p>
@@ -2261,6 +2541,15 @@
       <textarea id="saveFileText" readonly rows="7" spellcheck="false" aria-label="Plan text, ready to copy"></textarea>
       <button type="button" class="btn-ghost" id="copyPlanBtn" style="margin-top: 8px;">Copy plan text</button>
     </details>
+    <label class="check-inline" id="autoSaveRow" style="display: none;">
+      <input type="checkbox" id="autoSaveOn" checked>
+      Save to this file automatically <span class="hint-inline">(every change, no button to press)</span>
+    </label>
+    <div class="field" id="backupsField">
+      <label>Earlier versions</label>
+      <div id="backupList"></div>
+      <span class="hint">The last ten versions are kept in this browser, so you can go back to how the plan looked before.</span>
+    </div>
     <p id="saveFileMsg" style="display: none; margin: 0; font-size: 0.9rem; font-weight: 600;"></p>
     <div class="modal-actions" style="gap: 8px;">
       <button class="btn-ghost" id="closeSaveFile2">Cancel</button>
@@ -3183,6 +3472,576 @@ const GLOSSARY = {
   recycle:       { url: "https://www.gov.uk/tax-on-your-private-pension/pension-tax-relief", label: "Pension tax relief (gov.uk)" },
 };
 
+/* =========================================================================
+   DEFINITIONS - what every term on the page actually means
+   Two registers, because the same reader wants different things at different
+   moments. Simple gets plain English with no jargon and no acronyms; Advanced
+   gets the mechanism, the numbers and the statutory language. They follow the
+   Simple / Advanced control (wordingMode derives from experienceLevel), so
+   nobody has to find a separate setting.
+
+   `phrases` is what the auto-tagger looks for in the page's own text - longest
+   match wins, so "State Pension age" is not swallowed by "State Pension".
+   Where GLOSSARY has an authoritative source for the same key, the popover
+   links to it.
+   ========================================================================= */
+const DEFINITIONS = {
+  spa: {
+    phrases: ["State Pension age", "State Pension Age", "SPA"],
+    plain: "The age the government starts paying you the State Pension. It depends on when you were born, and it has been rising - for most people working today it is 67, going to 68.",
+    expert: "State Pension Age under the Pensions Act 2014 timetable. Currently 66, rising to 67 between 2026-28 and to 68 thereafter. Entitlement requires 10 qualifying NI years for any pension and 35 for the full new State Pension; it is taxable income but bears no National Insurance.",
+    src: "spaAge",
+  },
+  statePension: {
+    phrases: ["State Pension"],
+    plain: "The pension the government pays you for life once you reach State Pension age. How much you get depends on how many years you paid National Insurance.",
+    expert: "The new State Pension (post-2016 single tier). £230.25/week at the 2025/26 rate, uprated by the triple lock - the highest of earnings growth, CPI, or 2.5%. Taxable, paid gross, and not subject to NI.",
+    src: "spaShort",
+  },
+  nmpa: {
+    phrases: ["Normal Minimum Pension Age", "NMPA", "private pension access", "access age"],
+    plain: "The earliest age you are allowed to touch a private or workplace pension. It is 55 now and goes up to 57 in 2028.",
+    expert: "Normal Minimum Pension Age: the earliest age benefits can be taken without an unauthorised payment charge, barring ill-health or a protected pension age. 55 currently, rising to 57 on 6 April 2028.",
+    src: "privateAccess",
+  },
+  pcls: {
+    phrases: ["tax-free lump sum", "tax-free cash", "PCLS", "25% tax-free"],
+    plain: "The slice of your pension pot you can take without paying any tax on it - normally a quarter of the pot.",
+    expert: "Pension Commencement Lump Sum: 25% of the crystallised value, tax-free, capped by the Lump Sum Allowance of £268,275. Taking it triggers crystallisation of the associated funds; the balance is taxed as income when drawn.",
+    src: "pcls",
+  },
+  drawdown: {
+    phrases: ["drawdown", "pension drawdown", "flexi-access drawdown"],
+    plain: "Leaving your pension invested and taking money out of it as and when you need it, rather than swapping it for a fixed income.",
+    expert: "Flexi-access drawdown: the fund stays invested and income is withdrawn ad hoc. 25% of each crystallisation is tax-free, the remainder taxed as pension income at the marginal rate. Taking income beyond the PCLS triggers the MPAA.",
+    src: "drawdown",
+  },
+  ufpls: {
+    phrases: ["UFPLS"],
+    plain: "Taking a lump straight out of your pension where a quarter is tax-free and the rest is taxed like income.",
+    expert: "Uncrystallised Funds Pension Lump Sum: each withdrawal is 25% tax-free and 75% taxable at the marginal rate, without designating funds to drawdown. Triggers the MPAA.",
+    src: "drawdown",
+  },
+  annualAllowance: {
+    phrases: ["annual allowance", "Annual allowance cap"],
+    plain: "The most you can put into pensions in a year and still get tax relief on it - £60,000 for most people.",
+    expert: "£60,000 gross for 2025/26, covering employer and member contributions plus DB pension input amounts. Tapers by £1 for every £2 of adjusted income above £260,000, to a £10,000 floor. Unused allowance carries forward three years.",
+    src: "annualAllowance",
+  },
+  mpaa: {
+    phrases: ["money-purchase annual allowance", "MPAA"],
+    plain: "Once you start taking money out of a pension flexibly, the amount you can pay back in each year drops to £10,000.",
+    expert: "Money Purchase Annual Allowance: £10,000, triggered by flexibly accessing a DC pension. Removes carry-forward for money-purchase contributions and cannot be tapered further.",
+    src: "annualAllowance",
+  },
+  taper: {
+    phrases: ["taper", "tapered"],
+    plain: "Once you earn over £100,000 the tax-free slice of your income shrinks, so the next chunk of pay is taxed unusually hard.",
+    expert: "Personal allowance abatement: £1 of allowance withdrawn per £2 of adjusted net income above £100,000, exhausted at £125,140. Produces a 60% marginal band (Scotland: 62.5%). Distinct from the tapered annual allowance, which bites above £260,000.",
+    src: "taper",
+  },
+  db: {
+    phrases: ["Defined Benefit", "DB pension", "DB"],
+    plain: "A pension that pays you a set income for life, worked out from your salary and how long you worked there - not from a pot of money.",
+    expert: "Defined Benefit: an income promise from the scheme, accrued as a fraction of final or career-average salary per year of service. Usually index-linked, often with a spouse's pension. The employer, not the member, carries the investment and longevity risk.",
+  },
+  dc: {
+    phrases: ["Defined Contribution", "DC pension", "DC pot", "DC"],
+    plain: "A pension that is a pot of money with your name on it. What you get out depends on what went in and how the investments did.",
+    expert: "Defined Contribution: an individual fund built from contributions and investment return. The member bears investment and longevity risk; at retirement the fund is drawn down, annuitised, or taken as lump sums.",
+  },
+  isa: {
+    phrases: ["Stocks & Shares ISA", "Cash ISA", "ISA"],
+    plain: "A savings or investment account where you pay no tax on the interest, dividends or growth - and nothing to declare when you take it out.",
+    expert: "Individual Savings Account: £20,000 subscription limit per person per tax year, no CGT or income tax on returns, no tax on withdrawal, and no reporting requirement. Unused allowance cannot be carried forward.",
+    src: "isa",
+  },
+  gia: {
+    phrases: ["GIA", "general investment account", "Other investments"],
+    plain: "An ordinary investment account with no tax shelter, so you may owe tax on the income and on any growth when you sell.",
+    expert: "General Investment Account: unwrapped holdings. Dividends taxed above the £500 allowance, gains above the £3,000 annual exempt amount at 18%/24%. Useful once ISA and pension allowances are exhausted.",
+  },
+  ni: {
+    phrases: ["National Insurance", "NI"],
+    plain: "A tax taken off your wages that builds up your right to the State Pension. You stop paying it once you reach State Pension age, and it is never charged on pension income.",
+    expert: "Class 1 employee NICs: 8% between the primary threshold (£12,570) and upper earnings limit (£50,270), 2% above. Not charged on pension income or after SPA. Qualifying years determine new State Pension entitlement.",
+    src: "ni",
+  },
+  iht: {
+    phrases: ["Inheritance Tax", "IHT", "nil-rate band"],
+    plain: "Tax on what you leave behind when you die. The first slice is free of it, and anything left to a husband, wife or civil partner is free too.",
+    expert: "40% above the £325,000 nil-rate band, plus up to £175,000 residence nil-rate band where a home passes to direct descendants (tapered above a £2m estate). Unused bands transfer to a surviving spouse. Unspent pensions come within the estate from April 2027.",
+    src: "nrb",
+  },
+  pet: {
+    phrases: ["7-year rule", "seven-year rule", "potentially exempt transfer"],
+    plain: "If you give money away and live seven more years, it is out of your estate for good. Die sooner and some tax may still be due.",
+    expert: "Potentially Exempt Transfer: falls out of the estate after seven years. Taper relief reduces the tax due on gifts between three and seven years old, on a sliding scale from 80% to 20% of the full charge.",
+    src: "pet",
+  },
+  lifeExp: {
+    phrases: ["life expectancy", "Life exp."],
+    plain: "The age you have a 50/50 chance of reaching. Half of people live longer - which is why the plan carries on past it.",
+    expert: "Cohort median survival from ONS national life tables, adjusted for current age. A median, not a maximum: the plan models to a low-probability upper bound to expose longevity risk.",
+    src: "lifeExp",
+  },
+  montecarlo: {
+    phrases: ["Monte Carlo", "market stress test", "stress test"],
+    plain: "Running your plan through hundreds of different possible market histories to see how often the money lasts.",
+    expert: "Monte Carlo simulation over bootstrapped historical returns. Reports the proportion of paths in which the portfolio sustains the target withdrawal to the horizon - a success probability, not a forecast.",
+    src: "montecarlo",
+  },
+  rls: {
+    phrases: ["Retirement Living Standards", "living standard", "living-standard"],
+    plain: "Independent research into what a minimum, moderate or comfortable retirement actually costs a year.",
+    expert: "Pensions UK (formerly PLSA) Retirement Living Standards, from Loughborough University research: Minimum, Moderate and Comfortable baskets, published separately for singles and couples and uplifted for London.",
+    src: "rls",
+  },
+  accumulation: {
+    phrases: ["accumulation", "Paying in", "paying in"],
+    plain: "The years you are still earning and putting money away.",
+    expert: "The accumulation phase: net contributions exceed withdrawals and the portfolio compounds. Sequence risk is low here because there are no forced disposals.",
+  },
+  decumulation: {
+    phrases: ["decumulation", "Paying out", "drawing down"],
+    plain: "The years you are living off what you saved.",
+    expert: "The decumulation phase: withdrawals exceed contributions. Sequence-of-returns risk dominates, because a fall early on is realised by the withdrawals taken through it.",
+  },
+  realTerms: {
+    phrases: ["today's money", "flat, today's-money", "real terms"],
+    plain: "Figures adjusted so £1 means the same in thirty years as it does now - what the money will actually buy.",
+    expert: "Real terms: nominal cash flows deflated by the assumed inflation rate, so purchasing power is held constant across the projection.",
+  },
+  reliefAtSource: {
+    phrases: ["relief at source", "tax relief", "basic-rate relief"],
+    plain: "When you pay into a pension the government adds money on top - £100 in your pocket becomes £125 in the pension.",
+    expert: "Relief at source: the provider reclaims 20% basic-rate relief from HMRC on the gross contribution, so a £2,880 net payment becomes £3,600 gross. Higher and additional-rate taxpayers claim the balance through self-assessment. Available to non-earners up to £3,600 gross.",
+    src: "recycle",
+  },
+  recycling: {
+    phrases: ["recycling", "recycling rule"],
+    plain: "Rules that stop you taking tax-free cash out of a pension and putting it straight back in to get the tax break twice.",
+    expert: "The PCLS recycling rule (FA 2004 Sch 29 para 3A): a pre-planned, significant increase in contributions funded by tax-free cash can be treated as an unauthorised payment charged at up to 55%. Engaged only where PCLS in a rolling 12 months exceeds £7,500 and contributions rise by more than 30% of the expected level.",
+    src: "recycle",
+  },
+  salarySacrifice: {
+    phrases: ["salary sacrifice"],
+    plain: "Giving up part of your wage so your employer pays it into your pension instead. You save the tax and the National Insurance on it.",
+    expert: "A contractual reduction in gross pay in exchange for an employer pension contribution. Saves employee and employer NICs as well as income tax, and reduces adjusted net income - which is what makes it effective against the 60% band.",
+  },
+  effectiveRate: {
+    phrases: ["effective rate", "effective tax rate"],
+    plain: "The share of everything you earned that actually went in tax - not the headline band, the real average.",
+    expert: "Total tax and NI as a percentage of gross income. Distinct from the marginal rate, which applies only to the next pound earned.",
+  },
+  marginalRate: {
+    phrases: ["marginal rate", "marginal tax rate"],
+    plain: "The tax you would pay on the next pound you earn - usually higher than your average.",
+    expert: "The rate applying to the next unit of income, inclusive of allowance withdrawal effects. The figure that governs whether a contribution or a withdrawal is worthwhile.",
+  },
+  sequenceRisk: {
+    phrases: ["sequence risk", "sequence of returns"],
+    plain: "The danger of a market fall in the first years of retirement, when selling into it does lasting damage.",
+    expert: "Sequence-of-returns risk: identical average returns produce materially different outcomes depending on their order, because withdrawals crystallise early losses. Mitigated by cash buffers or flexible withdrawal.",
+  },
+  bridge: {
+    phrases: ["savings bridge", "bridge"],
+    plain: "Money from savings that covers the gap between stopping work and your pensions starting.",
+    expert: "The bridging period: non-pension assets fund the interval between cessation of earnings and the commencement of pension income, avoiding early crystallisation.",
+  },
+  /* Attached by hand via data-def rather than found in the text: these two
+     name a control, not a concept, and the text they replace used to sit in a
+     paragraph under the timeline explaining both at once. */
+  tlPower: {
+    phrases: [],
+    plain: "Spreads out the next few years and squeezes up the distant ones, so today, your retirement, your pension ages and your life expectancy are all easy to see at once. The dates stay in the right order - only the spacing changes.",
+    expert: "Non-linear axis: distance from today is raised to the power 0.62, expanding the near term and compressing the tail. Monotonic and continuous, so ordering and date labels remain truthful; a true logarithmic scale is unusable because today sits at zero years out.",
+  },
+  tlEven: {
+    phrases: [],
+    plain: "Every year gets the same amount of space. Good for comparing how long things are, but the next few years end up squashed together on the left.",
+    expert: "Linear year axis. Preserves proportionality of durations at the cost of resolution in the near term, where the decisions actually sit.",
+  },
+  triplelock: {
+    phrases: ["triple lock"],
+    plain: "The promise that the State Pension rises each year by whichever is biggest: wages, prices, or 2.5%.",
+    expert: "The uprating guarantee: the higher of average earnings growth, CPI inflation, or 2.5%. Modelled here at its legislated 2.5% floor as a conservative assumption.",
+  },
+};
+
+/* Longest phrase first, so "State Pension age" is matched before "State
+   Pension" and "Cash ISA" before "ISA". */
+const DEF_INDEX = Object.entries(DEFINITIONS)
+  .flatMap(([key, d]) => d.phrases.map(p => ({ key, phrase: p })))
+  .sort((a, b) => b.phrase.length - a.phrase.length);
+
+function definitionText(key) {
+  const d = DEFINITIONS[key];
+  if (!d) return null;
+  return wordingMode === "expert" ? d.expert : d.plain;
+}
+
+function definitionTitle(key) {
+  const d = DEFINITIONS[key];
+  return d ? d.phrases[0] : key;
+}
+
+/* Build the match regex once per phrase. All-capital phrases ("SPA", "ISA",
+   "DB") are matched case-sensitively so "spa" in an ordinary word can't be
+   mistaken for the State Pension age; everything else is case-insensitive so a
+   sentence-cased heading still matches. Boundaries are letter/digit-based
+   rather than \b so hyphenated and possessive forms behave. */
+DEF_INDEX.forEach(e => {
+  const esc = e.phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const caps = e.phrase === e.phrase.toUpperCase() && /[A-Z]/.test(e.phrase);
+  e.re = new RegExp(`(?<![A-Za-z0-9])${esc}(?![A-Za-z0-9])`, caps ? "" : "i");
+});
+
+/* =========================================================================
+   Explain-on-hover
+   Every piece of jargon on the page explains itself. Rather than hand-tagging
+   hundreds of labels - which would rot the moment any text changed - the page
+   tags itself after each render: walk the text, find the terms, wrap them.
+
+   Two rules keep it from becoming a rash of dotted underlines:
+     - only the FIRST mention of each term inside each card is tagged;
+     - anything already interactive or already explained is left alone.
+   ========================================================================= */
+
+// Never tag inside these: they are interactive, machine-written, or already
+// carry their own explanation.
+const DEF_SKIP = "script, style, canvas, svg, textarea, input, select, option, " +
+  "button, a, code, .def-term, .def-pop, .chart-tip, .chart-table, [data-term], " +
+  "[data-no-def], .num, .value, .badge";
+const DEF_MAX_PER_CARD = 14;
+
+function defScope(node) {
+  return node.parentElement.closest(".card, .rail, .modal, .topbar") || document.body;
+}
+
+function tagDefinitions(root) {
+  root = root || document.body;
+  const used = new Map();   // scope element -> Set of keys already tagged there
+  const seed = el => {
+    if (used.has(el)) return used.get(el);
+    const s = new Set();
+    el.querySelectorAll(".def-term[data-def]").forEach(t => s.add(t.dataset.def));
+    used.set(el, s);
+    return s;
+  };
+
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(n) {
+      if (!n.nodeValue || n.nodeValue.trim().length < 2) return NodeFilter.FILTER_REJECT;
+      const p = n.parentElement;
+      if (!p || p.closest(DEF_SKIP)) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+  const nodes = [];
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) nodes.push(n);
+
+  // Index-based, because splitting a node pushes its remainder back onto the
+  // queue - the rest of "Your State Pension and your workplace pension" can
+  // hold a second term.
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i];
+    if (!node.parentElement) continue;             // detached by an earlier split
+    const scope = defScope(node);
+    const set = seed(scope);
+    if (set.size >= DEF_MAX_PER_CARD) continue;
+
+    // Earliest match wins; ties go to the longer phrase, which DEF_INDEX
+    // already orders first.
+    let best = null;
+    for (const e of DEF_INDEX) {
+      if (set.has(e.key)) continue;
+      const m = e.re.exec(node.nodeValue);
+      if (m && (!best || m.index < best.index)) best = { key: e.key, index: m.index, len: m[0].length };
+    }
+    if (!best) continue;
+
+    set.add(best.key);
+    const after = node.splitText(best.index);
+    const tail = after.splitText(best.len);
+    const span = document.createElement("span");
+    span.className = "def-term";
+    span.dataset.def = best.key;
+    // Focusable so the explanation is reachable without a mouse. Deliberately
+    // no role and no aria-label: the word is read in its sentence as written,
+    // and aria-describedby points at the explanation while it is open.
+    span.tabIndex = 0;
+    after.replaceWith(span);
+    span.appendChild(after);
+    // The remainder of the same text node can hold another term.
+    if (tail && tail.nodeValue.trim().length > 1) nodes.push(tail);
+  }
+}
+
+/* =========================================================================
+   TWO REGISTERS, EVERYWHERE
+   The popovers were not the only place the reader meets jargon: the page's own
+   prose is full of it. Writing every sentence twice would be unmaintainable
+   and would rot the moment one copy was edited, so the page is written once in
+   the professional register and the plain register is produced from it by
+   swapping the terms that carry the jargon.
+
+   Swaps are reversible: the original wording is kept on the element, so
+   switching back to Advanced restores exactly what was authored rather than a
+   paraphrase of a paraphrase. Only whole words are swapped, and only terms
+   with a genuine plain-English equivalent - a substitution that changes the
+   meaning is worse than the jargon it replaced.
+   ========================================================================= */
+const REGISTER = [
+  ["decumulation phase", "the years you're spending it"],
+  ["accumulation phase", "the years you're building it up"],
+  ["decumulation", "taking money out"],
+  ["accumulation", "building up savings"],
+  ["Pension Commencement Lump Sum", "tax-free lump sum"],
+  ["crystallised", "started"],
+  ["crystallise", "start taking"],
+  ["uncrystallised", "not yet touched"],
+  ["annual allowance", "yearly pension-saving limit"],
+  ["marginal rate", "the rate on your next pound"],
+  ["effective rate", "the share of everything you keep"],
+  ["relief at source", "the top-up your pension provider claims back for you"],
+  ["salary sacrifice", "giving up pay in exchange for pension"],
+  ["index-linked", "rising with prices"],
+  ["nominal terms", "the actual pounds of the day"],
+  ["real terms", "today's money"],
+  ["sequence-of-returns risk", "the risk of a bad run early on"],
+  ["sequence risk", "the risk of a bad run early on"],
+  ["equities", "shares"],
+  ["gilts", "government bonds"],
+  ["drawdown", "taking money out of your pot"],
+  ["tapered", "shrinking as you earn more"],
+  ["taper", "the allowance shrinking as you earn more"],
+  ["concessional", "paid in before tax"],
+  ["Potentially Exempt Transfer", "a gift that's tax-free once you survive seven years"],
+  ["nil-rate band", "the tax-free slice on death"],
+  ["Inheritance Tax", "the tax on what you leave behind"],
+  ["Normal Minimum Pension Age", "the earliest you can touch a private pension"],
+  ["Money Purchase Annual Allowance", "the lower paying-in limit once you've started taking money out"],
+  ["General Investment Account", "an ordinary investment account"],
+  ["Capital Gains Tax", "tax on the profit when you sell"],
+  ["Personal Savings Allowance", "the interest you can earn tax-free"],
+  ["amortisation", "paying it off bit by bit"],
+  ["liquidity", "how easily you can get at the money"],
+  ["decumulate", "draw down"],
+];
+const REGISTER_INDEX = REGISTER
+  .map(([expert, plain]) => ({
+    expert, plain,
+    re: new RegExp(`(?<![A-Za-z0-9])${expert.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![A-Za-z0-9])`, "i"),
+  }))
+  .sort((a, b) => b.expert.length - a.expert.length);
+
+/* Much the same exclusions as the definition tagger, with one deliberate
+   difference: a term that has been TAGGED still has to be translated. Leaving
+   "marginal rate" in Simple because it happened to carry a dotted underline
+   would be exactly backwards - the reader who needs the underline is the
+   reader who needs the plain wording. The popover keeps explaining the same
+   concept either way, because the swap changes the words, not the data-def. */
+const REG_SKIP = "script, style, canvas, svg, textarea, input, select, option, " +
+  "code, .def-pop, .chart-tip, .chart-table, [data-term], [data-term-plain], " +
+  "[data-no-def], .num, .value, .badge, .reg-swap";
+
+/* Match the capitalisation of what was there: a term that opened a sentence
+   must not come back lower-case. */
+function matchCase(source, replacement) {
+  if (source === source.toUpperCase() && source.length > 1) return replacement.toUpperCase();
+  if (source[0] === source[0].toUpperCase()) return replacement[0].toUpperCase() + replacement.slice(1);
+  return replacement;
+}
+
+function applyRegister(root) {
+  root = root || document.body;
+  // Advanced: put back exactly what was written.
+  if (wordingMode !== "plain") {
+    const swaps = [...root.querySelectorAll(".reg-swap")];
+    swaps.forEach(el => {
+      const parent = el.parentElement;
+      el.replaceWith(document.createTextNode(el.dataset.regSrc || el.textContent));
+      // Merge the pieces back into one text node, or the next pass would see a
+      // phrase split across three nodes and fail to match it.
+      if (parent) parent.normalize();
+    });
+    return;
+  }
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(n) {
+      if (!n.nodeValue || n.nodeValue.trim().length < 3) return NodeFilter.FILTER_REJECT;
+      const p = n.parentElement;
+      if (!p || p.closest(REG_SKIP)) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+  const nodes = [];
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) nodes.push(n);
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i];
+    if (!node.parentElement) continue;
+    let best = null;
+    for (const e of REGISTER_INDEX) {
+      const m = e.re.exec(node.nodeValue);
+      if (m && (!best || m.index < best.index)) best = { e, index: m.index, text: m[0] };
+    }
+    if (!best) continue;
+    const after = node.splitText(best.index);
+    const tail = after.splitText(best.text.length);
+    const span = document.createElement("span");
+    span.className = "reg-swap";
+    span.dataset.regSrc = best.text;
+    span.textContent = matchCase(best.text, best.e.plain);
+    after.replaceWith(span);
+    if (tail && tail.nodeValue.trim().length > 2) nodes.push(tail);
+  }
+}
+
+let defPopTimer = null, defPopHideTimer = null, defPopTrigger = null;
+
+function defPopEl() {
+  let el = document.getElementById("defPop");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "defPop";
+    el.className = "def-pop";
+    el.setAttribute("role", "tooltip");
+    el.addEventListener("pointerenter", () => clearTimeout(defPopHideTimer));
+    el.addEventListener("pointerleave", () => hideDefPop(160));
+    document.body.appendChild(el);
+  }
+  return el;
+}
+
+const defEsc = t => String(t).replace(/[&<>"]/g, c =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function renderDefPop(key) {
+  const body = definitionText(key);
+  if (!body) return false;
+  const d = DEFINITIONS[key];
+  const g = d.src ? GLOSSARY[d.src] : null;
+  const register = wordingMode === "expert" ? "Advanced wording" : "Plain English";
+  defPopEl().innerHTML =
+    `<h4>${defEsc(definitionTitle(key))}</h4><p>${defEsc(body)}</p>` +
+    `<div class="def-pop-foot"><span>${register}</span>` +
+    (g ? `<a href="${g.url}" target="_blank" rel="noopener noreferrer">${defEsc(g.label)} &#8599;</a>` : "") +
+    `</div>`;
+  return true;
+}
+
+function positionDefPop(trigger) {
+  const pop = defPopEl();
+  const gap = 8, margin = 10;
+  pop.style.left = "0px";
+  pop.style.top = "0px";
+  const r = trigger.getBoundingClientRect();
+  const pr = pop.getBoundingClientRect();
+  let left = r.left + r.width / 2 - pr.width / 2;
+  left = Math.max(margin, Math.min(left, window.innerWidth - pr.width - margin));
+  let top = r.bottom + gap;
+  if (top + pr.height > window.innerHeight - margin) {
+    const above = r.top - pr.height - gap;
+    top = above >= margin ? above : Math.max(margin, window.innerHeight - pr.height - margin);
+  }
+  pop.style.left = Math.round(left) + "px";
+  pop.style.top = Math.round(top) + "px";
+}
+
+function showDefPop(trigger, delay) {
+  clearTimeout(defPopTimer);
+  clearTimeout(defPopHideTimer);
+  defPopTimer = setTimeout(() => {
+    if (!trigger.isConnected) return;
+    if (!renderDefPop(trigger.dataset.def)) return;
+    if (defPopTrigger && defPopTrigger !== trigger) defPopTrigger.classList.remove("is-open");
+    defPopTrigger = trigger;
+    trigger.classList.add("is-open");
+    const pop = defPopEl();
+    pop.classList.add("show");
+    trigger.setAttribute("aria-describedby", "defPop");
+    positionDefPop(trigger);
+  }, delay === undefined ? 110 : delay);
+}
+
+function hideDefPop(delay) {
+  clearTimeout(defPopTimer);
+  clearTimeout(defPopHideTimer);
+  defPopHideTimer = setTimeout(() => {
+    const pop = document.getElementById("defPop");
+    if (pop) pop.classList.remove("show");
+    if (defPopTrigger) {
+      defPopTrigger.classList.remove("is-open");
+      defPopTrigger.removeAttribute("aria-describedby");
+      defPopTrigger = null;
+    }
+  }, delay === undefined ? 120 : delay);
+}
+
+// Keep an open explanation in step with the Simple / Advanced control.
+function refreshDefPop() {
+  if (defPopTrigger && defPopTrigger.isConnected) {
+    renderDefPop(defPopTrigger.dataset.def);
+    positionDefPop(defPopTrigger);
+  } else if (defPopTrigger) {
+    hideDefPop(0);
+  }
+}
+
+function initDefPopovers() {
+  /* Any element carrying data-def explains itself, whether the tagger put it
+     there or it was written into the markup by hand (a control that needs
+     explaining is not a word in a sentence). Only .def-term gets the dotted
+     underline - a button already looks like something you can point at. */
+  const trig = e => e.target instanceof Element ? e.target.closest("[data-def]") : null;
+  document.addEventListener("pointerover", e => {
+    if (e.pointerType === "touch") return;          // touch is handled by click
+    const t = trig(e);
+    if (t) showDefPop(t);
+  });
+  document.addEventListener("pointerout", e => {
+    if (e.pointerType === "touch") return;
+    if (trig(e)) hideDefPop();
+  });
+  document.addEventListener("focusin", e => { const t = trig(e); if (t) showDefPop(t, 0); });
+  document.addEventListener("focusout", e => { if (trig(e)) hideDefPop(); });
+  // Touch and keyboard activation both toggle rather than hover.
+  document.addEventListener("click", e => {
+    const t = trig(e);
+    if (!t) { if (!e.target.closest || !e.target.closest(".def-pop")) hideDefPop(0); return; }
+    // Inside a control, a click belongs to the control - hijacking it would
+    // tick a tick-box, or fail to press a button, that the reader only meant to
+    // point at. Hover and keyboard focus still explain those.
+    if (t.closest("label, button, a")) return;
+    if (defPopTrigger === t) hideDefPop(0); else showDefPop(t, 0);
+  });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") hideDefPop(0);
+    if ((e.key === "Enter" || e.key === " ") && trig(e)) {
+      e.preventDefault();
+      if (defPopTrigger === trig(e)) hideDefPop(0); else showDefPop(trig(e), 0);
+    }
+  });
+  /* A fixed popover would otherwise float away from its word. Follow the word
+     rather than closing: tabbing to a term scrolls it into view, and closing on
+     that scroll would shut the explanation the moment it opened. Only give up
+     once the word itself has left the screen. */
+  let following = 0;
+  const follow = () => {
+    if (!defPopTrigger) return;
+    cancelAnimationFrame(following);
+    following = requestAnimationFrame(() => {
+      if (!defPopTrigger) return;
+      const r = defPopTrigger.getBoundingClientRect();
+      if (r.bottom < 0 || r.top > window.innerHeight) hideDefPop(0);
+      else positionDefPop(defPopTrigger);
+    });
+  };
+  window.addEventListener("scroll", follow, true);
+  window.addEventListener("resize", follow);
+}
+
 function glossaryLink(g) {
   return `<a class="def-link" href="${g.url}" target="_blank" rel="noopener noreferrer" title="${g.label}" aria-label="${g.label}">&#9432;</a>`;
 }
@@ -3231,9 +4090,10 @@ function todayObj() {
 const SAVINGS_TYPES = ["Easy Access", "Cash ISA", "Fixed-term Bond", "Premium Bonds", "Regular Saver", "Other"];
 const SHARE_TYPES = ["Stocks & Shares ISA", "General Investment Account", "Lifetime ISA", "Trading Account", "Other"];
 const PROPERTY_TYPES = ["Main home", "Second home", "Buy-to-let", "Car", "Other"];
+const DEBT_TYPES = ["Mortgage", "Loan", "Credit card", "Car finance", "Student loan", "Other"];
 
 function emptyOwnerAssets() {
-  return { savings: [], employerPensions: [], shares: [], property: [] };
+  return { savings: [], employerPensions: [], shares: [], property: [], debts: [] };
 }
 function defaultAssets() {
   return {
@@ -3250,6 +4110,7 @@ function defaultAssets() {
         { type: "Stocks & Shares ISA", value: 30000 },
       ],
       property: [],
+      debts: [],
     },
     spouse: emptyOwnerAssets(),
   };
@@ -3279,8 +4140,7 @@ function assetMoneyField(label, field, value, opts) {
   const v = Number(value) || 0;
   const max = Math.max(opts.max || 1000000, v);
   const step = opts.step || (max > 200000 ? 1000 : max > 20000 ? 500 : 100);
-  const style = opts.flex ? ` style="flex:${opts.flex};"` : "";
-  return `<div class="field"${style}><label>${label}</label>
+  return `<div class="field"><label>${label}</label>
     <input type="text" ${moneyAttr} data-money="0" data-field="${field}" value="${fmtNum(v)}">
     <input type="range" class="fld-slider asset-slider" tabindex="-1" min="0" max="${max}" step="${step}" value="${v}" aria-label="Adjust ${label}"></div>`;
 }
@@ -3289,8 +4149,7 @@ function assetNumField(label, field, value, opts) {
   opts = opts || {};
   const v = value == null ? (opts.def || 0) : Number(value);
   const max = opts.max || 100, step = opts.step || (max <= 15 ? 0.5 : 1);
-  const style = opts.flex ? ` style="flex:${opts.flex};"` : "";
-  return `<div class="field"${style}><label>${label}</label>
+  return `<div class="field"><label>${label}</label>
     <input type="number" data-field="${field}" min="0" max="${max}" step="${step}" value="${v}">
     <input type="range" class="fld-slider asset-slider" tabindex="-1" min="0" max="${max}" step="${step}" value="${v}" aria-label="Adjust ${label}"></div>`;
 }
@@ -3312,9 +4171,9 @@ function renderOwnerAssets(owner) {
     const isDB = a.kind === "DB";
     return `
     <div class="asset-row" data-list="employerPensions" data-owner="${owner}" data-idx="${i}">
-      <div class="field" style="flex:1 1 140px;"><label>Name</label>
+      <div class="field"><label>Name</label>
         <input type="text" data-field="label" value="${(a.label || "").replace(/"/g, "&quot;")}"></div>
-      <div class="field" style="flex:0 0 150px;"><label>Type</label>
+      <div class="field"><label>Type</label>
         <select data-field="kind">
           <option value="DC"${!isDB ? " selected" : ""}>Defined Contribution</option>
           <option value="DB"${isDB ? " selected" : ""}>Defined Benefit</option>
@@ -3322,9 +4181,9 @@ function renderOwnerAssets(owner) {
       ${isDB ? `
       ${assetMoneyField("Annual income (£)", "income", a.income, { max: 100000 })}
       ${assetMoneyField("Lump sum (£)", "lumpSum", a.lumpSum, { max: 500000 })}
-      ${assetNumField("From age", "startAge", a.startAge, { max: 100, step: 1, flex: "0 0 110px" })}
-      ${assetNumField("Rises %/yr", "growthPct", dbGrowthOf(a), { max: 10, def: DB_GROWTH_DEFAULT, flex: "0 0 120px" })}
-      <label class="check-inline" style="flex: 1 1 100%; margin-top: 2px;">
+      ${assetNumField("From age", "startAge", a.startAge, { max: 100, step: 1 })}
+      ${assetNumField("Rises %/yr", "growthPct", dbGrowthOf(a), { max: 10, def: DB_GROWTH_DEFAULT })}
+      <label class="check-inline" style="margin-top: 2px;">
         <input type="checkbox" data-field="growthOn"${a.growthOn === false ? "" : " checked"}>
         Income rises each year <span class="hint-inline">(most DB schemes are index-linked; untick for a flat pension)</span></label>
       ` : `
@@ -3353,25 +4212,25 @@ function renderOwnerAssets(owner) {
       : a.releasePct;
     return `
     <div class="asset-row" data-list="property" data-owner="${owner}" data-idx="${i}">
-      <div class="field" style="flex:0 0 140px;"><label>Type</label>
+      <div class="field"><label>Type</label>
         <select data-field="type">${optionsHtml(PROPERTY_TYPES, a.type)}</select></div>
       ${assetMoneyField("Value today (£)", "value", a.value, { max: 2000000 })}
       ${canDownsize ? `
       ${isFullHomeRelease(a) ? `
-      <div class="field" style="flex:0 0 150px;"><label>Sold in year</label>
+      <div class="field"><label>Sold in year</label>
         <div class="prop-projection">${homeSaleYearComputed
           ? `${homeSaleYearComputed} <span class="hint-inline">(care starts)</span>`
           : `<span class="hint-inline">set once calculated</span>`}</div></div>
       ` : `
-      <div class="field" style="flex:0 0 110px;"><label>Downsize in year</label>
+      <div class="field"><label>Downsize in year</label>
         <input type="number" data-field="downsizeYear" min="2020" max="2100" placeholder="—" value="${a.downsizeYear || ""}"></div>
       `}
-      ${assetNumField("Growth %/yr", "growthPct", growth, { max: 12, def: 3, flex: "0 0 120px" })}
-      ${assetNumField("Release %", "releasePct", relPct, { max: 100, def: 100, flex: "0 0 120px" })}
-      <div class="field" style="flex:1 1 180px;"><label>Projected release</label>
+      ${assetNumField("Growth %/yr", "growthPct", growth, { max: 12, def: 3 })}
+      ${assetNumField("Release %", "releasePct", relPct, { max: 100, def: 100 })}
+      <div class="field"><label>Projected release</label>
         <div class="prop-projection" data-projection>${propProjectionText(a)}</div></div>
       ${isFullHomeRelease(a) ? `
-      <p class="hint" style="flex: 1 1 100%; margin: 2px 0 0;">Releasing <b>100%</b> of a main home is a sale, not a
+      <p class="hint" style="margin: 2px 0 0;">Releasing <b>100%</b> of a main home is a sale, not a
         downsizing move &mdash; so it is dated to when the <b>last person goes into care</b> and the house stands
         empty, rather than to a year you pick. Set the release below 100% to choose a year yourself.</p>` : ""}
       ` : ""}
@@ -3411,9 +4270,42 @@ function propProjectionText(a) {
   return `${CUR()}${fmtNum(Math.round(f.future))} in ${year} `
     + `&rarr; releases <b>${CUR()}${fmtNum(Math.round(f.release))}</b>`;
 }
+/* Debts sit on the household rather than on a person: a joint mortgage isn't
+   half each in any way that changes the arithmetic here, and asking who owns
+   the credit card would be one question too many. They are stored under "you"
+   so they travel with the rest of the asset structure. */
+function renderDebtList() {
+  const host = els("debtList");
+  if (!host) return;
+  const list = (assets.you && assets.you.debts) || [];
+  host.innerHTML = list.length ? list.map((d, i) => `
+    <div class="asset-row" data-list="debts" data-owner="you" data-idx="${i}">
+      <div class="field"><label>Type</label>
+        <select data-field="type">${optionsHtml(DEBT_TYPES, d.type)}</select></div>
+      ${assetMoneyField("Balance owed (£)", "balance", d.balance, { max: 500000 })}
+      ${assetNumField("Interest rate (%)", "ratePct", d.ratePct, { max: 40, def: 4.5, step: 0.1 })}
+      <div class="field"><label>Paid off by (year)</label>
+        <input type="number" data-field="endYear" min="2000" max="2100" placeholder="&mdash;" value="${d.endYear || ""}"></div>
+      <button type="button" class="remove-btn" data-remove="debts" data-owner="you" data-idx="${i}" aria-label="Remove">&times;</button>
+    </div>`).join("") : `<div class="asset-empty">No debts &mdash; nothing owed against your net worth.</div>`;
+}
+
+/* What the household owes. Debts are reported against net worth and weighed
+   against saving, but deliberately NOT wired into the cash-flow engine: paying
+   a mortgage down is already inside whatever spending figure you set, and
+   subtracting it a second time would double-count it. */
+function debtTotals() {
+  const list = (assets.you && assets.you.debts) || [];
+  const total = list.reduce((s, d) => s + (Number(d.balance) || 0), 0);
+  const interest = list.reduce((s, d) => s + (Number(d.balance) || 0) * (Number(d.ratePct) || 0) / 100, 0);
+  const rate = total > 0 ? (interest / total) * 100 : 0;
+  return { list, total, interest, rate };
+}
+
 function renderAssetLists() {
   renderOwnerAssets("you");
   renderOwnerAssets("spouse");
+  renderDebtList();
   // These rows are rebuilt wholesale, so their sliders are new elements each
   // time and need the two-gear stepping applied again.
   if (typeof gearAssetSliders === "function") gearAssetSliders();
@@ -3524,8 +4416,8 @@ function syncAssetsFromDOM() {
       if (inp.type === "checkbox") obj[f] = inp.checked;
       else if (inp.tagName === "SELECT" || f === "label") obj[f] = inp.value;
       else if (f === "startAge") obj[f] = parseInt(inp.value, 10) || 0;
-      else if (f === "downsizeYear") obj[f] = inp.value.trim() === "" ? "" : (parseInt(inp.value, 10) || "");
-      else if (f === "growthPct" || f === "releasePct") obj[f] = inp.value.trim() === "" ? 0 : (parseFloat(inp.value) || 0);
+      else if (f === "downsizeYear" || f === "endYear") obj[f] = inp.value.trim() === "" ? "" : (parseInt(inp.value, 10) || "");
+      else if (f === "growthPct" || f === "releasePct" || f === "ratePct") obj[f] = inp.value.trim() === "" ? 0 : (parseFloat(inp.value) || 0);
       else obj[f] = parseMoney(inp.value) || 0;
     });
   });
@@ -3534,6 +4426,7 @@ function syncAssetsFromDOM() {
 function newAssetRow(listName) {
   if (listName === "savings") return { type: "Cash ISA", balance: 20000 };
   if (listName === "shares") return { type: "Stocks & Shares ISA", value: 0 };
+  if (listName === "debts") return { type: "Mortgage", balance: 0, ratePct: 4.5, endYear: "" };
   if (listName === "property") return { type: "Main home", value: 0, downsizeYear: "", growthPct: 3, releasePct: 100 };
   return { label: "Employer pension", kind: "DC", value: 0, contribution: 0, income: 0, lumpSum: 0, startAge: 65 };
 }
@@ -3587,7 +4480,12 @@ function assetTotals(owner) {
   const oa = assets[owner] || emptyOwnerAssets();
   const currentId = owner === "spouse" ? "spouseCashCurrent" : "cashCurrent";
   const currentEl = els(currentId);
+  // Premium Bonds are cash you can have back in a few days, so they fund
+  // retirement like any other savings - they are held apart only because
+  // their return is a tax-free prize draw rather than interest.
+  const pbEl = els(owner === "spouse" ? "spousePremiumBonds" : "premiumBonds");
   const cash = (currentEl ? parseMoney(currentEl.value) || 0 : 0)
+    + (pbEl ? parseMoney(pbEl.value) || 0 : 0)
     + oa.savings.reduce((s, a) => s + (Number(a.balance) || 0), 0);
   const shares = oa.shares.reduce((s, a) => s + (Number(a.value) || 0), 0);
   const dcValue = oa.employerPensions.filter(p => p.kind === "DC")
@@ -3763,7 +4661,7 @@ const API = {
       return true;
     } catch (e) {
       const msg = els("profileModalMessage");
-      msg.textContent = e.message || "Could not share the profile.";
+      msg.textContent = e.message || "Could not share the plan.";
       msg.style.display = "";
       msg.style.color = "var(--critical)";
       return false;
@@ -3788,6 +4686,8 @@ const PROFILE_FIELD_IDS = [
   "dob", "sex", "retireDate", "retireSpend", "spouseDob", "spouseSex", "spouseRetireDate",
   "yourPot", "yourDrawdown", "yourPotGrowth", "yourSalary", "yourEmployerRate",
   "yourEmployerMonthly", "yourPersonalRate", "yourPersonalMonthly", "annualAllowance",
+  "emergencyMonths", "premiumBonds", "premiumBondsRate", "spousePremiumBonds",
+  "isaPaidYou", "isaPaidSpouse",
   "bonusAmount", "bonusDeferYears", "bonusCashPct", "bonusDeferredPct", "bonusRsuPct",
   "rsuHeld", "rsuHeldYears", "rsuAmount", "rsuVestYears",
   "sayeMonthly", "sayeTermYears", "sayeDiscount", "oneOffCash", "oneOffYear", "extraSave",
@@ -3849,6 +4749,7 @@ function collectProfileData() {
   data.levelIncomeOn = els("levelOn").checked;
   data.targetInflationOn = els("targetInflationOn").checked;
   data.budgetOn = els("budgetOn").checked;
+  data.emergencyOn = els("emergencyOn").checked;
   syncAssetsFromDOM();
   syncPlanListsFromDOM();
   data.assets = JSON.parse(JSON.stringify(assets));
@@ -3940,6 +4841,8 @@ function applyProfileData(data) {
   els("targetInflationOn").checked = data.targetInflationOn !== false; // default on
   els("budgetOn").checked = !!data.budgetOn;
   els("budgetFields").style.display = data.budgetOn ? "" : "none";
+  els("emergencyOn").checked = !!data.emergencyOn;
+  els("emergencyFields").style.display = data.emergencyOn ? "" : "none";
 
   if (typeof syncSliders === "function") syncSliders();
   renderAll();
@@ -3969,7 +4872,7 @@ function refreshProfileSelect() {
     sel.appendChild(group);
   }
   const newOpt = document.createElement("option");
-  newOpt.value = "__new__"; newOpt.textContent = "+ New profile…";
+  newOpt.value = "__new__"; newOpt.textContent = "+ New plan…";
   sel.appendChild(newOpt);
   sel.value = currentShared ? "__shared__:" + API.shared.indexOf(currentShared)
                             : (currentProfileName || "");
@@ -3977,6 +4880,9 @@ function refreshProfileSelect() {
 }
 
 function persistCurrentProfile() {
+  // Whatever else happens below, if a file has been picked and is still
+  // writable, the file is kept in step with the screen.
+  if (typeof scheduleAutoSave === "function") scheduleAutoSave();
   if (currentShared) { // editing a profile shared with me (write access)
     if (currentShared.permission === "write") {
       currentShared.data = collectProfileData();
@@ -4021,6 +4927,18 @@ function onUserChange() {
   persistCurrentProfile();
 }
 
+/* Typing into a box used to change nothing until you clicked somewhere else,
+   because only `change` was listened for and `change` waits for blur. Type 10
+   into a contribution Rate (%) and the figures beside it stayed on the old
+   rate - the box looked broken. This recomputes as you type, coalesced onto
+   one frame so a held-down key doesn't run the projection per keystroke, and
+   deliberately does NOT reformat the text while the caret is in it. */
+let liveChangeRaf = null;
+function onUserTyping() {
+  if (liveChangeRaf) return;
+  liveChangeRaf = requestAnimationFrame(() => { liveChangeRaf = null; onUserChange(); });
+}
+
 function readInputs() {
   const spouseOn = els("spouseSwitch").classList.contains("on");
   const money = id => parseMoney(els(id).value) || 0;
@@ -4046,6 +4964,11 @@ function readInputs() {
     yourPersonalRate: parseFloat(els("yourPersonalRate").value) || 0,
     yourPersonalMonthly: money("yourPersonalMonthly"),
     annualAllowance: money("annualAllowance") || Infinity,
+    emergencyOn: els("emergencyOn").checked,
+    emergencyMonths: Math.max(0, parseInt(els("emergencyMonths").value, 10) || 0),
+    premiumBonds: money("premiumBonds"),
+    spousePremiumBonds: money("spousePremiumBonds"),
+    premiumBondsRate: parseFloat(els("premiumBondsRate").value) || 0,
     bonusOn: els("bonusOn").checked,
     bonusAmount: money("bonusAmount"),
     bonusDeferYears: Math.max(0, parseInt(els("bonusDeferYears").value, 10) || 0),
@@ -5065,6 +5988,11 @@ function renderAge(model) {
 // A horizontal, responsive timeline above the Key Dates cards: one track per
 // person, with an icon marker for each milestone positioned by date so you can
 // see them relative to one another and to today.
+/* Which timeline scale is in use. A view preference, so it lives beside the
+   text scale in localStorage rather than in the saved plan. */
+const TL_SCALE_KEY = "pensionPlanner.timelineScale";
+let timelineScale = localStorage.getItem(TL_SCALE_KEY) === "even" ? "even" : "power";
+
 function renderTimeline(model) {
   const host = els("ageTimeline");
   if (!host) return;
@@ -5080,7 +6008,33 @@ function renderTimeline(model) {
     yearsOf(p).concat(ret ? [ret.y] : []).forEach(y => { hi = Math.max(hi, y); });
   });
   const span = Math.max(1, hi - lo);
-  const pct = y => ((y - lo) / span) * 100;
+
+  /* ---- The scale ---------------------------------------------------------
+     A straight linear year axis is the wrong shape for this data. The events
+     people are actually deciding about - retirement, first pension access -
+     are usually within a few years, while life expectancy is thirty or forty
+     out. Linear crushes the near ones into the first inch and leaves the rest
+     of the track nearly empty.
+
+     So distance from today is raised to a power (<1), which stretches the near
+     years and compresses the far ones. It stays monotonic and continuous, so
+     the axis still reads as real dates and every marker keeps its true order -
+     unlike ranking them evenly, which would make the gaps meaningless.
+
+     A true log scale can't be used: log(0) is undefined and today sits at
+     exactly zero years out. This is the same idea without the singularity, and
+     the exponent controls how hard it pulls.
+
+     Worked example, 55 years of span: retirement 2 years out moves from 4% of
+     the track to 13%, State Pension at 14 years from 25% to 43%, and life
+     expectancy at 32 from 58% to 72%. Nothing is hidden and nothing is
+     bunched. "Even years" puts the linear scale back for anyone comparing
+     durations by eye. */
+  const TIMELINE_POWER = 0.62;
+  const pct = y => {
+    const frac = Math.max(0, Math.min(1, (y - lo) / span));
+    return (timelineScale === "even" ? frac : Math.pow(frac, TIMELINE_POWER)) * 100;
+  };
 
   const trackHtml = (label, owner, p, ret) => {
     const curAge = ageAtDate(p.dob, today);
@@ -5092,21 +6046,16 @@ function renderTimeline(model) {
     ];
     if (ret) marks.push({ y: ret.y, ico: "&#127958;&#65039;", name: "Retire", age: ageAtDate(p.dob, ret), move: true });
     marks.sort((a, b) => a.y - b.y);
-    // Stack labels into lanes when markers crowd together: consecutive close
-    // markers step further from the line, alternating above / below, so no two
-    // flags overlap.
-    let lastPct = -99, cluster = 0;
+    /* Only the horizontal placement is decided here. Which lane a flag ends up
+       in, and whether it sits above or below the line, is settled by
+       layoutTimelineFlags() once the flags exist and can be measured - a guess
+       made from percentages cannot know how wide the words turned out. */
     const markHtml = marks.map(m => {
       const x = pct(m.y);
-      cluster = (x - lastPct < 13) ? cluster + 1 : 0;
-      lastPct = x;
-      const up = cluster % 2 === 0;
-      const dist = 26 + Math.floor(cluster / 2) * 34;
       const edge = x < 12 ? " edge-l" : x > 88 ? " edge-r" : "";
-      const off = `${up ? "bottom" : "top"}:${dist}px`;
       const mv = m.move ? " tl-move" : "";
-      return `<div class="tl-marker ${m.cls || ""} ${up ? "up" : "down"}${edge}${mv}" style="left:${x}%"${m.move ? ` data-retire="${owner}"` : ""}>
-        <span class="tl-flag" style="${off}"><b>${m.name}</b><span class="tl-sub">age ${m.age} &middot; ${m.y}</span></span>
+      return `<div class="tl-marker ${m.cls || ""} up${edge}${mv}" style="left:${x}%"${m.move ? ` data-retire="${owner}"` : ""}>
+        <span class="tl-flag"><b>${m.name}</b><span class="tl-sub">age ${m.age} &middot; ${m.y}</span></span>
         <span class="tl-ico">${m.ico}</span></div>`;
     }).join("");
     return `<div class="tl-track" data-owner="${owner}">
@@ -5115,14 +6064,116 @@ function renderTimeline(model) {
     </div>`;
   };
 
+  /* Axis labels are placed at round years and positioned BY THE SAME SCALE, so
+     they sit unevenly - which is the honest way to draw a compressed axis. The
+     ticks are chosen from where there is room rather than at a fixed step, and
+     any that would collide with the one before are dropped. */
   const axis = [];
-  const axisStep = Math.max(1, Math.ceil(span / 8));
-  for (let y = lo; y <= hi; y += axisStep) axis.push(`<span style="left:${pct(y)}%">${y}</span>`);
+  const ticks = [];
+  if (timelineScale === "even") {
+    const step = Math.max(1, Math.ceil(span / 8));
+    for (let y = lo; y <= hi; y += step) ticks.push(y);
+  } else {
+    // near years first, thinning out as the scale compresses
+    [0, 1, 2, 3, 5, 7, 10, 15, 20, 25, 30, 40, 50, 60, 70].forEach(d => {
+      if (d <= span) ticks.push(lo + d);
+    });
+    if (ticks[ticks.length - 1] !== hi) ticks.push(hi);
+  }
+  let lastX = -99;
+  ticks.forEach(y => {
+    const x = pct(y);
+    if (x - lastX < 7) return;      // no room for this one
+    lastX = x;
+    axis.push(`<span style="left:${x}%">${y}</span>`);
+  });
 
-  host.innerHTML = `<div class="timeline" data-lo="${lo}" data-hi="${hi}">
+  host.innerHTML = `<div class="timeline" data-lo="${lo}" data-hi="${hi}" data-scale="${timelineScale}">
     ${people.map(([l, p, r], i) => trackHtml(l, i === 0 ? "you" : "spouse", p, r)).join("")}
     <div class="tl-axis">${axis.join("")}</div>
   </div>`;
+  document.querySelectorAll(".tlscale-seg button").forEach(b => {
+    const on = b.dataset.tlscale === timelineScale;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+  });
+  layoutTimelineFlags();
+}
+
+/* ---- Flags that never sit on top of each other -------------------------
+   Where a flag goes cannot be decided while writing the HTML, because how
+   wide it is depends on its words, the text-size setting, the theme's font
+   and how wide the card happens to be. The old rule guessed - "if the next
+   marker is within 13% of the track, step it out one lane" - and guessed
+   wrong whenever a flag was wider than 13% of the track, which at the larger
+   text sizes is most of them.
+
+   So: draw them, MEASURE them, then place them. Each flag goes in the first
+   lane on its side of the line where it clears the flag before it; sides
+   alternate so the picture stays balanced; and the line's margins grow to
+   make room for however many lanes that took. */
+function layoutTimelineFlags() {
+  const host = els("ageTimeline");
+  if (!host) return;
+  const GUTTER = 6;    // clear space between two flags in the same lane
+  const BASE = 26;     // first lane's distance from the line
+  const GAP = 5;       // between lanes
+  host.querySelectorAll(".tl-track").forEach(track => {
+    const line = track.querySelector(".tl-line");
+    const markers = [...track.querySelectorAll(".tl-marker")];
+    if (!line || !markers.length) return;
+
+    // Measure from one common baseline: the vertical offset doesn't change a
+    // flag's width, so one pass of measurements serves every lane.
+    markers.forEach(m => {
+      m.classList.add("up");
+      m.classList.remove("down");
+      const f = m.querySelector(".tl-flag");
+      if (f) { f.style.bottom = ""; f.style.top = ""; }
+    });
+    const items = markers
+      .map(m => {
+        const f = m.querySelector(".tl-flag");
+        if (!f) return null;
+        const r = f.getBoundingClientRect();
+        return { m, f, left: r.left, right: r.right, h: r.height };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.left - b.left);
+    if (!items.length) return;
+
+    const up = [], down = [];      // right-hand edge occupied in each lane
+    let preferUp = true;
+    items.forEach(it => {
+      const fits = lanes => lanes.findIndex(edge => it.left >= edge + GUTTER);
+      let side = preferUp ? up : down;
+      let isUp = preferUp;
+      let lane = fits(side);
+      if (lane < 0) {
+        const other = preferUp ? down : up;
+        const l2 = fits(other);
+        if (l2 >= 0) { side = other; isUp = !preferUp; lane = l2; }
+        else { lane = side.length; }        // a brand-new lane, further out
+      }
+      side[lane] = it.right;
+      it.m.classList.toggle("up", isUp);
+      it.m.classList.toggle("down", !isUp);
+      const offset = BASE + lane * (it.h + GAP);
+      it.f.style[isUp ? "bottom" : "top"] = offset + "px";
+      it.f.style[isUp ? "top" : "bottom"] = "";
+      it.lane = lane; it.isUp = isUp;
+      preferUp = !isUp;
+    });
+
+    // Grow the track to fit the deepest lane on each side, rather than relying
+    // on a fixed min-height that two lanes of flags already overflow.
+    const depth = side => items.filter(i => i.isUp === side)
+      .reduce((mx, i) => Math.max(mx, BASE + i.lane * (i.h + GAP) + i.h), 0);
+    const above = depth(true), below = depth(false);
+    line.style.marginTop = Math.round(above + 10) + "px";
+    line.style.marginBottom = Math.round(below + 10) + "px";
+    track.style.minHeight = "0";
+  });
 }
 
 function renderSalary(model) {
@@ -5574,12 +6625,12 @@ let breakdownXform = null;  // last breakdown-chart transform, same purpose
 function renderEventList() {
   els("eventList").innerHTML = planEvents.length ? planEvents.map((ev, i) => `
     <div class="asset-row" data-plan-list="events" data-idx="${i}">
-      <div class="field" style="flex:1 1 130px;"><label>Label</label>
+      <div class="field"><label>Label</label>
         <input type="text" data-pfield="label" value="${(ev.label || "").replace(/"/g, "&quot;")}"></div>
-      <div class="field" style="flex:0 0 150px;"><label>Year (slide to move)</label>
+      <div class="field"><label>Year (slide to move)</label>
         <input type="number" data-pfield="year" min="2000" max="2100" value="${ev.year}">
         <input type="range" class="fld-slider" data-pfield-slider="year" min="${todayObj().y}" max="${todayObj().y + 50}" step="1" value="${ev.year}"></div>
-      <div class="field" style="flex:0 0 130px;"><label>Direction</label>
+      <div class="field"><label>Direction</label>
         <select data-pfield="dir">
           <option value="in"${ev.dir === "in" ? " selected" : ""}>Money in</option>
           <option value="out"${ev.dir === "out" ? " selected" : ""}>Money out</option>
@@ -5593,13 +6644,13 @@ function renderEventList() {
 function renderScenarioList() {
   els("scenarioList").innerHTML = scenarios.length ? scenarios.map((sc, i) => `
     <div class="asset-row" data-plan-list="scenarios" data-idx="${i}">
-      <div class="field" style="flex:1 1 120px;"><label>Name</label>
+      <div class="field"><label>Name</label>
         <input type="text" data-pfield="name" value="${(sc.name || "").replace(/"/g, "&quot;")}"></div>
-      <div class="field" style="flex:0 0 110px;"><label>Retire +/- yrs</label>
+      <div class="field"><label>Retire +/- yrs</label>
         <input type="number" data-pfield="retireShift" min="-15" max="15" step="1" value="${sc.retireShift}"></div>
-      <div class="field" style="flex:0 0 110px;"><label>Growth +/- %</label>
+      <div class="field"><label>Growth +/- %</label>
         <input type="number" data-pfield="growthDelta" min="-10" max="10" step="0.5" value="${sc.growthDelta}"></div>
-      <div class="field" style="flex:0 0 120px;"><label>Spending +/- %</label>
+      <div class="field"><label>Spending +/- %</label>
         <input type="number" data-pfield="spendDelta" min="-50" max="50" step="5" value="${sc.spendDelta}"></div>
       <button type="button" class="remove-btn" data-plan-remove="scenarios" data-idx="${i}" aria-label="Remove">&times;</button>
     </div>`).join("") : `<div class="asset-empty">No what-ifs yet &mdash; try "Retire 2 years earlier" or "Markets 2% worse".</div>`;
@@ -6004,6 +7055,14 @@ function accumulationSeries(model) {
   const retYear = (model.yourMeta.decumStartDate || inp.retireDate).y;
   const perYear = (model.comp && model.comp.perYear) || [];
   const pension = model.yourContribution || 0;
+  /* What YOU put in out of your own pay never reaches your bank account, so
+     take-home has to lose it. Where it comes off matters: UK relief-at-source
+     contributions are paid out of money that has already been taxed, while
+     salary sacrifice (AU) and pre-tax plans (US 401(k), FR PER) come off the
+     pay before the tax is worked out, which lowers the tax as well. */
+  const ownContrib = model.personalNet || 0;
+  const preTax = currentCountry === "UK" ? 0 : ownContrib;
+  const postTax = currentCountry === "UK" ? ownContrib : 0;
   const years = [];
   for (let yy = today.y; yy < retYear; yy++) {
     const comp = perYear[yy - today.y] || 0;
@@ -6013,7 +7072,9 @@ function accumulationSeries(model) {
     const salSpouse = (model.spouse && inp.spouseRetireDate && yy < inp.spouseRetireDate.y)
       ? inp.spouseSalary : 0;
     years.push({ year: yy, pension, comp, payIn: pension + comp,
-                 salYou, salSpouse, total: salYou + salSpouse + pension + comp });
+                 salYou, salSpouse,
+                 preTaxOut: salYou > 0 ? preTax : 0, postTaxOut: salYou > 0 ? postTax : 0,
+                 total: salYou + salSpouse + pension + comp });
   }
   return { years, retYear };
 }
@@ -6244,6 +7305,23 @@ function drawSurvivalOverlay(ctx, model, today, from, to, xOf, padT, plotH, W, p
   ctx.restore();
 }
 
+/* The two income stacks this has to read use different key names for the same
+   money, because one is the pension-income view and the other is the funding
+   view that smoothing turns on. Naming them here, once, is what stops the
+   take-home line silently treating a whole pension drawdown as tax-free when
+   smoothing is on - which is exactly what it used to do. */
+const NET_TAXABLE_KEYS = ["private", "pension", "db", "state", "salary"];
+const NET_TAXFREE_KEYS = ["bridge", "pcls", "cash", "cashISA", "ssISA", "gia", "downsize"];
+
+/* Take-home, and the arithmetic behind it, for one year.
+   Returns { base, tax, contrib, net } rather than a bare number, so the
+   tooltip can state the tax instead of inferring it from (gross - net) - an
+   inference that counts pension contributions as tax and overstates the bill.
+
+   Simplification worth knowing about: a couple's retirement income is split
+   50/50 before it is taxed, so each person's allowance and lower bands are
+   used once. Real splits are rarely equal, so treat it as an indication - the
+   Tax tab does the per-person arithmetic properly. */
 function netIncomeFns(model, accOf, stackOf) {
   const ctry = model.inp.country, scot = model.inp.scotland === "scot";
   const heads = model.spouse ? 2 : 1;
@@ -6251,23 +7329,57 @@ function netIncomeFns(model, accOf, stackOf) {
     working: year => {
       const a = accOf(year);
       if (!a) return null;
+      const salYou = a.salYou || 0, salSpouse = a.salSpouse || 0;
+      const pre = a.preTaxOut || 0, post = a.postTaxOut || 0;
       // taxed per person: two salaries each get their own allowance and bands
-      return taxOnSalary(a.salYou || 0, ctry, scot).net
-           + taxOnSalary(a.salSpouse || 0, ctry, scot).net;
+      const you = taxOnSalary(Math.max(0, salYou - pre), ctry, scot);
+      const sp = taxOnSalary(salSpouse, ctry, scot);
+      const tax = you.tax + (you.ni || 0) + sp.tax + (sp.ni || 0);
+      const base = salYou + salSpouse;
+      return { base, tax, contrib: pre + post, net: base - tax - pre - post };
     },
     retired: year => {
       const s = stackOf(year);
       if (!s) return null;
       const age = year - model.you.dob.y;
-      const priv = s.private || 0, other = (s.db || 0) + (s.state || 0);
-      const taxed = heads === 2
+      const salary = s.salary || 0;
+      // pension drawdown is "private" in one stack and "pension" in the other;
+      // they never both appear, so summing them picks up whichever is present
+      const priv = (s.private || 0) + (s.pension || 0);
+      const other = (s.db || 0) + (s.state || 0);
+      const free = NET_TAXFREE_KEYS.reduce((t, k) => t + (s[k] || 0), 0);
+      const taxedNet = heads === 2
         ? 2 * taxOnRetirement(priv / 2, other / 2, age, ctry, scot)
         : taxOnRetirement(priv, other, age, ctry, scot);
-      // a salary in a part-retired year is still taxed as a salary, and money
-      // drawn from savings has already been taxed - it arrives whole
-      return taxOnSalary(s.salary || 0, ctry, scot).net + taxed + (s.bridge || 0);
+      // a salary in a part-retired year is still taxed as a salary; money drawn
+      // from savings and tax-free cash has already been taxed, so it arrives whole
+      const sal = taxOnSalary(salary, ctry, scot);
+      const base = salary + priv + other + free;
+      const tax = (sal.tax + (sal.ni || 0)) + (priv + other - taxedNet);
+      // still paying into a pension after retiring? that money leaves too
+      const contrib = s.ongoingPen || 0;
+      return { base, tax, contrib, net: base - tax - contrib };
     },
   };
+}
+
+/* Spread a take-home detail object into the fields a tooltip expects. Null in,
+   null fields out, so a year with no data simply omits the take-home block. */
+function netDetail(d) {
+  return d ? { net: d.net, tax: d.tax, contrib: d.contrib, taxBase: d.base }
+           : { net: null, tax: null, contrib: 0, taxBase: null };
+}
+
+/* The average of several years' take-home is the average of each part - you
+   cannot average the gross and re-tax it, because tax is not linear. */
+function meanNetDetail(years, at) {
+  let n = 0, base = 0, tax = 0, contrib = 0, net = 0;
+  years.forEach(y => {
+    const d = at(y);
+    if (!d) return;
+    n++; base += d.base; tax += d.tax; contrib += d.contrib; net += d.net;
+  });
+  return n ? { base: base / n, tax: tax / n, contrib: contrib / n, net: net / n } : null;
 }
 
 /* Decade x labels sit under the middle of their block, in place of year ticks.
@@ -6422,7 +7534,10 @@ function drawEventFlags(ctx, flags, xf, domainStart, domainEnd, padT, plotH, hit
       ctx.textAlign = "left"; ctx.font = chartFont(10.5, "600");
       ctx.fillStyle = f.custom ? CHART.bridge : themeColor("--ink", "#0F1D19");
       ctx.fillText(f.label, px + 10, topY + 6);
-      if (f.sub) { ctx.font = chartFont(9); ctx.fillStyle = themeColor("--ink-faint", "#8A968F"); ctx.fillText(f.sub, px + 10, topY + 17); }
+      // The age/date line under each flag used to be --ink-faint, which on the
+      // Night theme is grey-on-dark and barely there. --ink-muted is a clear
+      // step brighter and still reads as secondary to the label above it.
+      if (f.sub) { ctx.font = chartFont(9); ctx.fillStyle = themeColor("--ink-muted", "#B9C6C0"); ctx.fillText(f.sub, px + 10, topY + 17); }
     }
     if (movable && hitOut) hitOut.push({ px, topY, move: f.move, year: f.year });
   });
@@ -6597,9 +7712,9 @@ function drawPlannerChart(model) {
     ctx.beginPath(); ctx.strokeStyle = colour; ctx.lineWidth = 2.2;
     let started = false;
     for (let y = from; y <= to; y++) {
-      const v = fn(y);
-      if (v == null) continue;
-      const px = x(y), py = yPix(v);
+      const d = fn(y);
+      if (d == null) continue;
+      const px = x(y), py = yPix(d.net);
       started ? ctx.lineTo(px, py) : (ctx.moveTo(px, py), started = true);
     }
     ctx.stroke();
@@ -6613,15 +7728,15 @@ function drawPlannerChart(model) {
 
   // The last full working year's take-home: the "before" figure every
   // retirement year is compared against in the tooltip.
-  const workingBaseline = accYears.length
+  const workingBaselineD = accYears.length
     ? netFns.working(Math.max(accYears[0].year, retYear - 1)) : null;
+  const workingBaseline = workingBaselineD ? workingBaselineD.net : null;
 
   // spending-target line (stepped for go-go / no-go phases) - DRAGGABLE:
   // grab it anywhere to sweep the income target up and down.
   const baseTarget = plannerTarget != null ? plannerTarget : (model.rlsTarget || 0);
   const targetAt = y => targetForYear(model, baseTarget, y);
   updateTargetSliders(baseTarget, maxV);
-  updateRetireSliders(model);
   if (baseTarget > 0) {
     const crit = CHART.crit;
     ctx.beginPath(); ctx.setLineDash([6, 4]); ctx.strokeStyle = crit; ctx.lineWidth = 2.5;
@@ -6690,15 +7805,13 @@ function drawPlannerChart(model) {
       // overstated tax bill.
       return build(a, accTipLayers, "Paying in", {
         target: null, event: 0, working: true,
-        net: netFns.working(year),
-        taxBase: a ? (a.salYou || 0) + (a.salSpouse || 0) : 0,
+        ...netDetail(netFns.working(year)),
       });
     }
     const s = stackOf(year);
     return build(s, decTipLayers, "Retirement income", {
       event: s ? (s.event || 0) : 0,
-      net: netFns.retired(year),
-      taxBase: s ? s.total || 0 : 0,
+      ...netDetail(netFns.retired(year)),
       // The question this answers: how much does take-home actually drop when
       // the salary stops? Measured against the last full working year, which
       // is the pay packet anyone is comparing against.
@@ -6914,21 +8027,13 @@ function drawBreakdownChart(model) {
      are not the same number. */
   const rawNet = netIncomeFns(model, y => accByYear[y], y => decYear(y));
   const yearNet = y => (y < retYear ? rawNet.working(y) : rawNet.retired(y));
-  const yearTaxBase = y => {
-    if (y < retYear) { const a = accByYear[y] || {}; return (a.salYou || 0) + (a.salSpouse || 0); }
-    return (decYear(y) || {}).total || 0;
-  };
-  const meanOver = (yrs, fn) => {
-    let sum = 0, n = 0;
-    yrs.forEach(y => { const v = fn(y); if (v != null) { sum += v; n++; } });
-    return n ? sum / n : null;
-  };
   const bucketYears = y => { const b = bucketFor(buckets, y); return b ? b.years : [y]; };
-  const netAt = y => (buckets ? meanOver(bucketYears(y), yearNet) : yearNet(y));
-  const taxBaseAt = y => (buckets ? meanOver(bucketYears(y), yearTaxBase) : yearTaxBase(y));
+  const detailAt = y => (buckets ? meanNetDetail(bucketYears(y), yearNet) : yearNet(y));
+  const netAt = y => { const d = detailAt(y); return d ? d.net : null; };
   // the last full working year's take-home, for the "how much does it drop?"
   // comparison in the tooltip
-  const workingNetBaseline = retYear > domainStart ? yearNet(retYear - 1) : null;
+  const baselineD = retYear > domainStart ? yearNet(retYear - 1) : null;
+  const workingNetBaseline = baselineD ? baselineD.net : null;
 
   // Build the hover-tooltip content for a given year (accumulation vs decumulation).
   breakdownXform.tip = year => {
@@ -6946,7 +8051,7 @@ function drawBreakdownChart(model) {
               ` &mdash; average year`,
         year, age, phase: "Average year", segs,
         total: agg.total || 0, target: agg.target || null,
-        net: netAt(year), taxBase: taxBaseAt(year), working: b.end < retYear,
+        ...netDetail(detailAt(year)), working: b.end < retYear,
         baseline: workingNetBaseline, mixed: b.start < retYear && b.end >= retYear,
       };
     }
@@ -6955,13 +8060,13 @@ function drawBreakdownChart(model) {
       const segs = accBarLayers.map(l => ({ label: l.label, color: l.color, amt: a[l.key] || 0 }))
         .filter(s => s.amt > 0);
       return { year, age, phase: "Paying in", segs, total: a.total || 0, target: null,
-               net: netAt(year), taxBase: taxBaseAt(year), working: true };
+               ...netDetail(detailAt(year)), working: true };
     }
     const s = decYear(year); if (!s) return null;
     const segs = layers.map(l => ({ label: l.label, color: l.color, amt: s[l.key] || 0 }))
       .filter(s => s.amt > 0);
     return { year, age, phase: "Retirement income", segs, total: s.total || 0, target: targetAt(year),
-             net: netAt(year), taxBase: taxBaseAt(year), baseline: workingNetBaseline };
+             ...netDetail(detailAt(year)), baseline: workingNetBaseline };
   };
   const stackBar = (cx, barW, get, stackLayers) => {
     let base = 0;
@@ -7966,6 +9071,7 @@ function renderAll() {
   renderAge(model);
   renderSalary(model);
   renderAssetsSummary(model);
+  renderSavingsPage(model);
   renderProjection(model);
   renderHousehold(model);
   renderGifting(model);
@@ -7973,6 +9079,11 @@ function renderAll() {
   renderTax(model);
   renderPhaseTax(model);
   renderBudget(model);
+  /* Slider read-outs are NOT chart furniture: they sit beside their inputs on
+     the People and Planner pages alike, so they are refreshed on every render
+     rather than only when the planner charts happen to be drawn. Moving the
+     retirement slider on People used to leave the age beside it stale. */
+  updateRetireSliders(model);
   // spouse-specific controls must never show when no spouse is included
   ["spouseRetireField", "spouseRetireField2", "spouseCareFields", "spouseCareStayFields",
     "stratSpouseContribLabel"].forEach(id => {
@@ -7994,12 +9105,31 @@ function renderAll() {
     updateZoomBars();
   }
   scheduleTableScrollbars();
+  scheduleDefTagging();
 }
 let lastModel = null;
 
+/* Re-tagging touches the whole document, so it waits for the render to settle
+   and never runs twice for one burst of updates (a slider drag fires renderAll
+   on every frame). */
+let defTagPending = 0;
+function scheduleDefTagging() {
+  clearTimeout(defTagPending);
+  defTagPending = setTimeout(() => {
+    // Register first: the definitions should tag the words the reader actually
+    // ends up seeing, not the ones that were about to be swapped out.
+    applyRegister(document.body);
+    tagDefinitions(document.body);
+    refreshDefPop();
+  }, 120);
+}
+
 function renderAssetsSummary(model) {
-  // Show/hide the spouse's asset group with the spouse toggle.
-  els("assetsSpouseGroup").style.display = model.spouse ? "" : "none";
+  // Show/hide the spouse's groups with the spouse toggle - the pensions card
+  // on the Pensions page and the savings card on the Savings page.
+  ["assetsSpouseGroup", "savingsSpouseGroup", "isaPaidSpouseField"].forEach(id => {
+    const el = els(id); if (el) el.style.display = model.spouse ? "" : "none";
+  });
 
   const equity = model.equityAccrued || 0;
   const block = (label, a, extra) => {
@@ -8024,8 +9154,134 @@ function renderAssetsSummary(model) {
   };
   let html = block(model.spouse ? "You" : "Assets today", model.assetTotals, equity);
   if (model.spouse) html += block("Your spouse", model.assetTotalsSpouse, 0);
+  // Net worth has to net something off, so the debts are shown here rather
+  // than only on their own card.
+  const debt = debtTotals();
+  const gross = [model.assetTotals, model.assetTotalsSpouse].reduce((s, a) =>
+    s + (a ? a.cash + a.shares + a.dcValue + (a.property || 0) : 0), equity);
+  if (debt.total > 0) {
+    html += `<div class="list-label">Net worth</div><div class="stat-row">` +
+      [["Everything you own", gbp0(gross)],
+       ["Less what you owe", "&minus;" + gbp0(debt.total)],
+       ["Net worth today", gbp0(gross - debt.total)]]
+        .map(([l, v]) => `<div class="stat"><span class="label">${l}</span><span class="value">${v}</span></div>`)
+        .join("") + `</div>`;
+  }
   els("assetsSummary").innerHTML = html +
     `<p class="caption">Each person's cash and shares are drawn (cash first) only in years they retire before a pension starts. DC pots fold into that person's drawdown pot; DB pensions add a fixed income from their start age.</p>`;
+}
+
+/* ---- The Savings page's own read-outs ----------------------------------
+   Four things the rest of the plan can't tell you, because they are about the
+   shape of what you hold rather than about the income it produces. */
+function renderSavingsPage(model) {
+  const inp = model.inp;
+  const setText = (id, t) => { const el = els(id); if (el) el.textContent = t; };
+  const setHtml = (id, h) => { const el = els(id); if (el) el.innerHTML = h; };
+
+  /* Emergency fund. Measured against SPENDING, not income: the question is how
+     long you could carry on as you are with no money coming in. Its target is
+     reported against the cash you actually hold, and is deliberately not
+     subtracted from the plan - saying "you're short" is useful, quietly
+     removing the money from your retirement is not. */
+  const eFields = els("emergencyFields");
+  if (eFields) eFields.style.display = inp.emergencyOn ? "" : "none";
+  if (inp.emergencyOn) {
+    const spendYear = Math.max(0, model.rlsTarget || inp.retireSpend || 0);
+    const target = spendYear / 12 * (inp.emergencyMonths || 0);
+    const cash = (model.assetTotals ? model.assetTotals.cash : 0) +
+                 (model.assetTotalsSpouse ? model.assetTotalsSpouse.cash : 0);
+    const months = spendYear > 0 ? cash / (spendYear / 12) : 0;
+    setText("emergencyTarget", gbp0(target));
+    setText("emergencyCover", spendYear > 0 ? `${months.toFixed(1)} months` : "—");
+    const note = els("emergencyNote");
+    if (note) {
+      note.innerHTML = spendYear <= 0
+        ? `Set a spending target on the Planner and this will tell you how many months your cash would cover.`
+        : cash >= target
+          ? `Your ${gbp0(cash)} of cash covers <b>${months.toFixed(1)} months</b> &mdash; ${gbp0(cash - target)} more than the ${inp.emergencyMonths}-month target. The surplus is doing nothing at cash rates; it is the obvious candidate for an ISA.`
+          : `Your ${gbp0(cash)} of cash covers <b>${months.toFixed(1)} months</b>, ${gbp0(target - cash)} short of the ${inp.emergencyMonths}-month target. Fill that before adding to investments &mdash; it is what stops a bad year forcing a sale at the bottom.`;
+    }
+  }
+
+  // Premium Bonds: what the prize rate is worth, and it is worth it tax-free.
+  const pbRate = (parseFloat((els("premiumBondsRate") || {}).value) || 0) / 100;
+  [["premiumBonds", "premiumBondsYield"], ["spousePremiumBonds", "spousePremiumBondsYield"]]
+    .forEach(([src, out]) => {
+      const el = els(src); if (!el) return;
+      setHtml(out, `${gbp0((parseMoney(el.value) || 0) * pbRate)} / year`);
+    });
+
+  renderIsaAllowance(model);
+
+  /* Debt verdict. Interest on a debt is a certain loss; growth on an
+     investment is an expectation. Comparing the two at their own numbers is
+     the whole of the advice, and it is worth stating in pounds. */
+  const debt = debtTotals();
+  const host = els("debtVerdict");
+  if (host) {
+    if (!debt.total) {
+      host.innerHTML = "";
+    } else {
+      const growth = inp.yourPotGrowth || 0;
+      const dearer = debt.list.filter(d => (Number(d.ratePct) || 0) > growth);
+      const dearTotal = dearer.reduce((s, d) => s + (Number(d.balance) || 0), 0);
+      const dearCost = dearer.reduce((s, d) => s + (Number(d.balance) || 0) * (Number(d.ratePct) || 0) / 100, 0);
+      const gain = dearCost - dearTotal * growth / 100;
+      host.innerHTML = `<div class="notice ${dearer.length ? "warn" : "good"}">` +
+        `<span class="icon">${dearer.length ? "&#9888;" : "&#10003;"}</span>` +
+        (dearer.length
+          ? `<b>${gbp0(dearTotal)}</b> of what you owe charges more than the ${growth}% you assume your investments will earn &mdash; ` +
+            `${gbp0(dearCost)}/yr in interest against ${gbp0(dearTotal * growth / 100)}/yr of hoped-for growth. ` +
+            `Clearing it first is worth about <b>${gbp0(gain)}/yr</b>, and it is certain rather than hoped for.`
+          : `All ${gbp0(debt.total)} of your borrowing charges less than the ${growth}% you assume your investments will earn ` +
+            `(${debt.rate.toFixed(1)}% on average, ${gbp0(debt.interest)}/yr). Paying it down early is the safer choice, not the richer one.`) +
+        `</div><p class="caption" style="margin-top:6px;">Repayments are assumed to be inside the spending figure you have already set, so debts are counted against net worth but not deducted from the plan a second time.</p>`;
+    }
+  }
+}
+
+/* ISA allowance used this tax year, per person. The limit is shared across
+   every kind of ISA, which is the part people most often get wrong: it is
+   £20,000 in total, not £20,000 each into cash and shares. */
+function renderIsaAllowance(model) {
+  const host = els("isaAllowance");
+  if (!host) return;
+  const isaTypes = /ISA/i;
+  /* What is IN an ISA is not what went in this tax year, and the plan has no
+     way of knowing the difference - so the amount paid in is asked for, and
+     anything the plan itself puts in (the "move savings into an ISA" strategy)
+     is added on top of it. */
+  const paidIn = owner => parseMoney((els(owner === "spouse" ? "isaPaidSpouse" : "isaPaidYou") || {}).value) || 0;
+  const held = owner => {
+    const oa = assets[owner] || emptyOwnerAssets();
+    return (oa.savings || []).filter(a => isaTypes.test(a.type)).reduce((s, a) => s + (Number(a.balance) || 0), 0)
+         + (oa.shares || []).filter(a => isaTypes.test(a.type)).reduce((s, a) => s + (Number(a.value) || 0), 0);
+  };
+  const strat = model.inp.stratIsaOn ? Math.max(0, model.inp.stratIsaAmt || 0) : 0;
+  const people = [["You", "you", strat]];
+  if (model.spouse) people.push(["Your spouse", "spouse", 0]);
+  host.innerHTML = people.map(([label, owner, extra]) => {
+    const wanted = paidIn(owner) + extra;
+    const used = Math.min(ISA_ANNUAL_LIMIT, wanted);
+    const left = Math.max(0, ISA_ANNUAL_LIMIT - used);
+    const pct = Math.round(100 * used / ISA_ANNUAL_LIMIT);
+    const rows = [["Already sheltered in ISAs", gbp0(held(owner))],
+                  ["You have paid in", gbp0(paidIn(owner))]];
+    if (extra > 0) rows.push(["The plan moves in", gbp0(extra)]);
+    rows.push(["Allowance left", gbp0(left)]);
+    return `<div class="list-label">${label}</div>` +
+      `<div class="isa-bar" role="img" aria-label="${pct}% of this year's ISA allowance used">` +
+        `<span style="width:${pct}%"></span></div>` +
+      `<div class="stat-row">` +
+        rows.map(([l, v]) => `<div class="stat"><span class="label">${l}</span><span class="value">${v}</span></div>`).join("") +
+      `</div>` +
+      (wanted > ISA_ANNUAL_LIMIT
+        ? `<p class="hint" style="margin:4px 0 10px;color:var(--warn)">That is ${gbp0(wanted - ISA_ANNUAL_LIMIT)} over the ` +
+          `${gbp0(ISA_ANNUAL_LIMIT)} limit &mdash; the excess has to go somewhere else this year.</p>` : "");
+  }).join("") +
+    `<p class="caption">Growth inside an ISA is free of income tax and Capital Gains Tax, and it never has to appear on a tax return. ` +
+    `Moving money you already hold from a taxable account into an ISA uses allowance just the same &mdash; it is the paying in that counts, not where it came from.</p>`;
 }
 
 function updateAgeHeading(model) {
@@ -8383,7 +9639,12 @@ function chartTipHtml(d) {
   const money = v => CUR() + Math.round(v).toLocaleString("en-GB");
   const withEvents = d.total + (d.event || 0);
   const taxBase = d.taxBase == null ? d.total : d.taxBase;
-  const tax = d.net == null ? null : Math.max(0, taxBase - d.net);
+  /* The tax comes from the model, not from (gross - net). Inferring it counted
+     every pound paid into a pension as tax, and read £23,643 on a £60,000
+     salary where the real bill is £14,643. */
+  const tax = d.net == null ? null
+    : (d.tax != null ? Math.max(0, d.tax) : Math.max(0, taxBase - d.net));
+  const contrib = Math.max(0, d.contrib || 0);
   const rate = tax != null && taxBase > 0 ? (tax / taxBase * 100) : null;
   const netColour = d.working ? CHART_NET_WORK : CHART_NET_RET;
   let drop = "";
@@ -8404,6 +9665,11 @@ function chartTipHtml(d) {
       ? `<div class="tip-target"><span>Tax${d.working && CUR() === "£" ? " &amp; NI" : ""}` +
         `${d.working ? ` on ${money(taxBase)} pay` : ""}${rate != null ? ` (${rate.toFixed(0)}%)` : ""}` +
         `</span><span>&minus;${money(tax)}/yr</span></div>` +
+        // Your own pension contributions leave your pay too. Showing them as
+        // their own line is what makes the take-home figure add up on screen.
+        (contrib > 0.5
+          ? `<div class="tip-target"><span>${d.working ? "You pay into your pension" : "Still paying into a pension"}` +
+            `</span><span>&minus;${money(contrib)}/yr</span></div>` : "") +
         `<div class="tip-total"><span style="color:${netColour}">Take-home</span>` +
         `<span>${money(d.net)}/yr</span></div>`
       : "") +
@@ -8640,10 +9906,10 @@ function updateRetireSliders(model) {
   const inp = model.inp;
   [["retireSlider", "retireSliderVal", inp.retireDate, model.you.dob, null],
    ["retireSlider2", "retireSliderVal2", inp.retireDate, model.you.dob, null],
-   ["retireSliderP", null, inp.retireDate, model.you.dob, null],
+   ["retireSliderP", "retireAgeP", inp.retireDate, model.you.dob, null],
    ["spouseRetireSlider", "spouseRetireSliderVal", inp.spouseRetireDate, model.spouse && model.spouse.dob, "spouseRetireField"],
    ["spouseRetireSlider2", "spouseRetireSliderVal2", inp.spouseRetireDate, model.spouse && model.spouse.dob, "spouseRetireField2"],
-   ["spouseRetireSliderP", null, inp.spouseRetireDate, model.spouse && model.spouse.dob, null]]
+   ["spouseRetireSliderP", "spouseRetireAgeP", inp.spouseRetireDate, model.spouse && model.spouse.dob, null]]
   .forEach(([sid, vid, d, dob, fieldId]) => {
     const r = els(sid);
     if (!r) return;
@@ -8654,7 +9920,14 @@ function updateRetireSliders(model) {
     if (+r.max !== max) r.max = max;
     if (+r.value !== d.y) r.value = d.y;
     const out = vid && els(vid);
-    if (out) out.textContent = `${d.y} (age ${d.y - dob.y})`;
+    if (!out) return;
+    /* Beside the date field on People the year is already on screen in the
+       input below, so the label adds only the age - which is the thing you
+       actually want when you drag the slider. On the Planner the read-out is
+       standalone and needs both. */
+    out.textContent = /AgeP$/.test(vid)
+      ? `· age ${d.y - dob.y}`
+      : `${d.y} (age ${d.y - dob.y})`;
   });
 }
 
@@ -8773,10 +10046,27 @@ window.addEventListener("resize", () => {
   // crossing the phone/desktop boundary switches the chart mode on or off
   applyChartMode(false);
   scheduleTableScrollbars();
+  // A narrower track puts flags on top of each other; they are laid out from
+  // measurements, so the measurements have to be taken again.
+  layoutTimelineFlags();
   if (els("tab-planner").classList.contains("active") && lastModel) {
     drawPlannerChart(lastModel); drawBreakdownChart(lastModel); drawBalanceChart(lastModel); drawMcChart(); drawLongevityChart(lastModel);
   }
 });
+
+/* The window isn't the only thing that changes the track's width: collapsing
+   the rail, switching tabs and changing the text size all do, and none of them
+   fire a resize event. */
+if (typeof ResizeObserver !== "undefined") {
+  const tlCard = els("timelineCard");
+  if (tlCard) {
+    let tlRaf = null;
+    new ResizeObserver(() => {
+      if (tlRaf) return;
+      tlRaf = requestAnimationFrame(() => { tlRaf = null; layoutTimelineFlags(); });
+    }).observe(tlCard);
+  }
+}
 
 els("openSettingsMobile").addEventListener("click", () => els("settingsModal").classList.add("open"));
 
@@ -8869,7 +10159,8 @@ els("extraSaveOn").addEventListener("change", e => {
 });
 [["stratSaveOn", "stratSaveFields"], ["stratPclsOn", "stratPclsFields"], ["stratIsaOn", "stratIsaFields"],
  ["stratRecycleOn", "stratRecycleFields"], ["stratSpouseContribOn", "stratSpouseContribFields"],
- ["spendPhasesOn", "spendPhaseFields"], ["budgetOn", "budgetFields"]]
+ ["spendPhasesOn", "spendPhaseFields"], ["budgetOn", "budgetFields"],
+ ["emergencyOn", "emergencyFields"]]
   .forEach(([cb, fields]) => els(cb).addEventListener("change", e => {
     els(fields).style.display = e.target.checked ? "" : "none";
     onUserChange();
@@ -8882,6 +10173,9 @@ document.querySelectorAll(
     if (inp.dataset.money !== undefined) formatMoneyInput(inp);
     onUserChange();
   });
+  // Range inputs already drive their own live handlers; adding another here
+  // would recompute the whole plan twice per frame of a drag.
+  if (inp.type !== "range") inp.addEventListener("input", onUserTyping);
 });
 
 // Dynamic asset rows: edits, add, remove (delegated - rows are re-rendered).
@@ -8917,6 +10211,19 @@ document.addEventListener("change", e => {
   }
   onUserChange();
 });
+
+/* And the same live recompute inside asset and plan rows: typing a balance
+   should move the charts straight away, not on blur. No reformatting and no
+   rebuilding of the row here - either would move the caret out from under the
+   person typing. */
+document.addEventListener("input", e => {
+  const row = e.target.closest(".asset-row");
+  if (!row || e.target.type === "range") return;
+  if (e.target.dataset.field === undefined && e.target.dataset.pfield === undefined) return;
+  if (row.dataset.planList) syncPlanListsFromDOM(); else syncAssetsFromDOM();
+  onUserTyping();
+});
+
 document.addEventListener("click", e => {
   const add = e.target.closest("[data-add]");
   if (add) {
@@ -8984,7 +10291,7 @@ function openProfileModal(mode) {
   const isDelete = mode === "delete";
   const isShare = mode === "share";
   els("profileModalTitle").textContent =
-    isDelete ? "Delete profile" : isShare ? `Share "${currentProfileName}"` : "New profile";
+    isDelete ? "Delete plan" : isShare ? `Share "${currentProfileName}"` : "New plan";
   els("profileNameField").style.display = isDelete ? "none" : "";
   els("profileNameLabel").textContent = isShare ? "Their account email" : "Profile name";
   els("profileNameHint").textContent = isShare
@@ -8994,7 +10301,7 @@ function openProfileModal(mode) {
   els("profileModalMessage").style.display = isDelete ? "" : "none";
   if (isDelete) {
     els("profileModalMessage").textContent =
-      `Delete the saved profile "${currentProfileName}"? This can't be undone.`;
+      `Delete the saved plan "${currentProfileName}"? This can't be undone.`;
   }
   els("profileModalConfirm").textContent = isDelete ? "Delete" : isShare ? "Share" : "Save";
   els("profileModal").classList.add("open");
@@ -9149,6 +10456,155 @@ async function forgetFileHandle() {
   lastFileHandle = null;
   try { (await handleStore("readwrite")).delete(FILE_HANDLE_KEY); } catch (e) { /* nothing to clear */ }
 }
+
+/* ---- Saving without a Save button ---------------------------------------
+   Once you have picked a file and granted write access, pressing Save every
+   time is busywork - and forgetting to is how an afternoon's work is lost. So
+   every change writes back to the same file, debounced so a slider drag is one
+   write rather than sixty.
+
+   Two things it will not do. It never asks for permission on its own: the
+   browser only grants write access in response to a click, so if the grant has
+   lapsed the auto-save quietly stands down until the next manual Save rather
+   than throwing a dialog at you mid-sentence. And it never picks a file for
+   you - no handle means no auto-save. */
+const AUTOSAVE_KEY = "pensionPlanner.autoSave";
+let autoSaveOn = localStorage.getItem(AUTOSAVE_KEY) !== "0";
+let autoSaveTimer = null, autoSaveBusy = false;
+
+function setAutoSave(on) {
+  autoSaveOn = !!on;
+  localStorage.setItem(AUTOSAVE_KEY, autoSaveOn ? "1" : "0");
+  const cb = els("autoSaveOn"); if (cb) cb.checked = autoSaveOn;
+}
+
+function scheduleAutoSave() {
+  if (!autoSaveOn || !lastFileHandle) return;
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(autoSaveNow, 1500);
+}
+
+async function autoSaveNow() {
+  if (!autoSaveOn || autoSaveBusy) return false;
+  const handle = lastFileHandle;
+  if (!handle || !handle.queryPermission) return false;
+  autoSaveBusy = true;
+  try {
+    // queryPermission only - requestPermission outside a click is refused, and
+    // asking would be the wrong thing to do anyway.
+    if (await handle.queryPermission({ mode: "readwrite" }) !== "granted") return false;
+    const payload = currentPlanPayload();
+    const json = JSON.stringify(payload, null, 2);
+    const w = await handle.createWritable();
+    await w.write(json); await w.close();
+    await pushBackup(payload);
+    autoSaveNotice(handle.name);
+    return true;
+  } catch (e) {
+    // moved, renamed, deleted, or the disk said no: stop trying silently
+    return false;
+  } finally {
+    autoSaveBusy = false;
+  }
+}
+
+function autoSaveNotice(name) {
+  const el = els("profileFileMsg");
+  if (!el) return;
+  const t = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  el.textContent = `Saved to ${name} at ${t}`;
+  el.style.display = "";
+  el.style.color = "var(--ink-faint)";
+}
+
+/* ---- Earlier versions ---------------------------------------------------
+   Kept in this browser rather than as sibling files on disk: writing
+   plan-2026-08-09.json next to plan.json needs a handle to the FOLDER, which
+   the save picker doesn't give and which asking for would mean a second, more
+   alarming permission prompt. Ten versions, and never more than one every ten
+   minutes, so the ten cover a stretch of work rather than the last minute. */
+const BACKUP_STORE = "backups", BACKUP_KEEP = 10, BACKUP_MIN_GAP_MS = 10 * 60 * 1000;
+
+function backupStore(mode) {
+  return new Promise((resolve, reject) => {
+    if (!window.indexedDB) return reject(new Error("no indexedDB"));
+    const req = indexedDB.open(FILE_HANDLE_DB, 2);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains("handles")) db.createObjectStore("handles");
+      if (!db.objectStoreNames.contains(BACKUP_STORE)) db.createObjectStore(BACKUP_STORE);
+    };
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => resolve(req.result.transaction(BACKUP_STORE, mode).objectStore(BACKUP_STORE));
+  });
+}
+const idbReq = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+
+async function listBackups() {
+  try {
+    const store = await backupStore("readonly");
+    const keys = await idbReq(store.getAllKeys());
+    return keys.sort().reverse();
+  } catch (e) { return []; }
+}
+
+async function pushBackup(payload, force) {
+  try {
+    const keys = await listBackups();
+    const last = keys[0] ? Date.parse(keys[0]) : 0;
+    if (!force && Date.now() - last < BACKUP_MIN_GAP_MS) return;
+    const store = await backupStore("readwrite");
+    store.put({ at: new Date().toISOString(), name: payload.name || "Plan", data: payload },
+              new Date().toISOString());
+    // trim the oldest beyond the ten we keep
+    const after = (await listBackups()).slice(BACKUP_KEEP);
+    if (after.length) {
+      const s2 = await backupStore("readwrite");
+      after.forEach(k => s2.delete(k));
+    }
+    renderBackupList();
+  } catch (e) { /* private mode: no earlier versions, which is not an error */ }
+}
+
+async function renderBackupList() {
+  const host = els("backupList");
+  if (!host) return;
+  const keys = await listBackups();
+  if (!keys.length) {
+    host.innerHTML = `<span class="hint">Nothing yet &mdash; the first version is kept the first time you save.</span>`;
+    return;
+  }
+  let store;
+  try { store = await backupStore("readonly"); } catch (e) { return; }
+  const rows = await Promise.all(keys.map(async k => {
+    const rec = await idbReq(store.get(k)).catch(() => null);
+    const when = new Date(k);
+    const label = when.toLocaleString("en-GB",
+      { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    return `<div class="backup-row"><span>${defEsc((rec && rec.name) || "Plan")}
+      <span class="hint-inline">${label}</span></span>
+      <button type="button" class="btn-ghost" data-restore="${defEsc(k)}">Restore</button></div>`;
+  }));
+  host.innerHTML = rows.join("");
+}
+
+document.addEventListener("click", async e => {
+  const btn = e.target.closest("[data-restore]");
+  if (!btn) return;
+  const key = btn.dataset.restore;
+  try {
+    const store = await backupStore("readonly");
+    const rec = await idbReq(store.get(key));
+    if (!rec || !rec.data) return;
+    // Keep what is on screen now as a version of its own, so restoring an
+    // earlier plan is never the thing that loses the current one.
+    await pushBackup(currentPlanPayload(), true);
+    applyProfileData(rec.data.data || rec.data);
+    saveFileMsg(`Restored the version from ${new Date(key).toLocaleString("en-GB")}.`);
+  } catch (err) {
+    saveFileMsg("That version could not be read.", true);
+  }
+});
 // Write permission is never granted silently across sessions, so ask - but only
 // in response to the Save click, which is the gesture the browser requires.
 async function canWriteTo(handle) {
@@ -9198,6 +10654,13 @@ async function openSaveFileModal() {
     : `&#11015;&#65039; This will <b>download to your Downloads folder</b> (or wherever your browser saves downloads).
        A download can only add a file, so your browser will name it <b>&ldquo;(1)&rdquo;</b> if one is already there.
        To overwrite instead, open this page in its own browser tab (not embedded) on a desktop browser.`;
+  // Auto-save is only on the table once there is a file to save to.
+  const autoRow = els("autoSaveRow");
+  if (autoRow) {
+    autoRow.style.display = known ? "" : "none";
+    els("autoSaveOn").checked = autoSaveOn;
+  }
+  renderBackupList();
   saveFileMsg("");
   els("saveFileModal").classList.add("open");
   els("saveFileName").focus(); els("saveFileName").select();
@@ -9227,7 +10690,9 @@ async function doSaveFile(forcePicker) {
       try {
         const w = await known.createWritable();
         await w.write(json); await w.close();
-        fileNotice(`Saved “${planName}” — ${known.name} overwritten`);
+        await pushBackup(payload, true);
+        fileNotice(`Saved “${planName}” — ${known.name} overwritten` +
+                   (autoSaveOn ? ", and kept in step from now on" : ""));
         closeSaveFileModal();
         return;
       } catch (e) {
@@ -9246,7 +10711,9 @@ async function doSaveFile(forcePicker) {
       const w = await handle.createWritable();
       await w.write(json); await w.close();
       await rememberFileHandle(handle);
-      fileNotice(`Saved “${planName}” — file ${handle.name} written to the folder you chose`);
+      await pushBackup(payload, true);
+      fileNotice(`Saved “${planName}” — file ${handle.name} written to the folder you chose` +
+                 (autoSaveOn ? ". Every change from now on writes straight back to it." : ""));
       closeSaveFileModal();
       return;
     } catch (e) {
@@ -9274,9 +10741,9 @@ async function doSaveFile(forcePicker) {
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     fileNotice(`Saved “${planName}” — file ${fname} in your Downloads folder`);
-    saveFileMsg(`✓ Saved as profile “${planName}”, and ${fname} written to your Downloads folder. Not there? Copy the plan text below instead.`);
+    saveFileMsg(`✓ Saved as plan “${planName}”, and ${fname} written to your Downloads folder. Not there? Copy the plan text below instead.`);
   } catch (e) {
-    saveFileMsg(`Saved as profile “${planName}”, but the file couldn't be written here — copy the plan text below and paste it into a file.`, true);
+    saveFileMsg(`Saved as plan “${planName}”, but the file couldn't be written here — copy the plan text below and paste it into a file.`, true);
   }
 }
 
@@ -9290,7 +10757,7 @@ async function importProfileFromFile(file) {
   } else if (payload && payload.dob !== undefined) {
     data = payload; // a bare profile object is accepted too
   } else {
-    fileNotice("That file isn't a pension-planner profile", true);
+    fileNotice("That file isn't a Quids In plan", true);
     return;
   }
   // The FILE NAME names the plan, both ways round: the name you chose when
@@ -9335,6 +10802,10 @@ els("profileImportInput").addEventListener("change", () => {
   const f = els("profileImportInput").files[0];
   if (f) importProfileFromFile(f);
   els("profileImportInput").value = "";
+});
+els("autoSaveOn").addEventListener("change", e => {
+  setAutoSave(e.target.checked);
+  if (autoSaveOn) scheduleAutoSave();
 });
 els("saveFileConfirm").addEventListener("click", () => doSaveFile(false));
 // "Save as new file" ignores the remembered file and opens the picker.
@@ -9401,6 +10872,9 @@ function seedDemoProfiles() {
     budHealthNow: "150", budHealthRet: "250", budSubsNow: "150", budSubsRet: "150",
     budGiftNow: "100", budGiftRet: "150", budClothNow: "150", budClothRet: "100",
     budOtherNow: "200", budOtherRet: "200",
+    emergencyOn: false, emergencyMonths: "6",
+    premiumBonds: "0", premiumBondsRate: "3.6", spousePremiumBonds: "0",
+    isaPaidYou: "0", isaPaidSpouse: "0",
     spouseOn: true, yourMode: "pot", spouseMode: "income", yourEmployerMode: "pct", yourPersonalMode: "pct", bonusOn: false, rsuOn: false,
     assets: { savings: [], employerPensions: [], shares: [] },
     planEvents: [], scenarios: [], rlsChoice: "mod", rlsRegion: "uk",
@@ -9706,8 +11180,6 @@ function applyRail() {
   app.classList.toggle("rail-collapsed", railCollapsed);
   btn.setAttribute("aria-expanded", railCollapsed ? "false" : "true");
   btn.title = (railCollapsed ? "Expand" : "Collapse") + " the menu (Ctrl + \\)";
-  const txt = els("railToggleText");
-  if (txt) txt.textContent = railCollapsed ? "Expand" : "Collapse";
   btn.setAttribute("aria-label", (railCollapsed ? "Expand" : "Collapse") + " the navigation menu");
 }
 function toggleRail() {
@@ -9754,6 +11226,14 @@ document.addEventListener("click", e => {
     });
     if (lastModel) renderTax(lastModel);
   }
+});
+
+document.addEventListener("click", e => {
+  const b = e.target.closest(".tlscale-seg button");
+  if (!b) return;
+  timelineScale = b.dataset.tlscale === "even" ? "even" : "power";
+  localStorage.setItem(TL_SCALE_KEY, timelineScale);
+  if (lastModel) renderTimeline(lastModel);
 });
 
 els("railToggle").addEventListener("click", toggleRail);
@@ -10320,6 +11800,10 @@ BONUS_PCTS.forEach(id => {
     s.addEventListener("input", () => { balanceBonusSplit(id); if (typeof syncSliders === "function") syncSliders(); });
   }
 });
+initDefPopovers();
 renderAll();
+// don't wait for the debounce on first paint
+applyRegister(document.body);
+tagDefinitions(document.body);
 API.init(); // async: detects the optional backend, reference data + account
 </script>
