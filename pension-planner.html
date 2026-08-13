@@ -308,7 +308,10 @@
     bottom: 0;
     background: var(--paper);
     border-top: 1px solid var(--border);
-    padding: 14px 20px;
+    padding: 10px 20px;
+    /* Never let the always-on bar crowd out the chart above it. */
+    max-height: 28vh;
+    overflow-y: auto;
     margin-left: -22px;
     margin-right: -22px;
     margin-bottom: -20px;
@@ -1042,6 +1045,10 @@
     .segmented button { min-height: 44px; padding: 10px 14px; }
     .check-inline { min-height: 40px; }
     .check-inline input { width: 22px; height: 22px; }
+    /* Thumb-sized rows stack tall on a phone, so cap the always-on options bar
+       harder here and let it scroll rather than swallow the chart. */
+    .planner-options-fixed { max-height: 20vh; padding-top: 6px; padding-bottom: 6px; }
+    .planner-options-fixed .check-inline { min-height: 34px; }
 
     /* Native scrolling feel: momentum inside scrollers, and no rubber-banding
        of the whole page behind the fixed nav. */
@@ -1966,8 +1973,8 @@
         <button class="planner-subtab-btn active" data-planner-tab="major-events" role="tab" aria-selected="true" aria-controls="planner-tab-major-events">Major Events</button>
         <button class="planner-subtab-btn" data-planner-tab="breakdown" role="tab" aria-selected="false" aria-controls="planner-tab-breakdown">Breakdown</button>
         <button class="planner-subtab-btn" data-planner-tab="balance" role="tab" aria-selected="false" aria-controls="planner-tab-balance">Balance</button>
-        <button class="planner-subtab-btn" data-planner-tab="mc-stress" role="tab" aria-selected="false" aria-controls="planner-tab-mc-stress">MC Test</button>
-        <button class="planner-subtab-btn" data-planner-tab="longevity" role="tab" aria-selected="false" aria-controls="planner-tab-longevity">Longevity</button>
+        <button class="planner-subtab-btn adv" data-planner-tab="mc-stress" role="tab" aria-selected="false" aria-controls="planner-tab-mc-stress">Stress test</button>
+        <button class="planner-subtab-btn adv" data-planner-tab="longevity" role="tab" aria-selected="false" aria-controls="planner-tab-longevity">Longevity</button>
         <button class="planner-subtab-btn" data-planner-tab="spending" role="tab" aria-selected="false" aria-controls="planner-tab-spending">Spending</button>
         <button class="planner-subtab-btn" data-planner-tab="care" role="tab" aria-selected="false" aria-controls="planner-tab-care">Care</button>
         <button class="planner-subtab-btn" data-planner-tab="funding" role="tab" aria-selected="false" aria-controls="planner-tab-funding">Funding</button>
@@ -2069,18 +2076,39 @@
 
       <!-- MC STRESS TEST TAB -->
       <div class="planner-tab" id="planner-tab-mc-stress">
-      <div class="card">
-        <h3>Market stress test <span class="hint-inline">(would your plan have survived real history?)</span></h3>
+      <div class="card adv">
+        <div class="person-title">
+          <h2 data-glossary="montecarlo">Market stress test <span class="hint-inline" data-term-plain="(replaying 100 years of markets)" data-term-expert="(Monte Carlo)">(Monte Carlo)</span></h2>
+          <span class="pill" id="mcVerdict">&mdash;</span>
+        </div>
+        <p class="caption" style="margin-top:-4px;">Replays your household plan against ~100 years of (approximate) real annual returns for a UK/global equity portfolio, resampled in random multi-year blocks, to ask: <b>how often does the money last?</b> Withdrawals each year = your spending target minus guaranteed income (State + DB). Historical patterns are no guarantee of the future.</p>
+        <div class="field-row" style="margin: 10px 0;">
+          <div class="field">
+            <label for="mcRuns">Simulations</label>
+            <select id="mcRuns"><option>200</option><option selected>500</option><option>1000</option></select>
+          </div>
+          <div class="field">
+            <label for="mcSpend">Spending target (<span class="cur">&pound;</span>/yr, today's money)</label>
+            <input type="text" inputmode="decimal" data-money="0" id="mcSpend" value="">
+            <span class="hint">Blank = use living-standard target above</span>
+          </div>
+          <button type="button" class="btn-primary" id="runMcBtn" style="align-self:flex-end;">Run stress test</button>
+        </div>
         <div class="chart-wrap"><canvas id="mcChart" height="260" role="img" aria-describedby="mcCaption" aria-label="Market stress test chart. Run the stress test to fill it in."></canvas></div>
-        <div class="chart-legend" id="mcLegend"></div>
         <p class="caption" id="mcCaption"></p>
       </div>
       </div> <!-- End MC Stress Test tab -->
 
       <!-- LONGEVITY CHART TAB -->
       <div class="planner-tab" id="planner-tab-longevity">
-      <div class="card">
-        <h3>Longevity <span class="hint-inline">(chance of being alive at each age)</span></h3>
+      <div class="card adv">
+        <div class="person-title">
+          <h2>Longevity chart <span class="hint-inline">(will the money outlast you?)</span></h2>
+          <span class="pill" id="longevityVerdict">&mdash;</span>
+        </div>
+        <p class="caption" style="margin-top:-4px;">Plots, across age to the maximum modelled age: your <b>chance of still being alive</b>,
+          the Monte Carlo <b>portfolio success rate</b> (money still lasts to that age), and a <b>longevity-adjusted</b> rate that
+          weights success by the chance you're alive to need it.</p>
         <div class="chart-wrap"><canvas id="longevityChart" height="320" role="img" aria-describedby="longevityCaption" aria-label="Longevity chart. The same figures are available as a table below."></canvas></div>
         <details class="chart-data"><summary>Show these figures as a table</summary><div id="longevityTable"></div></details>
         <div class="chart-legend" id="longevityLegend"></div>
@@ -2176,6 +2204,7 @@
             <div class="phase-tax" id="noGoTax"></div>
           </div>
         </div>
+      </div>
       </div> <!-- End Spending tab -->
 
       <!-- CARE TAB -->
@@ -2264,6 +2293,7 @@
           </div>
         </div>
         <p class="caption" id="careSummary" style="margin: 8px 0 0;"></p>
+      </div>
       </div> <!-- End Care tab -->
 
       <!-- FUNDING TAB -->
@@ -2289,42 +2319,6 @@
 
       <!-- ANALYSIS TAB -->
       <div class="planner-tab" id="planner-tab-analysis">
-      <div class="card adv">
-        <div class="person-title">
-          <h2 data-glossary="montecarlo">Market stress test <span class="hint-inline" data-term-plain="(replaying 100 years of markets)" data-term-expert="(Monte Carlo)">(Monte Carlo)</span></h2>
-          <span class="pill" id="mcVerdict">&mdash;</span>
-        </div>
-        <p class="caption" style="margin-top:-4px;">Replays your household plan against ~100 years of (approximate) real annual returns for a UK/global equity portfolio, resampled in random multi-year blocks, to ask: <b>how often does the money last?</b> Withdrawals each year = your spending target minus guaranteed income (State + DB). Historical patterns are no guarantee of the future.</p>
-        <div class="field-row" style="margin: 10px 0;">
-          <div class="field">
-            <label for="mcRuns">Simulations</label>
-            <select id="mcRuns"><option>200</option><option selected>500</option><option>1000</option></select>
-          </div>
-          <div class="field">
-            <label for="mcSpend">Spending target (<span class="cur">&pound;</span>/yr, today's money)</label>
-            <input type="text" inputmode="decimal" data-money="0" id="mcSpend" value="">
-            <span class="hint">Blank = use living-standard target above</span>
-          </div>
-          <button type="button" class="btn-primary" id="runMcBtn" style="align-self:flex-end;">Run stress test</button>
-        </div>
-        <div class="chart-wrap"><canvas id="mcChart" height="260" role="img" aria-describedby="mcCaption" aria-label="Market stress test chart. Run the stress test to fill it in."></canvas></div>
-        <p class="caption" id="mcCaption"></p>
-      </div>
-
-      <div class="card adv">
-        <div class="person-title">
-          <h2>Longevity chart <span class="hint-inline">(will the money outlast you?)</span></h2>
-          <span class="pill" id="longevityVerdict">&mdash;</span>
-        </div>
-        <p class="caption" style="margin-top:-4px;">Plots, across age to the maximum modelled age: your <b>chance of still being alive</b>,
-          the Monte Carlo <b>portfolio success rate</b> (money still lasts to that age), and a <b>longevity-adjusted</b> rate that
-          weights success by the chance you're alive to need it.</p>
-        <div class="chart-wrap"><canvas id="longevityChart" height="320" role="img" aria-describedby="longevityCaption" aria-label="Longevity chart. The same figures are available as a table below."></canvas></div>
-        <details class="chart-data"><summary>Show these figures as a table</summary><div id="longevityTable"></div></details>
-        <div class="chart-legend" id="longevityLegend"></div>
-        <p class="caption" id="longevityCaption"></p>
-      </div>
-
       <div class="card">
         <h3>What-if scenarios</h3>
         <p class="caption" style="margin-top:-4px;">Compare tweaks against your base plan &mdash; retire earlier or later, weaker or stronger markets, spend more or less. The chart above overlays each scenario's household income.</p>
@@ -2405,14 +2399,15 @@
 
       <!-- FIXED OPTIONS SECTION -->
       <div class="planner-options-fixed">
+        <!-- Short labels here on purpose: this bar is always on screen, so the
+             full explanations would cost more vertical space than the charts. -->
         <div class="check-row">
-          <label class="check-inline"><input type="checkbox" id="balanceProperty"> Include property in the total
-            <span class="hint-inline">(shown as a line &mdash; a house dwarfs the other pots)</span></label>
-          <label class="check-inline"><input type="checkbox" id="showSurvival"> Show the <b>chance of still being alive</b> at each age on the charts</label>
-          <label class="check-inline"><input type="checkbox" id="flatMoney"> Show flat, today's-money numbers (strip inflation-style growth)</label>
-          <label class="check-inline"><input type="checkbox" id="levelOn"> Level income: draw the pension as needed &amp; bank surplus to close gaps</label>
-          <label class="check-inline"><input type="checkbox" id="toMaxAge" checked> Run the plan to the <b>maximum modelled age</b></label>
-          <label class="check-inline"><input type="checkbox" id="targetInflationOn" checked> Income target rises with inflation each year</label>
+          <label class="check-inline" title="Include the house in the total (shown as a line — a house dwarfs the other pots)"><input type="checkbox" id="balanceProperty"> Include property</label>
+          <label class="check-inline" title="Show the chance of still being alive at each age on the charts"><input type="checkbox" id="showSurvival"> Chance of being alive</label>
+          <label class="check-inline" title="Show flat, today's-money numbers (strip inflation-style growth)"><input type="checkbox" id="flatMoney"> Today's money</label>
+          <label class="check-inline" title="Level income: draw the pension as needed &amp; bank surplus to close gaps"><input type="checkbox" id="levelOn"> Level income</label>
+          <label class="check-inline" title="Run the plan to the maximum modelled age"><input type="checkbox" id="toMaxAge" checked> Run to maximum age</label>
+          <label class="check-inline" title="Income target rises with inflation each year"><input type="checkbox" id="targetInflationOn" checked> Target rises with inflation</label>
         </div>
       </div>
     </section>
@@ -9480,6 +9475,11 @@ function applyLevel() {
   document.body.classList.toggle("depth-simple", depthMode === "simple");
   document.querySelectorAll(".level-seg button").forEach(b =>
     b.classList.toggle("active", b.dataset.level === experienceLevel));
+  // The stress-test and longevity sub-tabs hold only .adv cards, so in simple
+  // mode their buttons hide too. If the view switches while one of them is
+  // open, fall back to the first chart rather than leaving a blank panel.
+  const openBtn = document.querySelector(".planner-subtab-btn.active");
+  if (openBtn && openBtn.offsetParent === null) activatePlannerTab("major-events");
 }
 document.addEventListener("click", e => {
   const btn = e.target.closest(".level-seg button");
