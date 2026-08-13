@@ -39,6 +39,8 @@ jobs:
           cp pension-planner.html _site/index.html
           # Keep the original filename working too, so existing links don't 404.
           cp pension-planner.html _site/pension-planner.html
+          # Disable Jekyll processing so GitHub Pages serves index.html directly
+          touch _site/.nojekyll
 
       # Note: Pages must already be enabled on the repo (Settings > Pages >
       # Source: GitHub Actions). This step can't turn it on itself - creating a
