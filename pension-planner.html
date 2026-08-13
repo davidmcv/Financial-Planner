@@ -1963,7 +1963,11 @@
 
       <!-- Sub-tab navigation -->
       <div class="planner-subtab-nav" role="tablist" aria-label="Planner sections">
-        <button class="planner-subtab-btn active" data-planner-tab="charts" role="tab" aria-selected="true" aria-controls="planner-tab-charts">Charts</button>
+        <button class="planner-subtab-btn active" data-planner-tab="major-events" role="tab" aria-selected="true" aria-controls="planner-tab-major-events">Major Events</button>
+        <button class="planner-subtab-btn" data-planner-tab="breakdown" role="tab" aria-selected="false" aria-controls="planner-tab-breakdown">Breakdown</button>
+        <button class="planner-subtab-btn" data-planner-tab="balance" role="tab" aria-selected="false" aria-controls="planner-tab-balance">Balance</button>
+        <button class="planner-subtab-btn" data-planner-tab="mc-stress" role="tab" aria-selected="false" aria-controls="planner-tab-mc-stress">MC Test</button>
+        <button class="planner-subtab-btn" data-planner-tab="longevity" role="tab" aria-selected="false" aria-controls="planner-tab-longevity">Longevity</button>
         <button class="planner-subtab-btn" data-planner-tab="spending" role="tab" aria-selected="false" aria-controls="planner-tab-spending">Spending</button>
         <button class="planner-subtab-btn" data-planner-tab="care" role="tab" aria-selected="false" aria-controls="planner-tab-care">Care</button>
         <button class="planner-subtab-btn" data-planner-tab="funding" role="tab" aria-selected="false" aria-controls="planner-tab-funding">Funding</button>
@@ -1974,8 +1978,8 @@
       <!-- Tabs wrapper -->
       <div class="planner-tabs-wrapper">
 
-      <!-- CHARTS TAB -->
-      <div class="planner-tab active" id="planner-tab-charts">
+      <!-- MAJOR EVENTS CHART TAB -->
+      <div class="planner-tab active" id="planner-tab-major-events">
       <div class="card">
         <div class="person-title">
           <h2>Major events &amp; cash flow</h2>
@@ -2008,8 +2012,12 @@
         </div>
         <div class="chart-legend" id="plannerLegend"></div>
         <p class="caption" id="plannerCaption"></p>
+      </div>
+      </div> <!-- End Major Events tab -->
 
-        <div class="divider" style="margin: 16px 0;"></div>
+      <!-- BREAKDOWN CHART TAB -->
+      <div class="planner-tab" id="planner-tab-breakdown">
+      <div class="card">
         <h3>Year-by-year breakdown <span class="hint-inline">(income sources vs your spending target)</span></h3>
         <div class="chart-wrap" style="position:relative;"><canvas id="breakdownChart" height="540" role="img" aria-describedby="breakdownCaption" aria-label="Year-by-year income breakdown chart. The same figures are available as a table below."></canvas>
           <div id="breakdownTip" class="chart-tip" style="display:none;"></div></div>
@@ -2036,8 +2044,12 @@
         </div>
         <div class="chart-legend" id="breakdownLegend"></div>
         <p class="caption" id="breakdownCaption"></p>
+      </div>
+      </div> <!-- End Breakdown tab -->
 
-        <div class="divider" style="margin: 16px 0;"></div>
+      <!-- BALANCE CHART TAB -->
+      <div class="planner-tab" id="planner-tab-balance">
+      <div class="card">
         <h3>What you have left <span class="hint-inline">(your savings and pension running down)</span></h3>
         <p class="caption" style="margin: -2px 0 8px;">The charts above show money <b>coming in</b> each year. This one shows what's
           <b>still there</b> &mdash; each pot stacked, so you can see which one empties first and when.</p>
@@ -2053,7 +2065,29 @@
         <div class="chart-legend" id="balanceLegend"></div>
         <p class="caption" id="balanceCaption"></p>
       </div>
-      </div> <!-- End Charts tab -->
+      </div> <!-- End Balance tab -->
+
+      <!-- MC STRESS TEST TAB -->
+      <div class="planner-tab" id="planner-tab-mc-stress">
+      <div class="card">
+        <h3>Market stress test <span class="hint-inline">(would your plan have survived real history?)</span></h3>
+        <div class="chart-wrap"><canvas id="mcChart" height="260" role="img" aria-describedby="mcCaption" aria-label="Market stress test chart. Run the stress test to fill it in."></canvas></div>
+        <div class="chart-legend" id="mcLegend"></div>
+        <p class="caption" id="mcCaption"></p>
+      </div>
+      </div> <!-- End MC Stress Test tab -->
+
+      <!-- LONGEVITY CHART TAB -->
+      <div class="planner-tab" id="planner-tab-longevity">
+      <div class="card">
+        <h3>Longevity <span class="hint-inline">(chance of being alive at each age)</span></h3>
+        <div class="chart-wrap"><canvas id="longevityChart" height="320" role="img" aria-describedby="longevityCaption" aria-label="Longevity chart. The same figures are available as a table below."></canvas></div>
+        <details class="chart-data"><summary>Show these figures as a table</summary><div id="longevityTable"></div></details>
+        <div class="chart-legend" id="longevityLegend"></div>
+        <p class="caption" id="longevityCaption"></p>
+      </div>
+      </div> <!-- End Longevity tab -->
+
 
       <!-- SPENDING TAB -->
       <div class="planner-tab" id="planner-tab-spending">
