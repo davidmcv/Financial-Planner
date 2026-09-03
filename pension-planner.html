@@ -299,6 +299,37 @@
   .planner-subtab-btn:hover { background: var(--surface); color: var(--ink); }
   .planner-subtab-btn.active { background: var(--accent-wash); color: var(--accent-strong); font-weight: 600; }
 
+  /* The two ways in. Big targets, because this is the first thing anyone sees
+     and the choice matters more than anything else on the page. */
+  .start-cards { display: flex; gap: 18px; flex-wrap: wrap; }
+  .start-card {
+    flex: 1 1 300px; display: flex; flex-direction: column; gap: 8px;
+    padding: 26px 22px; text-align: left; cursor: pointer;
+    background: var(--surface); color: var(--ink);
+    border: 1px solid var(--border); border-radius: 14px;
+    transition: border-color 0.2s ease, background 0.2s ease;
+  }
+  .start-card:hover, .start-card:focus-visible { background: var(--surface-2); border-color: var(--accent-strong); }
+  .start-icon { font-size: 2.4rem; line-height: 1; }
+  .start-title { font-size: 1.15rem; font-weight: 700; }
+  .start-desc { font-size: 0.92rem; color: var(--ink-muted); line-height: 1.5; }
+
+  /* Simple mode hides the detailed pages rather than deleting them, so the
+     values the simple page writes are still there when the full version is
+     switched on. .simple-only is the mirror image, for the brief page. */
+  body.mode-simple .advanced-only { display: none !important; }
+  body:not(.mode-simple) .simple-only { display: none !important; }
+
+  /* Every numeric field here gets an auto-attached slider underneath it, which
+     needs room: without this the slider sits on the next row's label. */
+  #tab-simple .field-row { margin-bottom: 20px; }
+  #tab-simple .field-row:last-child { margin-bottom: 0; }
+  #tab-simple .field-row .check-inline { margin: 0; align-self: center; }
+
+  /* The start page is a decision, not a destination: hide the page nav so the
+     two cards are the only things to act on. */
+  body.on-start .tab-btn { display: none !important; }
+
   .planner-tabs-wrapper { display: flex; flex-direction: column; gap: 22px; }
   .planner-tab { display: none; }
   .planner-tab.active { display: flex; flex-direction: column; gap: 22px; }
@@ -1264,13 +1295,14 @@
          ends, and only the selected tab is a tab stop (roving tabindex). The
          emoji are decoration, so they are hidden from screen readers. -->
     <nav class="tabs" id="tabs" role="tablist" aria-label="Planner sections">
-      <button class="tab-btn active" id="tabbtn-people" role="tab" aria-selected="true" aria-controls="tab-people" data-tab="people"><span class="icon" aria-hidden="true">&#128100;</span><span class="fold">People</span></button>
-      <button class="tab-btn" id="tabbtn-savings" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-savings" data-tab="savings"><span class="icon" aria-hidden="true">&#128176;</span><span class="fold">Savings</span></button>
-      <button class="tab-btn" id="tabbtn-salary" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-salary" data-tab="salary"><span class="icon" aria-hidden="true">&#127963;</span><span class="fold">Pensions</span></button>
-      <button class="tab-btn" id="tabbtn-projection" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-projection" data-tab="projection"><span class="icon" aria-hidden="true">&#8679;</span><span class="fold">Paying Out</span></button>
+      <button class="tab-btn active advanced-only" id="tabbtn-people" role="tab" aria-selected="true" aria-controls="tab-people" data-tab="people"><span class="icon" aria-hidden="true">&#128100;</span><span class="fold">People</span></button>
+      <button class="tab-btn simple-only" id="tabbtn-simple" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-simple" data-tab="simple"><span class="icon" aria-hidden="true">&#127807;</span><span class="fold">My plan</span></button>
+      <button class="tab-btn advanced-only" id="tabbtn-savings" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-savings" data-tab="savings"><span class="icon" aria-hidden="true">&#128176;</span><span class="fold">Savings</span></button>
+      <button class="tab-btn advanced-only" id="tabbtn-salary" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-salary" data-tab="salary"><span class="icon" aria-hidden="true">&#127963;</span><span class="fold">Pensions</span></button>
+      <button class="tab-btn advanced-only" id="tabbtn-projection" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-projection" data-tab="projection"><span class="icon" aria-hidden="true">&#8679;</span><span class="fold">Paying Out</span></button>
       <button class="tab-btn" id="tabbtn-planner" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-planner" data-tab="planner"><span class="icon" aria-hidden="true">&#128506;</span><span class="fold">Planner</span></button>
-      <button class="tab-btn" id="tabbtn-tax" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-tax" data-tab="tax"><span class="icon" aria-hidden="true">&#9878;</span><span class="fold">Tax</span></button>
-      <button class="tab-btn" id="tabbtn-gifting" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-gifting" data-tab="gifting"><span class="icon" aria-hidden="true">&#127873;</span><span class="fold">Gifting</span></button>
+      <button class="tab-btn advanced-only" id="tabbtn-tax" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-tax" data-tab="tax"><span class="icon" aria-hidden="true">&#9878;</span><span class="fold">Tax</span></button>
+      <button class="tab-btn advanced-only" id="tabbtn-gifting" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-gifting" data-tab="gifting"><span class="icon" aria-hidden="true">&#127873;</span><span class="fold">Gifting</span></button>
     </nav>
     <div class="rail-footer">
       <div class="rail-fold-block profile-box" style="padding: 0;">
@@ -1497,6 +1529,104 @@
     </section>
 
     <!-- PAYING IN (was Salary & Pot) -->
+    <!-- ===== START: the choice between the two ways in ===================
+         Shown on load unless the user ticked "remember". It writes the same
+         experienceLevel the View toggle writes, so there is one simple/advanced
+         concept in the app, set from two places. ========================== -->
+    <section class="panel" id="tab-start" role="tabpanel" aria-label="Choose how to start">
+      <div class="panel-head">
+        <h1>How would you like to plan?</h1>
+        <p>Both routes use the same calculations &mdash; the difference is how much you are asked.</p>
+      </div>
+      <div class="start-cards">
+        <button type="button" class="start-card" id="startSimpleBtn">
+          <span class="start-icon" aria-hidden="true">&#127807;</span>
+          <span class="start-title">Keep it simple</span>
+          <span class="start-desc">Eight questions, then your plan on a chart. Everything else uses sensible defaults you can change later.</span>
+        </button>
+        <button type="button" class="start-card" id="startAdvancedBtn">
+          <span class="start-icon" aria-hidden="true">&#128202;</span>
+          <span class="start-title">Full financial planning</span>
+          <span class="start-desc">Every input: salary and pensions, savings, care costs, tax, gifting, market stress testing and what-if scenarios.</span>
+        </button>
+      </div>
+      <label class="check-inline" style="margin-top:18px;"><input type="checkbox" id="rememberAdvanced"> Remember my choice and skip this page next time</label>
+      <p class="caption" style="margin-top:6px;">You can switch between simple and full at any time with the <b>View</b> control.</p>
+    </section>
+
+    <!-- ===== SIMPLE: the eight questions ================================
+         These write straight into the real fields on the detailed pages and
+         then call renderAll(), so there is no second model to keep in step and
+         nothing is lost when someone switches to the full version. ======== -->
+    <section class="panel" id="tab-simple" role="tabpanel" aria-labelledby="tabbtn-simple">
+      <div class="panel-head">
+        <h1>Your plan in brief</h1>
+        <p>Answer these and the chart updates as you go. Anything you do not set here keeps a sensible default.</p>
+      </div>
+      <div class="card">
+        <div class="field-row">
+          <div class="field">
+            <label for="simDob">Your date of birth</label>
+            <input type="date" id="simDob" autocomplete="bday">
+          </div>
+          <div class="field">
+            <label for="simRetireAge">Retire at age</label>
+            <input type="number" id="simRetireAge" min="40" max="85" step="1">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="simSalary">Gross annual salary (<span class="cur">&pound;</span>)</label>
+            <input type="text" inputmode="decimal" data-money="0" id="simSalary">
+          </div>
+          <div class="field">
+            <label for="simPot">Pension pot today (<span class="cur">&pound;</span>)</label>
+            <input type="text" inputmode="decimal" data-money="0" id="simPot">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="simContrib">Paid into your pension (<span class="cur">&pound;</span> / month)</label>
+            <input type="text" inputmode="decimal" data-money="0" id="simContrib">
+            <span class="hint">You and your employer together</span>
+          </div>
+          <div class="field">
+            <label for="simTarget">You want to live on (<span class="cur">&pound;</span> / year)</label>
+            <input type="text" inputmode="decimal" data-money="0" id="simTarget">
+            <span class="hint">After you stop working, in today's money</span>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label class="check-inline" style="margin-top:8px;"><input type="checkbox" id="simSpouse"> I have a partner to include</label>
+          </div>
+          <div class="field" id="simSpouseDobField" style="display:none;">
+            <label for="simSpouseDob">Their date of birth</label>
+            <input type="date" id="simSpouseDob">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Or start from an example household</h3>
+        <p class="caption" style="margin-top:-4px;">Ten worked examples from a State-Pension-only retirement up to substantial wealth. Picking one fills in everything, including the parts this page does not ask about.</p>
+        <div class="field-row" style="align-items:flex-end;">
+          <div class="field">
+            <label for="simDemo">Example household</label>
+            <select id="simDemo"><option value="">&mdash; choose one &mdash;</option></select>
+          </div>
+          <button type="button" class="btn-primary" id="simDemoBtn">Use this example</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="field-row" style="align-items:center;">
+          <button type="button" class="btn-primary" id="simShowBtn">Show my plan</button>
+          <button type="button" class="btn-ghost" id="simGoAdvancedBtn">Switch to full financial planning</button>
+        </div>
+      </div>
+    </section>
+
     <section class="panel" id="tab-salary" role="tabpanel" aria-labelledby="tabbtn-salary">
       <div class="panel-head">
         <h1>Pensions</h1>
@@ -1975,11 +2105,11 @@
         <button class="planner-subtab-btn" data-planner-tab="balance" role="tab" aria-selected="false" aria-controls="planner-tab-balance">Balance</button>
         <button class="planner-subtab-btn adv" data-planner-tab="mc-stress" role="tab" aria-selected="false" aria-controls="planner-tab-mc-stress">Stress test</button>
         <button class="planner-subtab-btn adv" data-planner-tab="longevity" role="tab" aria-selected="false" aria-controls="planner-tab-longevity">Longevity</button>
-        <button class="planner-subtab-btn" data-planner-tab="spending" role="tab" aria-selected="false" aria-controls="planner-tab-spending">Spending</button>
-        <button class="planner-subtab-btn" data-planner-tab="care" role="tab" aria-selected="false" aria-controls="planner-tab-care">Care</button>
-        <button class="planner-subtab-btn" data-planner-tab="funding" role="tab" aria-selected="false" aria-controls="planner-tab-funding">Funding</button>
-        <button class="planner-subtab-btn" data-planner-tab="analysis" role="tab" aria-selected="false" aria-controls="planner-tab-analysis">Analysis</button>
-        <button class="planner-subtab-btn" data-planner-tab="strategies" role="tab" aria-selected="false" aria-controls="planner-tab-strategies">Strategies</button>
+        <button class="planner-subtab-btn adv" data-planner-tab="spending" role="tab" aria-selected="false" aria-controls="planner-tab-spending">Spending</button>
+        <button class="planner-subtab-btn adv" data-planner-tab="care" role="tab" aria-selected="false" aria-controls="planner-tab-care">Care</button>
+        <button class="planner-subtab-btn adv" data-planner-tab="funding" role="tab" aria-selected="false" aria-controls="planner-tab-funding">Funding</button>
+        <button class="planner-subtab-btn adv" data-planner-tab="analysis" role="tab" aria-selected="false" aria-controls="planner-tab-analysis">Analysis</button>
+        <button class="planner-subtab-btn adv" data-planner-tab="strategies" role="tab" aria-selected="false" aria-controls="planner-tab-strategies">Strategies</button>
       </div>
 
       <!-- Tabs wrapper -->
@@ -2522,12 +2652,13 @@
   <!-- Mobile bottom tab bar (all tabs, no horizontal scroll) -->
   <nav class="bottomnav" id="bottomnav" role="tablist" aria-label="Planner sections">
     <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="tab-people" aria-label="People" data-tab="people"><span class="icon" aria-hidden="true">&#128100;</span>People</button>
-    <button class="tab-btn" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-savings" aria-label="Savings" data-tab="savings"><span class="icon" aria-hidden="true">&#128176;</span>Savings</button>
-    <button class="tab-btn" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-salary" aria-label="Pensions" data-tab="salary"><span class="icon" aria-hidden="true">&#127963;</span>Pension</button>
-    <button class="tab-btn" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-projection" aria-label="Paying Out" data-tab="projection"><span class="icon" aria-hidden="true">&#8679;</span>Out</button>
+    <button class="tab-btn simple-only" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-simple" aria-label="My plan" data-tab="simple"><span class="icon" aria-hidden="true">&#127807;</span>My plan</button>
+    <button class="tab-btn advanced-only" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-savings" aria-label="Savings" data-tab="savings"><span class="icon" aria-hidden="true">&#128176;</span>Savings</button>
+    <button class="tab-btn advanced-only" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-salary" aria-label="Pensions" data-tab="salary"><span class="icon" aria-hidden="true">&#127963;</span>Pension</button>
+    <button class="tab-btn advanced-only" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-projection" aria-label="Paying Out" data-tab="projection"><span class="icon" aria-hidden="true">&#8679;</span>Out</button>
     <button class="tab-btn" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-planner" aria-label="Planner" data-tab="planner"><span class="icon" aria-hidden="true">&#128506;</span>Planner</button>
-    <button class="tab-btn" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-tax" aria-label="Tax" data-tab="tax"><span class="icon" aria-hidden="true">&#9878;</span>Tax</button>
-    <button class="tab-btn" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-gifting" aria-label="Gifting" data-tab="gifting"><span class="icon" aria-hidden="true">&#127873;</span>Gifts</button>
+    <button class="tab-btn advanced-only" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-tax" aria-label="Tax" data-tab="tax"><span class="icon" aria-hidden="true">&#9878;</span>Tax</button>
+    <button class="tab-btn advanced-only" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-gifting" aria-label="Gifting" data-tab="gifting"><span class="icon" aria-hidden="true">&#127873;</span>Gifts</button>
   </nav>
 </div>
 
@@ -9409,6 +9540,7 @@ function activateTab(tabName) {
   });
   document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
   els(`tab-${tabName}`).classList.add("active");
+  document.body.classList.toggle("on-start", tabName === "start");
   const c = document.querySelector(".content");
   if (c) c.scrollTop = 0;
   if (tabName === "planner" && lastModel) {
@@ -9473,6 +9605,9 @@ function applyLevel() {
   wordingMode = experienceLevel === "advanced" ? "expert" : "plain";
   depthMode = experienceLevel === "advanced" ? "adviser" : "simple";
   document.body.classList.toggle("depth-simple", depthMode === "simple");
+  // One concept, two class names: depth-simple hides advanced *fields*,
+  // mode-simple hides the advanced *pages*. Both follow experienceLevel.
+  document.body.classList.toggle("mode-simple", experienceLevel === "simple");
   document.querySelectorAll(".level-seg button").forEach(b =>
     b.classList.toggle("active", b.dataset.level === experienceLevel));
   // The stress-test and longevity sub-tabs hold only .adv cards, so in simple
@@ -9484,11 +9619,164 @@ function applyLevel() {
 document.addEventListener("click", e => {
   const btn = e.target.closest(".level-seg button");
   if (!btn || !btn.dataset.level) return;
-  experienceLevel = btn.dataset.level;
-  localStorage.setItem(LEVEL_STORAGE_KEY, experienceLevel);
-  applyLevel();
+  setExperienceLevel(btn.dataset.level);
+  // Moving between the two views changes which pages exist, so land somewhere
+  // that is still there: the brief page in simple, the detail in full.
+  const openTab = document.querySelector(".panel.active");
+  if (openTab && openTab.id !== "tab-planner") activateTab(experienceLevel === "simple" ? "simple" : "people");
   renderAll();
 });
+
+/* =========================================================================
+   SIMPLE MODE
+   One simple/advanced concept, set from three places: the start page, the
+   View control, and the buttons on the brief page. The brief page owns no
+   model of its own - it writes into the very same inputs the detailed pages
+   use and calls renderAll(), so the two views can never disagree and nothing
+   is lost by switching.
+   ====================================================================== */
+const REMEMBER_KEY = "pensionPlanner.rememberChoice";
+
+function setExperienceLevel(level) {
+  experienceLevel = level === "advanced" ? "advanced" : "simple";
+  localStorage.setItem(LEVEL_STORAGE_KEY, experienceLevel);
+  applyLevel();
+}
+
+/* age -> the date they turn it, since the model works in dates. */
+function dateAtAge(dobStr, age) {
+  const d = new Date(dobStr);
+  if (isNaN(d) || !isFinite(age)) return null;
+  return `${d.getFullYear() + Math.round(age)}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function ageBetween(dobStr, dateStr) {
+  const a = new Date(dobStr), b = new Date(dateStr);
+  if (isNaN(a) || isNaN(b)) return null;
+  let n = b.getFullYear() - a.getFullYear();
+  if (b.getMonth() < a.getMonth() || (b.getMonth() === a.getMonth() && b.getDate() < a.getDate())) n--;
+  return n;
+}
+
+/* Detailed fields -> brief page. Run whenever something else may have changed
+   them (a demo household, a loaded plan, edits made in the full version). */
+function simpleFromFields() {
+  els("simDob").value = els("dob").value;
+  els("simSalary").value = els("yourSalary").value;
+  els("simPot").value = els("yourPot").value;
+  const age = ageBetween(els("dob").value, els("retireDate").value);
+  els("simRetireAge").value = age == null ? "" : age;
+  // Whatever the two contribution rows add up to, shown as one monthly figure.
+  const sal = parseMoney(els("yourSalary").value) || 0;
+  const emp = yourEmployerMode === "pct"
+    ? sal * (parseFloat(els("yourEmployerRate").value) || 0) / 100 / 12
+    : parseMoney(els("yourEmployerMonthly").value) || 0;
+  const own = yourPersonalMode === "pct"
+    ? sal * (parseFloat(els("yourPersonalRate").value) || 0) / 100 / 12
+    : parseMoney(els("yourPersonalMonthly").value) || 0;
+  els("simContrib").value = Math.round(emp + own).toLocaleString("en-GB");
+  const tgt = plannerTarget != null ? plannerTarget : (lastModel && lastModel.rlsTarget) || 0;
+  els("simTarget").value = Math.round(tgt).toLocaleString("en-GB");
+  const spouseOn = els("spouseSwitch").classList.contains("on");
+  els("simSpouse").checked = spouseOn;
+  els("simSpouseDobField").style.display = spouseOn ? "" : "none";
+  els("simSpouseDob").value = els("spouseDob").value;
+  formatAllMoneyInputs();
+}
+
+/* Brief page -> detailed fields, then recalculate. The whole monthly amount is
+   put through the employer row as a flat sum and the personal row zeroed, so
+   one number in means one number modelled, with nothing counted twice. */
+function simpleToFields() {
+  if (els("simDob").value) els("dob").value = els("simDob").value;
+  els("yourSalary").value = els("simSalary").value;
+  els("yourPot").value = els("simPot").value;
+
+  const retireAt = dateAtAge(els("simDob").value, parseFloat(els("simRetireAge").value));
+  if (retireAt) els("retireDate").value = retireAt;
+
+  yourEmployerMode = "fixed";
+  els("yourEmployerMonthly").value = els("simContrib").value;
+  document.querySelectorAll("#yourEmployerModeSeg button").forEach(
+    b => b.classList.toggle("active", b.dataset.emode === "fixed"));
+  els("yourEmployerRateField").style.display = "none";
+  els("yourEmployerMonthlyField").style.display = "";
+  yourPersonalMode = "fixed";
+  els("yourPersonalMonthly").value = "0";
+  document.querySelectorAll("#yourPersonalModeSeg button").forEach(
+    b => b.classList.toggle("active", b.dataset.pmode === "fixed"));
+  els("yourPersonalRateField").style.display = "none";
+  els("yourPersonalMonthlyField").style.display = "";
+
+  const tgt = parseMoney(els("simTarget").value) || 0;
+  plannerTarget = tgt > 0 ? tgt : null;
+
+  const spouseOn = els("simSpouse").checked;
+  els("spouseSwitch").classList.toggle("on", spouseOn);
+  els("spouseSwitch").setAttribute("aria-checked", String(spouseOn));
+  els("spouseFields").style.display = spouseOn ? "" : "none";
+  els("spousePotCard").style.display = spouseOn ? "" : "none";
+  els("simSpouseDobField").style.display = spouseOn ? "" : "none";
+  if (spouseOn && els("simSpouseDob").value) els("spouseDob").value = els("simSpouseDob").value;
+
+  formatAllMoneyInputs();
+  renderAll();
+}
+
+function fillSimpleDemoList() {
+  const sel = els("simDemo");
+  const names = Object.keys(loadProfiles()).sort();
+  sel.innerHTML = '<option value="">&mdash; choose one &mdash;</option>' +
+    names.map(n => `<option value="${n.replace(/"/g, "&quot;")}">${n}</option>`).join("");
+}
+
+function initSimpleMode() {
+  fillSimpleDemoList();
+  simpleFromFields();
+
+  els("startSimpleBtn").addEventListener("click", () => {
+    setExperienceLevel("simple");
+    if (els("rememberAdvanced").checked) localStorage.setItem(REMEMBER_KEY, "simple");
+    simpleFromFields();
+    activateTab("simple");
+  });
+  els("startAdvancedBtn").addEventListener("click", () => {
+    setExperienceLevel("advanced");
+    if (els("rememberAdvanced").checked) localStorage.setItem(REMEMBER_KEY, "advanced");
+    activateTab("people");
+  });
+
+  // Edit in place: every field recalculates, so the chart is never stale.
+  ["simDob", "simRetireAge", "simSalary", "simPot", "simContrib", "simTarget", "simSpouseDob"]
+    .forEach(id => els(id).addEventListener("change", simpleToFields));
+  els("simSpouse").addEventListener("change", simpleToFields);
+
+  els("simDemoBtn").addEventListener("click", () => {
+    const name = els("simDemo").value;
+    if (!name) return;
+    const data = loadProfiles()[name];
+    if (!data) return;
+    applyProfileData(data);   // fills everything, including what this page omits
+    simpleFromFields();       // ...then mirror the parts this page does show
+  });
+
+  els("simShowBtn").addEventListener("click", () => { simpleToFields(); activateTab("planner"); });
+  els("simGoAdvancedBtn").addEventListener("click", () => {
+    setExperienceLevel("advanced");
+    activateTab("people");
+    renderAll();
+  });
+}
+
+/* Where to land on load: the start page unless a remembered choice says
+   otherwise. The remembered choice also sets the view, so the two stay one. */
+function openingTab() {
+  const remembered = localStorage.getItem(REMEMBER_KEY);
+  if (remembered === "simple" || remembered === "advanced") {
+    setExperienceLevel(remembered);
+    return remembered === "simple" ? "simple" : "people";
+  }
+  return "start";
+}
 
 // Country & living-standard target.
 // Reflect the selected country's currency symbol in every static label/hint.
@@ -11933,6 +12221,10 @@ BONUS_PCTS.forEach(id => {
 });
 initDefPopovers();
 renderAll();
+// After the first render, so the brief page can show the target the model
+// worked out, and so openingTab() lands on a page that is already drawn.
+initSimpleMode();
+activateTab(openingTab());
 // don't wait for the debounce on first paint
 applyRegister(document.body);
 tagDefinitions(document.body);
