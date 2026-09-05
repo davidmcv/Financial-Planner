@@ -438,6 +438,7 @@
   }
   .field input, .field select {
     font: inherit; font-size: 0.94rem;
+    line-height: 1.45;
     padding: 9px 11px;
     border-radius: 9px;
     border: 1px solid var(--control-border);
@@ -452,6 +453,13 @@
   .field-row .field { min-width: 0; }
   /* An input must never be wider than the column it sits in. */
   .field input, .field select { min-width: 0; max-width: 100%; }
+  /* Text boxes, dropdowns and date pickers all sat at different heights
+     (40 / 41.8 / 43.8px): a <select> ignores line-height for its own height,
+     and a date input reserves room for its picker. An explicit height is the
+     only thing all three honour. Checkboxes and the range sliders keep their
+     own sizes. The mobile min-height of 44px still wins where it applies. */
+  .field input:not([type=checkbox]):not([type=radio]):not([type=range]),
+  .field select { height: 42px; }
   /* Reserve two lines for every field label so a wrapping label doesn't push
      its input below its neighbours - inputs line up across each section. */
   /* Flex makes each child of the label its own item and discards the
@@ -1988,6 +1996,12 @@
         <p class="hint" style="margin:-6px 0 8px;">Held apart from ordinary savings because the return is a prize draw, not
           interest: it pays nothing towards your Personal Savings Allowance and nothing in tax. The prize rate is an average
           &mdash; a typical holding wins rather less than it.</p>
+        <p class="hint" style="margin:-2px 0 8px;">Each person may hold up to <b><span class="cur">&pound;</span>50,000</b>, and
+          <b>every prize is free of UK income tax and capital gains tax</b> &mdash; so a couple can shelter
+          <b><span class="cur">&pound;</span>100,000</b> between them with nothing to declare and nothing to report on a tax return.
+          That makes them most useful once your ISA allowance is used up and your savings interest would otherwise be taxed. The
+          trade-off is that the return is a lottery rather than a rate: below-average luck on a small holding can mean years with
+          no prizes at all, and the money is not protected against inflation.</p>
         <div class="field-row">
           <div class="field">
             <label for="premiumBonds">Premium Bonds held (<span class="cur">&pound;</span>)</label>
@@ -2030,10 +2044,14 @@
         <button type="button" class="add-btn" data-add="shares" data-owner="spouse">+ Add share account</button>
         <div class="divider" style="margin: 12px 0;"></div>
         <h3>&#127974; Premium Bonds &amp; NS&amp;I</h3>
+        <p class="hint" style="margin:-6px 0 8px;">A separate <b><span class="cur">&pound;</span>50,000</b> limit applies to each
+          person, and the prizes are tax free for them too &mdash; so holding them in both names doubles the shelter to
+          <b><span class="cur">&pound;</span>100,000</b>.</p>
         <div class="field-row">
           <div class="field">
             <label for="spousePremiumBonds">Premium Bonds held (<span class="cur">&pound;</span>)</label>
             <input type="text" inputmode="decimal" data-money="0" id="spousePremiumBonds" value="0">
+            <span class="hint">Maximum holding &pound;50,000 per person.</span>
           </div>
           <div class="field">
             <label>Expected, tax-free</label>
@@ -2482,6 +2500,11 @@
         </div>
 
         <label class="check-inline"><input type="checkbox" id="stratIsaOn" checked> Move pension to ISA over time</label>
+        <div class="notice warn" style="margin: 8px 0 10px;"><span class="icon" aria-hidden="true">&#9888;</span><span>Think hard before doing this. Taking money out of a pension to put it back into an ISA
+          usually <b>costs more in tax than it saves</b>: 75% of each withdrawal is taxed as income on the way out, while the ISA only
+          shelters what is left. A pension normally also sits <b>outside your estate</b> for inheritance tax, and an ISA does not, so
+          moving money across can increase the tax your heirs pay too. It is worth it mainly if you would otherwise have unused
+          personal allowance, or you want money outside the pension for a specific reason.</span></div>
         <div class="field-row" id="stratIsaFields">
           <div class="field">
             <label for="stratIsaAmt">Withdraw per person (<span class="cur">&pound;</span> / year)</label>
@@ -2497,8 +2520,8 @@
           (<span class="cur">&pound;</span>2,880 from your pocket)</b> even with no earnings at all, right up to <b>age 75</b>.
           Turn it on for either of you and the plan below shows whether it is actually worth doing.</p>
 
-        <label class="check-inline" data-glossary="recycle"><input type="checkbox" id="stratRecycleOn"> Keep paying into <b>your</b> pension</label>
-        <div class="field-row" id="stratRecycleFields" style="display:none;">
+        <label class="check-inline" data-glossary="recycle"><input type="checkbox" id="stratRecycleOn" checked> Keep paying into <b>your</b> pension</label>
+        <div class="field-row" id="stratRecycleFields">
           <div class="field">
             <label for="stratRecycleAmt">Pay into your pension (<span class="cur">&pound;</span> / year, from your pocket)</label>
             <input type="text" inputmode="decimal" data-money="0" id="stratRecycleAmt" value="2,880">
@@ -2507,8 +2530,8 @@
           </div>
         </div>
 
-        <label class="check-inline" data-glossary="recycle" id="stratSpouseContribLabel"><input type="checkbox" id="stratSpouseContribOn"> Keep paying into <b>your spouse's</b> pension</label>
-        <div class="field-row" id="stratSpouseContribFields" style="display:none;">
+        <label class="check-inline" data-glossary="recycle" id="stratSpouseContribLabel"><input type="checkbox" id="stratSpouseContribOn" checked> Keep paying into <b>your spouse's</b> pension</label>
+        <div class="field-row" id="stratSpouseContribFields">
           <div class="field">
             <label for="stratSpouseContribAmt">Pay into spouse's pension (<span class="cur">&pound;</span> / year, net)</label>
             <input type="text" inputmode="decimal" data-money="0" id="stratSpouseContribAmt" value="2,880">
@@ -11271,8 +11294,8 @@ function seedDemoProfiles() {
     rsuHeld: "0", rsuHeldYears: "2", rsuAmount: "0", rsuVestYears: "2",
     sayeMonthly: "0", sayeTermYears: "3", sayeDiscount: "20", oneOffCash: "0", oneOffYear: String(todayObj().y + 1), extraSave: "0",
     stratSaveAmt: "10,000", stratIsaAmt: "20,000", stratSaveOn: false, stratPclsOn: false, stratIsaOn: true,
-    stratRecycleOn: false, stratRecycleAmt: "2,880",
-    stratSpouseContribOn: false, stratSpouseContribAmt: "2,880",
+    stratRecycleOn: true, stratRecycleAmt: "2,880",
+    stratSpouseContribOn: true, stratSpouseContribAmt: "2,880",
     goGoPct: "120", goGoUntilAge: "75", slowGoPct: "100", slowGoUntilAge: "85", noGoPct: "80",
     careNursing: "state", careHome: "none", spouseCareNursing: "state", spouseCareHome: "none",
     careStayOn: true, careNursingYears: "1.5", careHomeYears: "2.5",
