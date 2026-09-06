@@ -343,11 +343,13 @@
     /* Never let the always-on bar crowd out the chart above it. */
     max-height: 28vh;
     overflow-y: auto;
-    margin-left: -22px;
-    margin-right: -22px;
+    /* The bar used to bleed 22px past the panel on each side to sit flush with
+       its edges. Anything wider than its parent makes the parent scroll, and
+       at 900px with the largest text that was enough to shift the whole page
+       sideways - which is what the clipping guard was reporting. It now sits
+       inside the panel's own padding: 22px narrower, and the page holds
+       still. Only the bottom still bleeds, which costs nothing. */
     margin-bottom: -20px;
-    padding-left: calc(20px + 22px);
-    padding-right: calc(20px + 22px);
     z-index: 10;
   }
 
@@ -560,7 +562,10 @@
   body.depth-simple .adv { display: none !important; }
   .depth-seg button.active { background: var(--gold); color: var(--on-accent); }
 
-  .compare-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  /* Figures in a column have to line up to be compared down the column, which
+     is the only reason to put them in a column. The stat tiles already do this;
+     the tables were the gap. */
+  .compare-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; font-variant-numeric: tabular-nums; }
   .compare-table th, .compare-table td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--border); }
   .compare-table th:first-child, .compare-table td:first-child { text-align: left; }
 
@@ -698,7 +703,7 @@
   .budget-table th { text-align: left; font-size: 0.75rem; color: var(--ink-muted); padding: 4px 8px; }
   .budget-table td { padding: 5px 8px; vertical-align: top; font-size: 0.88rem; }
   .budget-table td:first-child { padding-top: 12px; white-space: nowrap; }
-  .budget-table input[type=text] { width: 100%; max-width: 140px; }
+  .budget-table input[type=text] { width: 100%; max-width: 140px; font-variant-numeric: tabular-nums; }
   .budget-table input[type=number] { padding: 6px 8px; }
   .budget-table .budget-note { font-size: 0.82rem; color: var(--ink-muted); padding-top: 12px; }
   .phase-line { align-items: flex-start; }
@@ -911,7 +916,7 @@
 
   /* ---------- Tables ---------- */
   .table-scroll { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
-  table { border-collapse: collapse; width: 100%; min-width: 620px; font-size: 0.86rem; }
+  table { border-collapse: collapse; width: 100%; min-width: 620px; font-size: 0.86rem; font-variant-numeric: tabular-nums; }
   thead th {
     position: sticky; top: 0; background: var(--surface-2); color: var(--ink-muted);
     text-align: right; font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em;
