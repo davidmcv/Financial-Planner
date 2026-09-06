@@ -1578,7 +1578,7 @@
             <input type="date" id="simDob" autocomplete="bday">
           </div>
           <div class="field">
-            <label for="simRetireAge">Retire at age</label>
+            <label for="simRetireAge" data-def="retireAgeChoice">Retire at age</label>
             <input type="number" id="simRetireAge" min="40" max="85" step="1">
           </div>
         </div>
@@ -1588,18 +1588,18 @@
             <input type="text" inputmode="decimal" data-money="0" id="simSalary">
           </div>
           <div class="field">
-            <label for="simPot">Pension pot today (<span class="cur">&pound;</span>)</label>
+            <label for="simPot" data-def="dcPot">Pension pot today (<span class="cur">&pound;</span>)</label>
             <input type="text" inputmode="decimal" data-money="0" id="simPot">
           </div>
         </div>
         <div class="field-row">
           <div class="field">
-            <label for="simContrib">Paid into your pension (<span class="cur">&pound;</span> / month)</label>
+            <label for="simContrib" data-def="monthlyContrib">Paid into your pension (<span class="cur">&pound;</span> / month)</label>
             <input type="text" inputmode="decimal" data-money="0" id="simContrib">
             <span class="hint">You and your employer together</span>
           </div>
           <div class="field">
-            <label for="simTarget">You want to live on (<span class="cur">&pound;</span> / year)</label>
+            <label for="simTarget" data-def="liveOnTarget">You want to live on (<span class="cur">&pound;</span> / year)</label>
             <input type="text" inputmode="decimal" data-money="0" id="simTarget">
             <span class="hint">After you stop working, in today's money</span>
           </div>
@@ -1608,9 +1608,39 @@
           <div class="field">
             <label class="check-inline" style="margin-top:8px;"><input type="checkbox" id="simSpouse"> I have a partner to include</label>
           </div>
-          <div class="field" id="simSpouseDobField" style="display:none;">
+        </div>
+      </div>
+
+      <div class="card" id="simSpouseCard" style="display:none;">
+        <h3>Your partner</h3>
+        <p class="caption" style="margin:-4px 0 10px;">Their pension is treated as a pot they pay into, the same as yours. If theirs
+          is a promised income for life instead, switch to the full version and enter it as a fixed income.</p>
+        <div class="field-row">
+          <div class="field">
             <label for="simSpouseDob">Their date of birth</label>
             <input type="date" id="simSpouseDob">
+          </div>
+          <div class="field">
+            <label for="simSpouseRetireAge" data-def="retireAgeChoice">They retire at age</label>
+            <input type="number" id="simSpouseRetireAge" min="40" max="85" step="1">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="simSpouseSalary">Their gross annual salary (<span class="cur">&pound;</span>)</label>
+            <input type="text" inputmode="decimal" data-money="0" id="simSpouseSalary">
+            <span class="hint">Household income until they retire</span>
+          </div>
+          <div class="field">
+            <label for="simSpousePot" data-def="dcPot">Their pension pot today (<span class="cur">&pound;</span>)</label>
+            <input type="text" inputmode="decimal" data-money="0" id="simSpousePot">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="simSpouseContrib" data-def="monthlyContrib">Paid into their pension (<span class="cur">&pound;</span> / month)</label>
+            <input type="text" inputmode="decimal" data-money="0" id="simSpouseContrib">
+            <span class="hint">Them and their employer together</span>
           </div>
         </div>
       </div>
@@ -1663,7 +1693,7 @@
           <h3><span class="phase-chip accum" data-term="accumulationShort">Paying in</span> Your pot &amp; how it grows</h3>
           <div class="field-row">
             <div class="field">
-              <label for="yourPot">Pension pot today (<span class="cur">&pound;</span>)</label>
+              <label for="yourPot" data-def="dcPot">Pension pot today (<span class="cur">&pound;</span>)</label>
               <input type="text" inputmode="decimal" data-money="0" id="yourPot" value="1,000,000">
             </div>
             <div class="field">
@@ -1683,10 +1713,11 @@
           <div id="yourPclsRow">
             <label class="check-inline" data-glossary="pcls"><input type="checkbox" id="yourTakePcls"> Take the 25% tax-free lump sum at your access age</label>
             <span class="hint" style="display:block; margin:-4px 0 4px;">Reduces the drawdown pot to 75% and adds the tax-free cash to your savings, available to fund/smooth retirement.</span>
-            <label class="check-inline"><input type="checkbox" id="pclsEarlyIsa"> Take it at the <b>earliest</b> access age and feed it into Stocks &amp; Shares ISAs</label>
+            <label class="check-inline" id="pclsEarlyIsaLabel"><input type="checkbox" id="pclsEarlyIsa"> Take it at the <b>earliest</b> access age and feed it into Stocks &amp; Shares ISAs</label>
             <span class="hint" style="display:block; margin:-4px 0 4px;">Instead of leaving the cash sitting there, it moves into ISAs at up to
               <span class="cur">&pound;</span>20,000 per person a year, where it grows free of tax on the way out. Taking it early
               also fixes the amount before further pot growth &mdash; so it is a trade, not free money.</span>
+            <div id="pclsVerdict"></div>
           </div>
           <div class="divider" style="margin: 14px 0;"></div>
           <h3><span class="phase-chip accum" data-term="accumulationShort">Paying in</span> Pension contributions (until you can access this pot)</h3>
@@ -1893,8 +1924,13 @@
         <div id="spousePotFields" style="display: none;">
           <div class="field-row">
             <div class="field">
-              <label for="spousePot">Pension pot today (<span class="cur">&pound;</span>)</label>
+              <label for="spousePot" data-def="dcPot">Pension pot today (<span class="cur">&pound;</span>)</label>
               <input type="text" inputmode="decimal" data-money="0" id="spousePot" value="500,000">
+            </div>
+            <div class="field">
+              <label for="spouseContribMonthly">Paid into their pension (<span class="cur">&pound;</span> / month)</label>
+              <input type="text" inputmode="decimal" data-money="0" id="spouseContribMonthly" value="0">
+              <span class="hint">Them and their employer together, until they retire</span>
             </div>
             <div class="field adv">
               <label for="spouseDrawdown">Annual drawdown (%)</label>
@@ -3726,6 +3762,23 @@ const GLOSSARY = {
   saye:          { url: "https://www.gov.uk/tax-employee-share-schemes/save-as-you-earn-saye", label: "Save As You Earn (gov.uk)" },
   rsu:           { url: "https://www.gov.uk/tax-employee-share-schemes", label: "Employee share schemes (gov.uk)" },
   recycle:       { url: "https://www.gov.uk/tax-on-your-private-pension/pension-tax-relief", label: "Pension tax relief (gov.uk)" },
+  /* "A pot of money" means something different in each country, so this one
+     resolves against the plan's country rather than pointing everyone at
+     gov.uk. renderDefPop() picks the entry, falling back to url/label. */
+  dcPension: {
+    url: "https://www.moneyhelper.org.uk/en/pensions-and-retirement/pension-basics/defined-contribution-pension-schemes",
+    label: "Defined contribution pensions (MoneyHelper)",
+    byCountry: {
+      UK: { url: "https://www.moneyhelper.org.uk/en/pensions-and-retirement/pension-basics/defined-contribution-pension-schemes",
+            label: "Defined contribution pensions (MoneyHelper)" },
+      US: { url: "https://www.investor.gov/introduction-investing/investing-basics/glossary/401k-plans",
+            label: "401(k) and defined contribution plans (SEC investor.gov)" },
+      FR: { url: "https://www.service-public.fr/particuliers/vosdroits/F34982",
+            label: "Plan d'épargne retraite (service-public.fr)" },
+      AU: { url: "https://moneysmart.gov.au/how-super-works/superannuation",
+            label: "Superannuation (ASIC Moneysmart)" },
+    },
+  },
 };
 
 /* =========================================================================
@@ -3742,6 +3795,30 @@ const GLOSSARY = {
    links to it.
    ========================================================================= */
 const DEFINITIONS = {
+  retireAgeChoice: {
+    phrases: ["Retire at age"],
+    plain: "The age you stop earning and start living off the plan. It is your choice, but it is not the same as the age you can first touch a private pension, or the age the State Pension starts - retire before those and the years in between have to be paid for out of savings.",
+    expert: "Decumulation start age. Independent of Normal Minimum Pension Age and State Pension age; any gap between them is funded from non-pension assets, which is what the funding model resolves year by year.",
+    src: "privateAccess",
+  },
+  monthlyContrib: {
+    phrases: ["Paid into your pension"],
+    plain: "Everything going into the pension each month - your own payments and your employer's added together. Money paid into a pension gets tax relief, so £100 of pension usually costs a basic-rate taxpayer £80.",
+    expert: "Gross monthly inflow: employee plus employer contributions, before investment growth. Relief at source or net pay both land here as gross. Subject to the annual allowance, which the model caps against.",
+    src: "recycle",
+  },
+  liveOnTarget: {
+    phrases: ["You want to live on"],
+    plain: "What you want to spend each year once you have stopped working, in today's money. The chart draws it as the red line, and counts how many years fall short of it.",
+    expert: "The spending target in real terms, drawn as the target line and used for the shortfall count. Overrides the living-standard benchmark when set.",
+    src: "rls",
+  },
+  dcPot: {
+    phrases: ["Pension pot", "Pension pot today"],
+    plain: "A pot of money in your name that you and your employer have paid into, which rises and falls with the investments inside it. What you end up with depends on how much went in and how it grew - nobody promises you a figure. This planner assumes your pension works this way. If instead you were promised a set income for life based on your salary and years of service, that is a different kind of pension: put it in as a fixed income rather than a pot.",
+    expert: "A defined contribution (money purchase) pot: the member and employer bear the investment risk, and the benefit is whatever the accumulated fund supports at retirement. Modelled here as a balance that grows at the assumed rate and is drawn down. Defined benefit (final salary / career average) promises are not pots and must be entered as a fixed retirement income instead, since their value is an accrued entitlement rather than a fund.",
+    src: "dcPension",
+  },
   spa: {
     phrases: ["State Pension age", "State Pension Age", "SPA"],
     plain: "The age the government starts paying you the State Pension. It depends on when you were born, and it has been rising - for most people working today it is 67, going to 68.",
@@ -4177,7 +4254,9 @@ function renderDefPop(key) {
   const body = definitionText(key);
   if (!body) return false;
   const d = DEFINITIONS[key];
-  const g = d.src ? GLOSSARY[d.src] : null;
+  let g = d.src ? GLOSSARY[d.src] : null;
+  // Some terms have a different authority in each country.
+  if (g && g.byCountry) g = g.byCountry[currentCountry] || g;
   const register = wordingMode === "expert" ? "Advanced wording" : "Plain English";
   defPopEl().innerHTML =
     `<h4>${defEsc(definitionTitle(key))}</h4><p>${defEsc(body)}</p>` +
@@ -4955,7 +5034,7 @@ const PROFILE_FIELD_IDS = [
   "goGoPct", "goGoUntilAge", "slowGoPct", "slowGoUntilAge", "noGoPct", "careNursing", "careHome",
   "spouseCareNursing", "spouseCareHome", "careNursingYears", "careHomeYears",
   "spouseCareNursingYears", "spouseCareHomeYears",
-  "yourIncome", "yourIncomeGrowth", "cashCurrent", "spouseCashCurrent", "spouseSalary",
+  "yourIncome", "yourIncomeGrowth", "cashCurrent", "spouseCashCurrent", "spouseSalary", "spouseContribMonthly",
   "spousePot", "spouseDrawdown", "spousePotGrowth", "spouseIncome", "spouseIncomeGrowth",
   "statePensionWeekly", "statePensionGrowth", "discountRate",
   "numChildren", "numGrandchildren", "smallGiftAmount", "annualExemption",
@@ -5223,6 +5302,7 @@ function readInputs() {
     emergencyOn: els("emergencyOn").checked,
     emergencyMonths: Math.max(0, parseInt(els("emergencyMonths").value, 10) || 0),
     premiumBonds: money("premiumBonds"),
+    spouseContribMonthly: money("spouseContribMonthly"),
     spousePremiumBonds: money("spousePremiumBonds"),
     premiumBondsRate: parseFloat(els("premiumBondsRate").value) || 0,
     bonusOn: els("bonusOn").checked,
@@ -5622,6 +5702,99 @@ function ongoingContribVerdict(model, plan) {
 /* The panel. States the answer first, then shows the arithmetic behind it,
    then the rules that constrain it - in that order, because the answer is
    what was asked for and the rest is why it should be believed. */
+/* =========================================================================
+   IS THE 25% TAX-FREE LUMP SUM WORTH TAKING?
+   The tax answer is a wash: drawdown here is modelled as UFPLS, so a quarter
+   of every withdrawal is tax-free whether or not the lump sum is taken up
+   front. What actually changes is WHERE the money sits afterwards - out of
+   the pension it grows in savings (taxable unless it reaches an ISA) and
+   counts towards the estate; left in, it grows sheltered and normally sits
+   outside the estate. So rather than reason about it, run the plan both ways
+   and report the difference.
+   ====================================================================== */
+function pclsCompare() {
+  const withLump = computeAll({ yourTakePcls: true });
+  const without  = computeAll({ yourTakePcls: false });
+  const measure = m => {
+    const f = householdFunding(m);
+    if (!f.years.length) return null;
+    const lifetime = f.years.reduce((sum, y) => sum + (f.byYear[y].total || 0), 0);
+    const last = f.byYear[f.years[f.years.length - 1]].balances || {};
+    const left = Object.values(last).reduce((sum, v) => sum + (typeof v === "number" ? v : 0), 0);
+    return { lifetime, left, exhausted: f.exhaustedYear };
+  };
+  const a = measure(withLump), b = measure(without);
+  if (!a || !b) return null;
+  return { withLump: a, without: b,
+           lifetimeDelta: a.lifetime - b.lifetime,
+           leftDelta: a.left - b.left };
+}
+
+function renderPclsVerdict(model) {
+  const box = els("pclsVerdict");
+  if (!box) return;
+  const inp = model.inp;
+  // The sub-option below does nothing on its own, so say so rather than
+  // leaving it looking broken.
+  const early = els("pclsEarlyIsa"), earlyLabel = els("pclsEarlyIsaLabel");
+  if (early && earlyLabel) {
+    early.disabled = !inp.yourTakePcls;
+    earlyLabel.style.opacity = inp.yourTakePcls ? "" : "0.55";
+    earlyLabel.title = inp.yourTakePcls ? ""
+      : "Tick the 25% tax-free lump sum above first - this only changes when that lump sum is taken.";
+  }
+  if (yourMode !== "pot" || currentCountry !== "UK") { box.innerHTML = ""; return; }
+
+  const c = pclsCompare();
+  if (!c) { box.innerHTML = ""; return; }
+
+  const money = v => gbp0(Math.abs(v));
+  const better = c.lifetimeDelta + c.leftDelta;   // total household benefit
+  const tone = better > 500 ? "" : better < -500 ? " warn" : " gold";
+  const headline = better > 500 ? "Taking it comes out ahead"
+    : better < -500 ? "Leaving it in the pension comes out ahead"
+    : "Much the same either way";
+
+  /* The figures above come from the funding model, which always draws on
+     savings. The CHART does not: with smoothing off it plots the raw income
+     stack, so the cash is invisible there and the shortfall count gets worse
+     the moment the lump sum is taken. Worth saying, or the two disagree. */
+  const smoothNote = inp.smoothOn ? "" :
+    `<p class="caption" style="margin:8px 0 0;"><b>Why the chart disagrees:</b> &ldquo;Use non-pension savings to smooth
+     spending&rdquo; is <b>off</b>, so the chart's income line ignores cash sitting outside the pension. Taking the lump sum
+     therefore makes more years look short of the target even though the money is still yours &mdash; it has simply left the
+     income line. The figures here do count it. Turn smoothing on and the chart will agree with them.</p>`;
+
+  box.innerHTML = `
+    <div class="card" style="margin:10px 0 4px; padding:14px 16px;">
+      <div class="person-title" style="margin-bottom:6px;">
+        <h3 style="margin:0; font-size:1rem;">Take the 25%, or leave it invested?</h3>
+        <span class="pill${tone}">${headline}</span>
+      </div>
+      <p class="caption" style="margin:0 0 8px;">A quarter of every withdrawal is tax-free whether or not you take the lump
+        sum up front, so this is <b>not a tax saving</b>. What decides it is <b>where the money then grows</b>: left alone it
+        compounds at your pot growth rate (${inp.yourPotGrowth}% a year), while cash taken out grows at savings rates
+        &mdash; unless you tick the ISA option above, which shelters it at investment rates instead. Both plans below are
+        identical in every other respect.</p>
+      <div class="stat-row">
+        <div class="stat"><span class="label">Net position</span>
+          <span class="value" style="color:${better >= 0 ? "var(--good)" : "var(--critical)"}">
+            ${better >= 0 ? "+" : "&minus;"}${money(better)}</span>
+          <span class="sub">taking it, versus leaving it invested</span></div>
+        <div class="stat"><span class="label">Lifetime income</span>
+          <span class="value">${c.lifetimeDelta >= 0 ? "+" : "&minus;"}${money(c.lifetimeDelta)}</span>
+          <span class="sub">income is capped at your target, so a surplus shows up as money left, not as income</span></div>
+        <div class="stat"><span class="label">Left at the end</span>
+          <span class="value">${c.leftDelta >= 0 ? "+" : "&minus;"}${money(c.leftDelta)}</span>
+          <span class="sub">everything still unspent at the end of the plan</span></div>
+        <div class="stat"><span class="label">Inheritance tax</span>
+          <span class="value">Against it</span>
+          <span class="sub">cash taken out joins your estate; a pension normally sits outside it, so this is not in the figures</span></div>
+      </div>
+      ${smoothNote}
+    </div>`;
+}
+
 function renderRecycleVerdict(model) {
   const box = els("recycleVerdict");
   if (!box) return;
@@ -6111,7 +6284,7 @@ function computeAll(overrides = {}) {
   if (spouse) {
     spouseBuilt = buildPersonProjection(spouse, {
       mode: inp.spouseMode, potToday: inp.spousePot, drawdown: inp.spouseDrawdown, potGrowth: inp.spousePotGrowth,
-      employerContribution: 0, annualAllowance: Infinity, takePcls: inp.spouseTakePcls, pclsCountry: inp.spouseCountry, pclsEarlyIsa: inp.pclsEarlyIsa, toMaxAge: inp.toMaxAge,
+      employerContribution: (inp.spouseContribMonthly || 0) * 12, annualAllowance: Infinity, takePcls: inp.spouseTakePcls, pclsCountry: inp.spouseCountry, pclsEarlyIsa: inp.pclsEarlyIsa, toMaxAge: inp.toMaxAge,
       startIncome: inp.spouseIncome, incomeGrowth: inp.spouseIncomeGrowth,
       retireDate: inp.spouseRetireDate, retireSpend: 0, assets: atSpouse,
       spWeekly: spouseSpWeekly, spGrowth: inp.spGrowth, discount: inp.discount, today,
@@ -9360,6 +9533,9 @@ function renderAll() {
     renderRecycleVerdict(model);
     updateZoomBars();
   }
+  // The lump-sum verdict sits beside its tick-box on the Pensions page, so it
+  // must not be gated on the planner being the open tab.
+  renderPclsVerdict(model);
   scheduleTableScrollbars();
   scheduleDefTagging();
 }
@@ -9701,8 +9877,13 @@ function simpleFromFields() {
   els("simTarget").value = Math.round(tgt).toLocaleString("en-GB");
   const spouseOn = els("spouseSwitch").classList.contains("on");
   els("simSpouse").checked = spouseOn;
-  els("simSpouseDobField").style.display = spouseOn ? "" : "none";
+  els("simSpouseCard").style.display = spouseOn ? "" : "none";
   els("simSpouseDob").value = els("spouseDob").value;
+  els("simSpouseSalary").value = els("spouseSalary").value;
+  els("simSpousePot").value = els("spousePot").value;
+  els("simSpouseContrib").value = els("spouseContribMonthly").value;
+  const sAge = ageBetween(els("spouseDob").value, els("spouseRetireDate").value);
+  els("simSpouseRetireAge").value = sAge == null ? "" : sAge;
   formatAllMoneyInputs();
 }
 
@@ -9738,8 +9919,22 @@ function simpleToFields() {
   els("spouseSwitch").setAttribute("aria-checked", String(spouseOn));
   els("spouseFields").style.display = spouseOn ? "" : "none";
   els("spousePotCard").style.display = spouseOn ? "" : "none";
-  els("simSpouseDobField").style.display = spouseOn ? "" : "none";
-  if (spouseOn && els("simSpouseDob").value) els("spouseDob").value = els("simSpouseDob").value;
+  els("simSpouseCard").style.display = spouseOn ? "" : "none";
+  if (spouseOn) {
+    if (els("simSpouseDob").value) els("spouseDob").value = els("simSpouseDob").value;
+    els("spouseSalary").value = els("simSpouseSalary").value;
+    els("spousePot").value = els("simSpousePot").value;
+    els("spouseContribMonthly").value = els("simSpouseContrib").value;
+    const sRetire = dateAtAge(els("simSpouseDob").value, parseFloat(els("simSpouseRetireAge").value));
+    if (sRetire) els("spouseRetireDate").value = sRetire;
+    /* The brief page only describes a pot, so put their pension into pot mode.
+       A promised income for life has to be entered in the full version. */
+    spouseMode = "pot";
+    document.querySelectorAll("#spouseModeSeg button").forEach(
+      b => b.classList.toggle("active", b.dataset.mode === "pot"));
+    els("spousePotFields").style.display = "";
+    els("spouseIncomeFields").style.display = "none";
+  }
 
   formatAllMoneyInputs();
   renderAll();
@@ -9769,7 +9964,8 @@ function initSimpleMode() {
   });
 
   // Edit in place: every field recalculates, so the chart is never stale.
-  ["simDob", "simRetireAge", "simSalary", "simPot", "simContrib", "simTarget", "simSpouseDob"]
+  ["simDob", "simRetireAge", "simSalary", "simPot", "simContrib", "simTarget",
+   "simSpouseDob", "simSpouseRetireAge", "simSpouseSalary", "simSpousePot", "simSpouseContrib"]
     .forEach(id => els(id).addEventListener("change", simpleToFields));
   els("simSpouse").addEventListener("change", simpleToFields);
 
@@ -11301,7 +11497,7 @@ function seedDemoProfiles() {
     careStayOn: true, careNursingYears: "1.5", careHomeYears: "2.5",
     spouseCareNursingYears: "1.5", spouseCareHomeYears: "2.5",
     yourTakePcls: false, spouseTakePcls: false, smoothOn: false, spendPhasesOn: false,
-    spouseSalary: "0", flatMoneyOn: false, levelIncomeOn: false,
+    spouseSalary: "0", spouseContribMonthly: "0", flatMoneyOn: false, levelIncomeOn: false,
     yourIncome: "0", yourIncomeGrowth: "2", cashCurrent: "0", spouseCashCurrent: "0",
     spousePot: "0", spouseDrawdown: "4", spousePotGrowth: "8", spouseIncome: "0", spouseIncomeGrowth: "2",
     statePensionWeekly: "230.25", statePensionGrowth: "2.5", discountRate: "2.5",
