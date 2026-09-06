@@ -62,6 +62,7 @@ MODEL = [
     "extraSaveOn",         # extra regular saving
     "yourIndexGrowth",     # pot growth follows the global index average
     "spouseIndexGrowth",
+    "isaFollowsPot",       # investment growth outside the pension mirrors the pot
 ]
 
 # Controls that drive a panel, table or tracker and deliberately nothing else.
@@ -95,6 +96,9 @@ SELECTS = {"survivalWho": ["either", "you", "spouse"]}
 PRESET = {
     "yourIndexGrowth": ("yourPotGrowth", "3", False),
     "spouseIndexGrowth": ("spousePotGrowth", "3", False),
+    # Same shape: ticking it snaps the investment rate onto the pot rate, so it
+    # only shows from a rate that differs.
+    "isaFollowsPot": ("isaGrowth", "3", False),
 }
 
 MODEL_FINGERPRINT = """() => {

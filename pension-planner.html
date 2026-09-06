@@ -325,6 +325,14 @@
   #tab-simple .field-row { margin-bottom: 20px; }
   #tab-simple .field-row:last-child { margin-bottom: 0; }
   #tab-simple .field-row .check-inline { margin: 0; align-self: center; }
+  /* A single tick-box does not belong in a grid column meant for a labelled
+     field - it sat stranded against an empty half. Give it its own full-width
+     row with the explanation beside it. */
+  .sim-partner-row {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    margin-top: 4px; padding-top: 14px; border-top: 1px solid var(--border);
+  }
+  .sim-partner-row .check-inline { margin: 0; }
 
   /* The start page is a decision, not a destination: hide the page nav so the
      two cards are the only things to act on. */
@@ -1394,7 +1402,7 @@
             <span class="hint" id="profileFileMsg" style="display: none; font-weight: 600;"></span>
           </div>
           <div class="field">
-            <label for="country">Country <span class="hint-inline">(tax &amp; state pension)</span></label>
+            <label for="country" data-def="countryRules">Country <span class="hint-inline">(tax &amp; state pension)</span></label>
             <select id="country">
               <option value="UK" selected>United Kingdom</option>
               <option value="US">United States</option>
@@ -1403,7 +1411,7 @@
             </select>
           </div>
           <div class="field" id="scotlandField">
-            <label for="scotland">UK region</label>
+            <label for="scotland" data-def="scotRates">UK region</label>
             <select id="scotland">
               <option value="ruk" selected>England / Wales / NI</option>
               <option value="scot">Scotland</option>
@@ -1453,7 +1461,7 @@
             <input type="date" id="dob" value="1973-03-01" autocomplete="bday">
           </div>
           <div class="field">
-            <label for="sex">Sex recorded at birth</label>
+            <label for="sex" data-def="lifeTables">Sex recorded at birth</label>
             <select id="sex">
               <option value="M" selected>Male</option>
               <option value="F">Female</option>
@@ -1461,13 +1469,13 @@
             <span class="hint">Only affects results if born before 6 Apr 1955</span>
           </div>
           <div class="field">
-            <label for="retireDate">Planned retirement date <b id="retireAgeP"></b></label>
+            <label for="retireDate" data-def="retireAgeChoice">Planned retirement date <b id="retireAgeP"></b></label>
             <input type="date" id="retireDate" value="2028-03-01">
             <input type="range" id="retireSliderP" class="fld-slider" min="2026" max="2070" step="1" aria-label="Adjust your planned retirement year">
             <span class="hint">When you stop earning. If before a pension starts, savings bridge the gap.</span>
           </div>
           <div class="field">
-            <label for="retireSpend">Income needed if you retire early (<span class="cur">&pound;</span>/yr)</label>
+            <label for="retireSpend" data-def="bridge">Income needed if you retire early (<span class="cur">&pound;</span>/yr)</label>
             <input type="text" inputmode="decimal" data-money="0" id="retireSpend" value="0">
             <span class="hint">Drawn from cash then shares in any years before a pension starts</span>
           </div>
@@ -1489,21 +1497,21 @@
               <input type="date" id="spouseDob" value="1976-04-01" autocomplete="section-spouse bday">
             </div>
             <div class="field">
-              <label for="spouseSex">Sex recorded at birth</label>
+              <label for="spouseSex" data-def="lifeTables">Sex recorded at birth</label>
               <select id="spouseSex">
                 <option value="M">Male</option>
                 <option value="F" selected>Female</option>
               </select>
             </div>
             <div class="field">
-              <label for="spouseRetireDate">Planned retirement date <b id="spouseRetireAgeP"></b></label>
+              <label for="spouseRetireDate" data-def="retireAgeChoice">Planned retirement date <b id="spouseRetireAgeP"></b></label>
               <input type="date" id="spouseRetireDate" value="2033-04-01">
               <input type="range" id="spouseRetireSliderP" class="fld-slider" min="2026" max="2070" step="1" aria-label="Adjust your spouse's planned retirement year">
             </div>
           </div>
           <div class="field-row">
             <div class="field">
-              <label for="spouseCountry">Their country (state pension &amp; tax rules)</label>
+              <label for="spouseCountry" data-def="countryRules">Their country (state pension &amp; tax rules)</label>
               <select id="spouseCountry">
                 <option value="UK" selected>United Kingdom</option>
                 <option value="US">United States</option>
@@ -1609,10 +1617,9 @@
             <span class="hint">After you stop working, in today's money</span>
           </div>
         </div>
-        <div class="field-row">
-          <div class="field">
-            <label class="check-inline" style="margin-top:8px;"><input type="checkbox" id="simSpouse"> I have a partner to include</label>
-          </div>
+        <div class="sim-partner-row">
+          <label class="check-inline"><input type="checkbox" id="simSpouse"> I have a partner to include</label>
+          <span class="hint">Their salary, pot and pension go in below</span>
         </div>
       </div>
 
@@ -1700,6 +1707,7 @@
             <div class="field">
               <label for="yourPot" data-def="dcPot">Pension pot today (<span class="cur">&pound;</span>)</label>
               <input type="text" inputmode="decimal" data-money="0" id="yourPot" value="1,000,000">
+              <span class="hint" id="yourPclsPreview"></span>
             </div>
             <div class="field">
               <label for="yourPotGrowth">Average pot growth (% a year)</label>
@@ -1784,6 +1792,19 @@
             </div>
           </div>
           <p class="caption" id="contribNote" style="margin: 6px 0 0;"></p>
+          <div class="field-row">
+            <div class="field">
+              <label for="isaGrowth" data-def="isaGrowthRate">Investment growth outside the pension (% a year)</label>
+              <input type="number" id="isaGrowth" value="8" min="-20" max="30" step="0.1">
+              <label class="check-inline" style="margin: 6px 0 0; font-weight: 400;">
+                <input type="checkbox" id="isaFollowsPot" checked> Same as the pension pot growth
+              </label>
+              <span class="hint">Applies to ISAs, investment accounts and anything moved out of the pension</span>
+            </div>
+          </div>
+          <!-- What the first year actually adds up to, and what the taper does
+               to it. Filled by renderAccumulationSummary(). -->
+          <div id="accumSummary"></div>
 
           <div class="divider" style="margin: 14px 0;"></div>
           <h3><span class="phase-chip accum" data-term="accumulationShort">Paying in</span> Bonus &amp; equity (optional)</h3>
@@ -3554,6 +3575,21 @@ const GLOBAL_INDEX_GROWTH = 8;
 
 // Lock a person's growth field to the index average while their tick box is on;
 // otherwise leave it as a plain editable percentage.
+/* The investment rate mirrors the pot rate while "same as" is ticked, and
+   goes its own way the moment it is not. */
+function applyIsaGrowth() {
+  const cb = els("isaFollowsPot"), box = els("isaGrowth"), pot = els("yourPotGrowth");
+  if (!cb || !box || !pot) return;
+  if (cb.checked) {
+    box.value = pot.value;
+    box.readOnly = true;
+    box.style.opacity = "0.72";
+  } else {
+    box.readOnly = false;
+    box.style.opacity = "";
+  }
+}
+
 function applyIndexGrowth(who) {
   const isSpouse = who === "spouse";
   const cb = els(isSpouse ? "spouseIndexGrowth" : "yourIndexGrowth");
@@ -3815,6 +3851,17 @@ const TERMS = {
   potGrowth:     { plain: "investment growth",                  expert: "pot growth" },
 };
 
+/* Which definition explains each term. term() is used for headings and stat
+   labels all over the app - "SIPP / NMPA", "State Pension age", "Accumulation"
+   - and it used to emit bare text, so those had a source link but nothing that
+     said what the words meant. Mapping them here explains every one of them at
+     once, rather than tagging each site by hand and missing some. */
+const TERM_DEFS = {
+  spaAge: "spa", spaShort: "statePension", privateAccess: "nmpa", privateShort: "nmpa",
+  sipp: "dc", lifeExp: "lifeExp", accumulation: "accumulation", decumulation: "decumulation",
+  accumulationShort: "accumulation", decumulationShort: "decumulation",
+  pet: "pet", nrb: "iht", drawdown: "drawdown", potGrowth: "realTerms",
+};
 function term(key) {
   const t = TERMS[key];
   return t ? t[wordingMode] : key;
@@ -3880,6 +3927,30 @@ const GLOSSARY = {
    links to it.
    ========================================================================= */
 const DEFINITIONS = {
+  lifeTables: {
+    phrases: ["Sex recorded at birth"],
+    plain: "Used only to pick the right life-expectancy table. Men and women have different average lifespans, and the plan needs to know how many years of retirement to cover. It affects nothing else.",
+    expert: "Selects the ONS cohort life table used for median survival and the Gompertz hazard fitted to it. It drives the modelling horizon and the survival overlay, and has no effect on tax, contributions or drawdown.",
+    src: "lifeExp",
+  },
+  countryRules: {
+    phrases: ["Country"],
+    plain: "Which country's tax rules and state pension the plan uses. Each person can be in a different one - the tax on their income, the age their state pension starts and what it pays all follow from this.",
+    expert: "Selects the tax regime, state pension parameters and access ages. UK uses full income tax and NI with the UFPLS basis for drawdown; US federal single-filer; France the barème; Australia resident rates with the Medicare levy and tax-free super after 60.",
+    src: "spaAge",
+  },
+  scotRates: {
+    phrases: ["UK region"],
+    plain: "Scotland sets its own income tax bands, so which side of the border you pay tax on changes what you keep. Everything else in the plan is the same.",
+    expert: "Selects the Scottish rates and bands in place of the rest-of-UK bands for income tax. National Insurance, allowances and pension rules are reserved and unchanged.",
+    src: "spaAge",
+  },
+  isaGrowthRate: {
+    phrases: ["Investment growth outside the pension"],
+    plain: "How fast money outside the pension is assumed to grow each year - ISAs, investment accounts, and anything moved out of a pension. It starts matching your pension pot's rate, because the same fund bought in a different wrapper grows at the same rate; untick to set it separately if you hold something different outside.",
+    expert: "Real growth applied to the non-pension investment pools (S&S ISA, GIA, and transferred balances). Defaults to the pension pot assumption so a wrapper comparison is like-for-like; decoupling it models a genuinely different asset mix outside.",
+    src: "isa",
+  },
   moveOutStrategy: {
     phrases: ["Move pension to a tax-free wrapper"],
     plain: "Takes a set amount out of the pension each year and puts it somewhere the growth is not taxed. You pay income tax to get it out, so it only pays if your tax rate now is lower than it will be later, or you want the money reachable sooner. It is modelled properly here: the pot really does go down, the tax really is paid, and what is left really does land in your savings, so every chart responds.",
@@ -4493,6 +4564,15 @@ function glossaryLink(g) {
 function applyStaticTerms() {
   document.querySelectorAll("[data-term]").forEach(el => {
     el.textContent = term(el.dataset.term);
+    /* Give the chip its own explanation where the term has one. Set on the
+       element rather than returned from term(), because the text is assigned
+       with textContent in several places and markup would be printed rather
+       than parsed - which is exactly what happened first time. */
+    const def = TERM_DEFS[el.dataset.term];
+    if (def && !el.hasAttribute("data-def")) {
+      el.setAttribute("data-def", def);
+      el.setAttribute("tabindex", "0");   // reachable by keyboard, like tagged prose
+    }
   });
   document.querySelectorAll("[data-term-plain]").forEach(el => {
     el.innerHTML = wordingMode === "plain" ? el.dataset.termPlain : el.dataset.termExpert;
@@ -5200,7 +5280,7 @@ const PROFILE_FIELD_IDS = [
   "goGoPct", "goGoUntilAge", "slowGoPct", "slowGoUntilAge", "noGoPct", "careNursing", "careHome",
   "spouseCareNursing", "spouseCareHome", "careNursingYears", "careHomeYears",
   "spouseCareNursingYears", "spouseCareHomeYears",
-  "yourIncome", "yourIncomeGrowth", "cashCurrent", "spouseCashCurrent", "spouseSalary", "spouseContribMonthly",
+  "yourIncome", "yourIncomeGrowth", "cashCurrent", "spouseCashCurrent", "spouseSalary", "spouseContribMonthly", "isaGrowth",
   "spousePot", "spouseDrawdown", "spousePotGrowth", "spouseIncome", "spouseIncomeGrowth",
   "statePensionWeekly", "statePensionGrowth", "discountRate",
   "numChildren", "numGrandchildren", "smallGiftAmount", "annualExemption",
@@ -5305,7 +5385,7 @@ function applyProfileData(data) {
   els("careStayOn").checked = data.careStayOn !== false;
   els("yourIndexGrowth").checked = data.yourIndexGrowth !== false;
   els("spouseIndexGrowth").checked = data.spouseIndexGrowth !== false;
-  applyIndexGrowth("you"); applyIndexGrowth("spouse");
+  applyIndexGrowth("you"); applyIndexGrowth("spouse"); applyIsaGrowth();
   yourPersonalMode = data.yourPersonalMode || "pct";
   document.querySelectorAll("#yourPersonalModeSeg button").forEach(
     b => b.classList.toggle("active", b.dataset.pmode === yourPersonalMode));
@@ -5470,6 +5550,7 @@ function readInputs() {
     emergencyOn: els("emergencyOn").checked,
     emergencyMonths: Math.max(0, parseInt(els("emergencyMonths").value, 10) || 0),
     premiumBonds: money("premiumBonds"),
+    isaGrowth: parseFloat(els("isaGrowth").value) || 0,
     spouseContribMonthly: money("spouseContribMonthly"),
     spousePremiumBonds: money("spousePremiumBonds"),
     premiumBondsRate: parseFloat(els("premiumBondsRate").value) || 0,
@@ -5713,6 +5794,20 @@ function marginalRate(gross) {
    current tax bands; not advice.
    ========================================================================= */
 const LUMP_SUM_ALLOWANCE = 268275;   // UK 2025/26 tax-free lump sum allowance
+/* The tapered annual allowance. Above £260,000 of adjusted income the £60,000
+   allowance falls by £1 for every £2, to a £10,000 floor - so a high earner
+   can be paying in far more than they get relief on, and the excess is charged
+   at their marginal rate. It was described in the glossary but never modelled,
+   which meant the plan quietly gave full relief on contributions that would
+   not get it. Adjusted income here is salary plus employer contributions,
+   which is the usual case; the full statutory definition adds other income
+   this planner does not collect. */
+const AA_TAPER_FROM = 260000, AA_FLOOR = 10000, AA_STANDARD = 60000;
+function taperedAnnualAllowance(adjustedIncome, base) {
+  const cap = base != null && isFinite(base) ? base : AA_STANDARD;
+  if (!(adjustedIncome > AA_TAPER_FROM)) return cap;
+  return Math.max(AA_FLOOR, cap - (adjustedIncome - AA_TAPER_FROM) / 2);
+}
 const IHT_RATE = 0.40;
 const PENSION_IN_ESTATE_FROM = { y: 2027, m: 4, d: 6 }; // unused pensions become IHT-liable
 
@@ -5872,6 +5967,111 @@ function ongoingContribVerdict(model, plan) {
    then the rules that constrain it - in that order, because the answer is
    what was asked for and the rest is why it should be believed. */
 /* =========================================================================
+   WHAT THE 25% WOULD ACTUALLY BE
+   Sits under the pot so the figure is visible while you are typing the pot in,
+   rather than only after finding the tick-box. It shows the cap biting, and -
+   when the money is headed for a tax-free wrapper - how many years of
+   allowance it would take to get it there, which is the part people miss.
+   ====================================================================== */
+function renderPclsPreview(model) {
+  const el = els("yourPclsPreview");
+  if (!el) return;
+  const inp = model.inp;
+  if (inp.yourMode !== "pot" || currentCountry !== "UK") { el.innerHTML = ""; return; }
+
+  const meta = model.yourMeta || {};
+  const potAtAccess = meta.pclsCash != null && meta.pclsCash > 0
+    ? meta.pclsCash + (meta.accumulatedPot || 0)
+    : (meta.accumulatedPot || 0);
+  if (!(potAtAccess > 0)) { el.innerHTML = ""; return; }
+
+  const quarter = potAtAccess * 0.25;
+  const takeable = Math.min(quarter, LUMP_SUM_ALLOWANCE);
+  const capped = quarter > LUMP_SUM_ALLOWANCE;
+  const money = v => gbp0(v);
+
+  /* Capacity: the wrapper only takes so much a year, so a large lump sum can
+     take years to shelter - and any other subscriptions that year compete for
+     the same allowance. */
+  const r = moveOutRules();
+  const people = model.spouse ? 2 : 1;
+  const roomPerYear = isFinite(r.annualLimit) ? r.annualLimit * people : Infinity;
+  const yearsToShelter = isFinite(roomPerYear) && roomPerYear > 0
+    ? Math.ceil(takeable / roomPerYear) : 1;
+
+  el.innerHTML =
+    `At your access age this pot is projected to be about <b>${money(potAtAccess)}</b>. ` +
+    (capped
+      ? `A quarter would be ${money(quarter)}, but the tax-free lump sum allowance caps it at
+         <b>${money(LUMP_SUM_ALLOWANCE)}</b> &mdash; the ${money(quarter - LUMP_SUM_ALLOWANCE)} above the cap
+         stays in the pension and is taxed as income when drawn.`
+      : `A quarter of it, <b>${money(takeable)}</b>, could be taken tax-free.`) +
+    (isFinite(roomPerYear)
+      ? ` Sheltering that in ${r.wrapper}s would take <b>${yearsToShelter} year${yearsToShelter === 1 ? "" : "s"}</b>
+         of allowance at ${money(roomPerYear)} a year${people > 1 ? " between you" : ""}
+         &mdash; and anything else you subscribe in those years competes for the same room.`
+      : "");
+}
+
+/* =========================================================================
+   THE FIRST YEAR OF PAYING IN, ADDED UP
+   The rows above each show their own piece; this is what they come to
+   together, and what the tapered annual allowance does to it. A high earner
+   can be paying in well past the allowance without noticing, and the excess
+   is charged back at their marginal rate - which is worth seeing next to the
+   contribution that caused it.
+   ====================================================================== */
+function renderAccumulationSummary(model) {
+  const box = els("accumSummary");
+  if (!box) return;
+  const meta = model.yourMeta;
+  if (!meta || meta.mode !== "pot" || !(meta.aaWanted > 0)) { box.innerHTML = ""; return; }
+
+  const inp = model.inp;
+  const gross = meta.aaWanted;                 // employer + any DC-list contributions
+  const relieved = Math.min(gross, meta.aaAllowance);
+  const excess = meta.aaExcess || 0;
+  const pct = inp.yourSalary > 0 ? (gross / inp.yourSalary) * 100 : 0;
+  const mr = marginalRate(inp.yourSalary || 0);
+  const charge = excess * mr;                  // annual allowance charge on the excess
+
+  const money = v => gbp0(v);
+  const taperRow = meta.aaTapered
+    ? `<div class="stat"><span class="label">Allowance after taper</span>
+         <span class="value" style="color:var(--critical)">${money(meta.aaAllowance)}</span>
+         <span class="sub">adjusted income ${money(meta.aaAdjustedIncome)} is over the
+           ${money(AA_TAPER_FROM)} threshold, so the ${money(AA_STANDARD)} allowance falls by
+           &pound;1 for every &pound;2 above it, down to a ${money(AA_FLOOR)} floor</span></div>`
+    : `<div class="stat"><span class="label">Allowance</span>
+         <span class="value">${money(meta.aaAllowance)}</span>
+         <span class="sub">not tapered &mdash; adjusted income ${money(meta.aaAdjustedIncome)} is under
+           the ${money(AA_TAPER_FROM)} threshold</span></div>`;
+
+  const chargeRow = excess > 0
+    ? `<div class="stat"><span class="label">Charged back</span>
+         <span class="value" style="color:var(--critical)">&minus;${money(charge)}</span>
+         <span class="sub">${money(excess)} over the allowance, taxed at your
+           ${Math.round(mr * 100)}% marginal rate &mdash; that part gets no relief</span></div>`
+    : "";
+
+  box.innerHTML = `
+    <div class="card" style="margin:10px 0 0; padding:14px 16px;">
+      <div class="person-title" style="margin-bottom:6px;">
+        <h3 style="margin:0; font-size:1rem;">Into the pension in the first year</h3>
+        ${excess > 0 ? `<span class="pill warn">Over the allowance</span>` : ""}
+      </div>
+      <div class="stat-row">
+        <div class="stat"><span class="label">Total paid in</span><span class="value">${money(gross)}</span>
+          <span class="sub">${pct > 0 ? pct.toFixed(1) + "% of a " + money(inp.yourSalary) + " salary" : "employer and any scheme contributions"} &middot; ${money(gross / 12)}/month</span></div>
+        ${taperRow}
+        <div class="stat"><span class="label">Gets relief</span><span class="value">${money(relieved)}</span>
+          <span class="sub">the part inside the allowance</span></div>
+        ${chargeRow}
+      </div>
+    </div>`;
+}
+
+/* =========================================================================
    MOVING MONEY OUT OF A PENSION: WHAT THE PLAN ACTUALLY DID
    This strategy is now part of the projection, so rather than costing it in
    the abstract the panel reports the transfers the model made - how much
@@ -5988,7 +6188,12 @@ function pclsCompare() {
     const lifetime = f.years.reduce((sum, y) => sum + (f.byYear[y].total || 0), 0);
     const last = f.byYear[f.years[f.years.length - 1]].balances || {};
     const left = Object.values(last).reduce((sum, v) => sum + (typeof v === "number" ? v : 0), 0);
-    return { lifetime, left, exhausted: f.exhaustedYear };
+    // Years the plan cannot meet the target - the thing a plan is actually for.
+    const shortfall = f.years.filter(y => {
+      const r = f.byYear[y];
+      return r.total < r.target - 0.5;
+    }).length;
+    return { lifetime, left, shortfall, exhausted: f.exhaustedYear };
   };
   const a = measure(withLump), b = measure(without);
   if (!a || !b) return null;
@@ -6016,10 +6221,21 @@ function renderPclsVerdict(model) {
   if (!c) { box.innerHTML = ""; return; }
 
   const money = v => gbp0(Math.abs(v));
-  const better = c.lifetimeDelta + c.leftDelta;   // total household benefit
-  const tone = better > 500 ? "" : better < -500 ? " warn" : " gold";
-  const headline = better > 500 ? "Taking it comes out ahead"
-    : better < -500 ? "Leaving it in the pension comes out ahead"
+  /* The honest comparison is what the plan DELIVERS, not the gross drawdown.
+     A big pot at a fixed drawdown % pays out far more than the target every
+     year, and none of that surplus is spent or banked - so summing it makes
+     taking the lump sum look like a multi-million loss when the household's
+     spendable position barely moves. Judge on the two things that matter:
+     does the plan still meet the target, and what is left at the end. */
+  const better = c.leftDelta;
+  const sameShortfall = c.withLump.shortfall === c.without.shortfall;
+  const tone = !sameShortfall ? " warn" : better > 500 ? "" : better < -500 ? " warn" : " gold";
+  const headline = !sameShortfall
+    ? (c.withLump.shortfall > c.without.shortfall
+        ? `Taking it leaves ${c.withLump.shortfall - c.without.shortfall} more year(s) short of your target`
+        : `Taking it leaves ${c.without.shortfall - c.withLump.shortfall} fewer year(s) short of your target`)
+    : better > 500 ? "Taking it leaves you better off"
+    : better < -500 ? "Leaving it invested comes out ahead"
     : "Much the same either way";
 
   /* The figures above come from the funding model, which always draws on
@@ -6044,18 +6260,21 @@ function renderPclsVerdict(model) {
         &mdash; unless you tick the ISA option above, which shelters it at investment rates instead. Both plans below are
         identical in every other respect.</p>
       <div class="stat-row">
-        <div class="stat"><span class="label">Net position</span>
-          <span class="value" style="color:${better >= 0 ? "var(--good)" : "var(--critical)"}">
-            ${better >= 0 ? "+" : "&minus;"}${money(better)}</span>
-          <span class="sub">taking it, versus leaving it invested</span></div>
-        <div class="stat"><span class="label">Lifetime income</span>
-          <span class="value">${c.lifetimeDelta >= 0 ? "+" : "&minus;"}${money(c.lifetimeDelta)}</span>
-          <span class="sub">income is capped at your target, so a surplus shows up as money left, not as income</span></div>
+        <div class="stat"><span class="label">Years short of target</span>
+          <span class="value" style="color:${sameShortfall ? "var(--ink)" : "var(--critical)"}">
+            ${c.withLump.shortfall} vs ${c.without.shortfall}</span>
+          <span class="sub">taking it, versus leaving it &mdash; whether the plan still does its job</span></div>
+        <div class="stat"><span class="label">Gross drawdown</span>
+          <span class="value" style="color:${c.lifetimeDelta >= 0 ? "var(--good)" : "var(--critical)"}">
+            ${c.lifetimeDelta >= 0 ? "+" : "&minus;"}${money(c.lifetimeDelta)}</span>
+          <span class="sub">the pension pays out a fixed % of a smaller pot, so this falls &mdash; but most of it was
+            already well above your target and would never have been spent</span></div>
         <div class="stat"><span class="label">Left at the end</span>
-          <span class="value">${c.leftDelta >= 0 ? "+" : "&minus;"}${money(c.leftDelta)}</span>
+          <span class="value" style="color:${c.leftDelta >= 0 ? "var(--good)" : "var(--critical)"}">
+            ${c.leftDelta >= 0 ? "+" : "&minus;"}${money(c.leftDelta)}</span>
           <span class="sub">everything still unspent at the end of the plan</span></div>
         <div class="stat"><span class="label">Inheritance tax</span>
-          <span class="value">Against it</span>
+          <span class="value" style="color:var(--critical)">Against it</span>
           <span class="sub">cash taken out joins your estate; a pension normally sits outside it, so this is not in the figures</span></div>
       </div>
       ${smoothNote}
@@ -6344,8 +6563,19 @@ function buildPersonProjection(p, o) {
     const effToday = o.potToday + o.assets.dcValue;
     // Total annual pension contribution (employer + any DC-list contributions),
     // capped at the annual allowance - the most that gets tax relief each year.
-    const contrib = Math.min(o.employerContribution + o.assets.dcContribution,
-                             o.annualAllowance != null ? o.annualAllowance : Infinity);
+    const wanted = o.employerContribution + o.assets.dcContribution;
+    /* Adjusted income decides how much of the allowance survives. Only UK
+       plans taper; elsewhere the entered cap stands as it always did. */
+    const adjusted = (o.salary || 0) + o.employerContribution;
+    const allowance = o.taperCountry === "UK"
+      ? taperedAnnualAllowance(adjusted, o.annualAllowance)
+      : (o.annualAllowance != null ? o.annualAllowance : Infinity);
+    const contrib = Math.min(wanted, allowance);
+    meta.aaWanted = wanted;
+    meta.aaAllowance = allowance;
+    meta.aaAdjustedIncome = adjusted;
+    meta.aaTapered = o.taperCountry === "UK" && adjusted > AA_TAPER_FROM;
+    meta.aaExcess = Math.max(0, wanted - allowance);
     meta.accumulationTrail = [];
     meta.accumulatedPot = accumulatePensionPot(effToday, o.today, decumStartDate, contrib, o.potGrowth, meta.accumulationTrail);
     /* 25% tax-free lump sum taken at access: pot drops to 75%, the cash is
@@ -6358,19 +6588,27 @@ function buildPersonProjection(p, o) {
        (householdFunding moves it into ISAs at the annual allowance). */
     if (o.takePcls && o.pclsCountry === "UK") {   // 25% tax-free lump sum is a UK rule
       const early = o.pclsEarlyIsa && cmp(accessDate, decumStartDate) < 0;
+      /* A quarter, but no more than the lump sum allowance. Above a pot of
+         about £1.07m the quarter stops growing: the cap bites and everything
+         beyond it stays in the pension to be drawn as taxable income. The
+         strategies table already respected this; the model did not, so a
+         £1.6m pot was taking £434,430 tax-free instead of £268,275. What
+         leaves the pot is what was actually taken, not a flat 75%. */
       if (early) {
         const potAtAccess = accumulatePensionPot(effToday, o.today, accessDate, contrib, o.potGrowth);
-        meta.pclsCash = potAtAccess * 0.25;
+        meta.pclsCash = Math.min(potAtAccess * 0.25, LUMP_SUM_ALLOWANCE);
+        meta.pclsCapped = potAtAccess * 0.25 > LUMP_SUM_ALLOWANCE;
         meta.pclsYear = accessDate.y;
         meta.pclsEarly = true;
-        // the 75% left carries on growing (and being paid into) to the date
+        // what is left carries on growing (and being paid into) to the date
         // drawdown actually starts
         meta.accumulatedPot = accumulatePensionPot(
-          potAtAccess * 0.75, accessDate, decumStartDate, contrib, o.potGrowth);
+          potAtAccess - meta.pclsCash, accessDate, decumStartDate, contrib, o.potGrowth);
       } else {
-        meta.pclsCash = meta.accumulatedPot * 0.25;
+        meta.pclsCash = Math.min(meta.accumulatedPot * 0.25, LUMP_SUM_ALLOWANCE);
+        meta.pclsCapped = meta.accumulatedPot * 0.25 > LUMP_SUM_ALLOWANCE;
         meta.pclsYear = decumStartDate.y;
-        meta.accumulatedPot *= 0.75;
+        meta.accumulatedPot -= meta.pclsCash;
       }
     }
     /* The strategy only makes sense out of a pot that is being drawn, and only
@@ -6550,6 +6788,7 @@ function computeAll(overrides = {}) {
   const yourBuilt = buildPersonProjection(you, {
     mode: inp.yourMode, potToday: inp.yourPot, drawdown: inp.yourDrawdown, potGrowth: inp.yourPotGrowth,
     employerContribution, annualAllowance: inp.annualAllowance, takePcls: inp.yourTakePcls, pclsCountry: currentCountry, pclsEarlyIsa: inp.pclsEarlyIsa, toMaxAge: inp.toMaxAge,
+    salary: inp.yourSalary, taperCountry: currentCountry,
     moveOutPerYear: moveOutPerYearFor(inp), moveOutLifetimeCap: moveOutRules().lifetimeCap,
     startIncome: inp.yourIncome, incomeGrowth: inp.yourIncomeGrowth,
     retireDate: inp.retireDate, retireSpend: inp.retireSpend, assets: atYou,
@@ -6564,6 +6803,7 @@ function computeAll(overrides = {}) {
     spouseBuilt = buildPersonProjection(spouse, {
       mode: inp.spouseMode, potToday: inp.spousePot, drawdown: inp.spouseDrawdown, potGrowth: inp.spousePotGrowth,
       employerContribution: (inp.spouseContribMonthly || 0) * 12, annualAllowance: Infinity, takePcls: inp.spouseTakePcls, pclsCountry: inp.spouseCountry, pclsEarlyIsa: inp.pclsEarlyIsa, toMaxAge: inp.toMaxAge,
+      salary: inp.spouseSalary, taperCountry: inp.spouseCountry,
       moveOutPerYear: moveOutPerYearFor(inp), moveOutLifetimeCap: moveOutRules().lifetimeCap,
       startIncome: inp.spouseIncome, incomeGrowth: inp.spouseIncomeGrowth,
       retireDate: inp.spouseRetireDate, retireSpend: 0, assets: atSpouse,
@@ -6661,12 +6901,12 @@ function renderAge(model) {
             <span class="sub">${retireDate ? fmtDate(retireDate) + (retided ? " &middot; retired" : "") : "not set"}</span>
           </div>
           <div class="stat">
-            <span class="label">1 &middot; ${term("privateShort")} ${glossaryLink(GLOSSARY.privateAccess)}</span>
+            <span class="label">1 &middot; <span data-def="nmpa" class="def-term" tabindex="0">${term("privateShort")}</span> ${glossaryLink(GLOSSARY.privateAccess)}</span>
             <span class="value">age ${p.nmpaAge}</span>
             <span class="sub">${fmtDate(p.nmpaDate)}</span>
           </div>
           <div class="stat">
-            <span class="label">2 &middot; ${term("spaAge")} ${glossaryLink(GLOSSARY.spaAge)}</span>
+            <span class="label">2 &middot; <span data-def="spa" class="def-term" tabindex="0">${term("spaAge")}</span> ${glossaryLink(GLOSSARY.spaAge)}</span>
             <span class="value">${formatAge(p.spaYears, p.spaMonths)}</span>
             <span class="sub">${fmtDate(p.spaDate)}</span>
           </div>
@@ -6676,14 +6916,21 @@ function renderAge(model) {
             <span class="sub">${daysBetween(p.nmpaDate, p.spaDate).toLocaleString("en-GB")} days on private pension alone</span>
           </div>
           <div class="stat">
-            <span class="label">${term("lifeExp")} ${glossaryLink(GLOSSARY.lifeExp)}</span>
+            <span class="label"><span data-def="lifeExp" class="def-term" tabindex="0">${term("lifeExp")}</span> ${glossaryLink(GLOSSARY.lifeExp)}</span>
             <span class="value">${formatAge(p.lifeExpAge, p.lifeExpMonths)}</span>
-            <span class="sub">50% chance of reaching this age</span>
+            <span class="sub">${fmtDate(p.lifeExpDate)} &middot; 50% chance of reaching this age</span>
           </div>
           <div class="stat">
             <span class="label">Maximum modelled age</span>
             <span class="value">age ${maxAgeFor()}</span>
-            <span class="sub">${(() => { const cur = ageAtDate(p.dob, model.today); const mx = maxAgeFor(); const pMax = survivalProb(cur, p.lifeExpAge, mx) * 100; return `10% chance of reaching ${ageAtSurvival(cur, p.lifeExpAge, 0.1)}; ${pMax < 1 ? "under 1" : Math.round(pMax)}% of reaching ${mx}`; })()}</span>
+            <span class="sub">${(() => {
+              const cur = ageAtDate(p.dob, model.today), mx = maxAgeFor();
+              const pMax = survivalProb(cur, p.lifeExpAge, mx) * 100;
+              // The year, as every other row here gives one.
+              const yr = p.dob.y + mx;
+              return `${yr} &middot; 10% chance of reaching ${ageAtSurvival(cur, p.lifeExpAge, 0.1)}; ` +
+                     `${pMax < 1 ? "under 1" : Math.round(pMax)}% of reaching ${mx}`;
+            })()}</span>
           </div>
         </div>
         ${p.transition ? `<div class="transition-note">&#9888; Born in a transitional ${term("spaShort")} window &mdash; treat as a close estimate; confirm at gov.uk/state-pension-age.</div>` : ""}
@@ -7497,7 +7744,11 @@ function householdFunding(model, targetOverride) {
   // compound at real rates and lump sums land in today's money
   const defl = inp.flatOn ? 1 + (inp.discount || 0) / 100 : 1;
   const real = g => (1 + g) / defl - 1;
-  const gInvest = real((inp.yourPotGrowth || 0) / 100), gCash = real(0.015), gCashISA = real(0.02);
+  /* Money outside the pension grows at its own rate. It defaults to the pension
+     pot's rate - the same global index average - but the two are separately
+     editable, because there is no rule that says they must match. */
+  const gInvest = real((inp.isaGrowth != null ? inp.isaGrowth : inp.yourPotGrowth || 0) / 100);
+  const gCash = real(0.015), gCashISA = real(0.02);
   const deflateAt = (v, yy) => v / Math.pow(defl, Math.max(0, yy - today.y));
   const grow = (v, rate) => v * Math.pow(1 + rate, Math.max(0, startYear - today.y));
   /* Money paid back into a pension after retiring lands in its own bucket:
@@ -9876,6 +10127,8 @@ function renderAll() {
   // must not be gated on the planner being the open tab.
   renderPclsVerdict(model);
   renderMoveOutTradeoff(model);
+  renderAccumulationSummary(model);
+  renderPclsPreview(model);
   // "for whom" only means something while the overlay is drawn, and only when
   // there are two people to choose between.
   const swWrap = els("survivalWhoWrap");
@@ -11152,6 +11405,13 @@ els("extraSaveOn").addEventListener("change", e => {
     onUserChange();
   }));
 
+// The investment rate follows the pot rate while the box is ticked, so both
+// the tick-box and the pot rate itself have to re-run the mirror.
+["isaFollowsPot", "yourPotGrowth", "yourIndexGrowth"].forEach(id => {
+  const el = els(id);
+  if (el) el.addEventListener("change", applyIsaGrowth);
+});
+
 document.querySelectorAll(
   "input:not(#profileNameInput):not(#accountEmail):not(#accountPassword), " +
   "select:not(#profileSelect):not(#sharePermission)").forEach(inp => {
@@ -11845,7 +12105,7 @@ function seedDemoProfiles() {
     careStayOn: true, careNursingYears: "1.5", careHomeYears: "2.5",
     spouseCareNursingYears: "1.5", spouseCareHomeYears: "2.5",
     yourTakePcls: false, spouseTakePcls: false, smoothOn: false, spendPhasesOn: false,
-    spouseSalary: "0", spouseContribMonthly: "0", flatMoneyOn: false, levelIncomeOn: false,
+    spouseSalary: "0", spouseContribMonthly: "0", isaGrowth: "8", flatMoneyOn: false, levelIncomeOn: false,
     yourIncome: "0", yourIncomeGrowth: "2", cashCurrent: "0", spouseCashCurrent: "0",
     spousePot: "0", spouseDrawdown: "4", spousePotGrowth: "8", spouseIncome: "0", spouseIncomeGrowth: "2",
     statePensionWeekly: "230.25", statePensionGrowth: "2.5", discountRate: "2.5", survivalWho: "either",
@@ -12744,7 +13004,7 @@ refreshProfileSelect();
 els("giftStartYear").value = todayObj().y;
 currentCountry = els("country").value || "UK";
 updateCurrencyLabels();
-applyIndexGrowth("you"); applyIndexGrowth("spouse");
+applyIndexGrowth("you"); applyIndexGrowth("spouse"); applyIsaGrowth();
 applyTextScale();
 applyRail();
 normaliseCheckLabels();
