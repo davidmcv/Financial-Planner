@@ -97,3 +97,30 @@ would be two elements sharing an id. And pressing Save on an iPad used to open
 the system share sheet, whose top row is AirDrop contacts: the test simulates
 that device (desktop Chromium has no `navigator.canShare` for files) and holds
 Save to downloading, with sharing on its own button.
+
+## test_stress_runs.py
+
+The stress test's run count is a slider from 1,000 to 100,000 in 2,000 steps.
+Two things had to be true before that was safe: 100,000 runs must not lock the
+page (the work runs in slices between frames, with progress and a cancel), and
+the longevity chart must not inherit the number — it re-simulates on every
+redraw, so at 100,000 the whole app would stall each time anything moved. Both
+are pinned here, along with the honesty check: more runs make the answer
+steadier, not more accurate about markets, and the page has to say so with the
+actual margin of error.
+
+## test_accessibility.py
+
+WCAG 2.2 AA via axe-core, across 60 page states: every tab, both themes, both
+detail levels, phone and desktop, the dialogs, and the largest text setting.
+The app is used in the UK, US, France and Australia, whose accessibility laws
+(Equality Act, ADA/Section 508, EAA via EN 301 549, DDA) all point at the same
+standard, so testing the strictest covers them.
+
+Plus the things a static scan cannot judge: that Tab reaches the controls
+without sticking, that focus is visible where it lands, and that Escape closes
+every dialog.
+
+axe-core is vendored in `vendor/` so the suite runs offline against a known
+version. Automated checks find roughly a third of WCAG failures — this is the
+floor, not a certificate.
