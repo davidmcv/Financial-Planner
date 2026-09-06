@@ -86,3 +86,14 @@ size, personal allowances are applied (banding from the first pound made Spain
 look like a 29% jurisdiction), and the honest parts survive: the health
 warning, the no-retirement-visa verdicts, the Schengen 90/180 limit, and the
 fact that leaving the UK gives up the 25% tax-free quarter.
+
+## test_plan_save.py
+
+Where the plan controls are, and what Save actually does. The controls used to
+sit on the People page between Country and UK region, so saving meant
+navigating away from your work; they now live in the rail, visible from every
+tab, and move into a sheet on a phone — moved, not copied, because two copies
+would be two elements sharing an id. And pressing Save on an iPad used to open
+the system share sheet, whose top row is AirDrop contacts: the test simulates
+that device (desktop Chromium has no `navigator.canShare` for files) and holds
+Save to downloading, with sharing on its own button.

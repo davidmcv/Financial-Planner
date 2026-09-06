@@ -250,6 +250,22 @@
   }
   .profile-row .icon-btn:hover { border-color: var(--accent); color: var(--accent-strong, var(--accent)); }
   .profile-row #deleteProfile:hover { border-color: var(--critical); color: var(--critical); }
+  /* The plan block in the rail: the picker gets the full width (plan names are
+     long and the rail is narrow), and its buttons share the line below it. */
+  #planBox > select {
+    width: 100%; min-width: 0; font: inherit; font-size: 0.84rem;
+    padding: 7px 8px; border-radius: 8px; border: 1px solid var(--control-border);
+    background: var(--paper); color: var(--ink);
+  }
+  #planBox .profile-row .icon-btn { flex: 1 1 0; text-align: center; }
+  /* ...and in the phone sheet, where there is room to breathe. */
+  #planModalBody #planBox { padding: 0; gap: 8px; }
+  #planModalBody #planBox > select { font-size: 1rem; padding: 10px; }
+  /* An icon alone is a guess. The rail is too narrow for words, so the labels
+     appear only in the sheet, where there is room for them. */
+  .btn-label { display: none; }
+  #planModalBody .btn-label { display: inline; margin-left: 6px; font-size: 0.9rem; }
+  #planModalBody .profile-row .icon-btn { padding: 10px 8px; }
   .tabs {
     display: flex;
     flex-direction: column;
@@ -1336,6 +1352,25 @@
       <button class="tab-btn advanced-only" id="tabbtn-relocate" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-relocate" data-tab="relocate"><span class="icon" aria-hidden="true">&#127758;</span><span class="fold">Where to live</span></button>
     </nav>
     <div class="rail-footer">
+      <!-- The plan lives here, not on one page. Saving and loading were buried
+           on the People tab next to Country and UK region, so from any other
+           tab you had to navigate away to save your work - and the one control
+           people look for most was the one hardest to find. On a phone the
+           rail is hidden, so the same block is moved into a sheet by the Plans
+           button in the top bar: moved, not copied, because two copies would
+           mean two elements with the same id and the second would win. -->
+      <div class="rail-fold-block profile-box" id="planBox" style="padding: 0;">
+        <span class="profile-label" id="planLabel">Plan</span>
+        <select id="profileSelect" aria-labelledby="planLabel"></select>
+        <div class="profile-row" id="planButtons">
+          <button class="icon-btn" id="profileExportBtn" title="Save this plan to a file" aria-label="Save to file">&#128190;<span class="btn-label">Save</span></button>
+          <button class="icon-btn" id="profileImportBtn" title="Load a plan from a file" aria-label="Load from file">&#128193;<span class="btn-label">Load</span></button>
+          <button class="icon-btn" id="shareProfile" title="Share this plan with another account" aria-label="Share plan" style="display: none;">&#128101;<span class="btn-label">Share</span></button>
+          <button class="icon-btn" id="deleteProfile" title="Delete this plan" aria-label="Delete plan">&#128465;<span class="btn-label">Delete</span></button>
+          <input type="file" id="profileImportInput" accept=".json,application/json" style="display: none;" aria-label="Choose a saved plan file to load">
+        </div>
+        <span class="hint" id="profileFileMsg" style="display: none; font-weight: 600;"></span>
+      </div>
       <div class="rail-fold-block profile-box" style="padding: 0;">
         <span class="profile-label" id="viewLevelLabel">View</span>
         <div class="wording-seg level-seg" style="width: 100%;" role="group" aria-labelledby="viewLevelLabel">
@@ -1381,8 +1416,26 @@
       <button data-level="simple" aria-pressed="false">Simple</button>
       <button data-level="advanced" aria-pressed="false">Advanced</button>
     </div>
+    <button class="icon-btn" id="openPlansMobile" aria-label="Saved plans" title="Saved plans">&#128190;</button>
     <button class="icon-btn" id="openSettingsMobile" aria-label="Assumptions">&#9881;</button>
   </header>
+
+  <!-- The plan block, on a phone. The rail is hidden below 860px, so the same
+       controls are moved in here rather than duplicated. -->
+  <div class="modal-backdrop" id="planModal">
+    <div class="modal" style="max-width: 420px;" role="dialog" aria-modal="true" aria-labelledby="planModalTitle">
+      <div class="modal-head">
+        <h2 id="planModalTitle">Saved plans</h2>
+        <button class="icon-btn" id="closePlanModal" aria-label="Close">&#10005;</button>
+      </div>
+      <div id="planModalBody"></div>
+      <p class="hint" style="margin: 0;">Pick a plan to load it, or use the buttons to save this one to a file,
+        load one from a file, or delete it.</p>
+      <div class="modal-actions">
+        <button class="btn-primary" id="closePlanModal2">Done</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Recalculated headline figures are announced here so a screen-reader user
        hears the outcome of an edit without hunting for it (WCAG 4.1.3). -->
@@ -1399,18 +1452,6 @@
 
       <div class="card">
         <div class="field-row settings-row">
-          <div class="field">
-            <label for="profileSelect">Saved plan</label>
-            <div class="profile-row">
-              <select id="profileSelect"></select>
-              <button class="icon-btn" id="profileExportBtn" title="Save this plan to a file" aria-label="Save to file">&#128190;</button>
-              <button class="icon-btn" id="profileImportBtn" title="Load a plan from a file" aria-label="Load from file">&#128193;</button>
-              <button class="icon-btn" id="shareProfile" title="Share this plan with another account" aria-label="Share plan" style="display: none;">&#128101;</button>
-              <button class="icon-btn" id="deleteProfile" title="Delete this plan" aria-label="Delete plan">&#128465;</button>
-              <input type="file" id="profileImportInput" accept=".json,application/json" style="display: none;" aria-label="Choose a saved plan file to load">
-            </div>
-            <span class="hint" id="profileFileMsg" style="display: none; font-weight: 600;"></span>
-          </div>
           <div class="field">
             <label for="country" data-def="countryRules">Country <span class="hint-inline">(tax &amp; state pension)</span></label>
             <select id="country">
@@ -2996,6 +3037,7 @@
     <div class="modal-actions" style="gap: 8px;">
       <button class="btn-ghost" id="closeSaveFile2">Cancel</button>
       <button class="btn-ghost" id="saveFileAsNew" style="display: none;">Save as new file&hellip;</button>
+      <button class="btn-ghost" id="saveFileShare" style="display: none;">&#128228; Share&hellip;</button>
       <button class="btn-primary" id="saveFileConfirm">&#11015; Save file</button>
     </div>
   </div>
@@ -12605,6 +12647,28 @@ if (typeof ResizeObserver !== "undefined") {
 
 els("openSettingsMobile").addEventListener("click", () => els("settingsModal").classList.add("open"));
 
+/* The plan block on a phone. It is MOVED between the rail and the sheet, never
+   copied: two copies would be two elements sharing an id, and every
+   getElementById in the app would silently pick the first one. Moving keeps
+   the listeners attached - they live on the elements themselves - so nothing
+   has to be rebound. */
+function openPlanSheet() {
+  const box = els("planBox");
+  const body = els("planModalBody");
+  if (box && body && box.parentElement !== body) body.appendChild(box);
+  els("planModal").classList.add("open");
+}
+function closePlanSheet() {
+  const box = els("planBox"), footer = document.querySelector(".rail-footer");
+  // Put it back at the top of the rail footer, where it lives.
+  if (box && footer && box.parentElement !== footer) footer.insertBefore(box, footer.firstChild);
+  els("planModal").classList.remove("open");
+}
+els("openPlansMobile").addEventListener("click", openPlanSheet);
+els("closePlanModal").addEventListener("click", closePlanSheet);
+els("closePlanModal2").addEventListener("click", closePlanSheet);
+els("planModal").addEventListener("click", e => { if (e.target.id === "planModal") closePlanSheet(); });
+
 els("spouseSwitch").addEventListener("click", () => {
   const on = els("spouseSwitch").classList.toggle("on");
   els("spouseSwitch").setAttribute("aria-checked", String(on));
@@ -13190,12 +13254,15 @@ async function openSaveFileModal() {
     ? `&#128193; A <b>&ldquo;Save as&rdquo; dialog will open</b> so you choose the folder &mdash; a local folder,
        <b>Google&nbsp;Drive</b> or <b>iCloud&nbsp;Drive</b>. Pick an existing file to <b>replace</b> it.
        From then on, Save writes straight back to that same file.`
-    : canShareFile(base + ".pension.json", json)
-    ? `&#128228; The <b>share sheet will open</b> &mdash; choose <b>&ldquo;Save to Files&rdquo;</b> to put the file in
-       <b>iCloud&nbsp;Drive</b> or on this device, or share it straight to the <b>Google&nbsp;Drive</b> app.`
-    : `&#11015;&#65039; This will <b>download to your Downloads folder</b> (or wherever your browser saves downloads).
-       A download can only add a file, so your browser will name it <b>&ldquo;(1)&rdquo;</b> if one is already there.
-       To overwrite instead, open this page in its own browser tab (not embedded) on a desktop browser.`;
+    : `&#11015;&#65039; This <b>downloads the file</b> to wherever your browser saves downloads &mdash; on an iPhone or
+       iPad that is the <b>Files</b> app, under Downloads. A download can only add a file, so your browser will name it
+       <b>&ldquo;(1)&rdquo;</b> if one is already there. To overwrite instead, open this page in its own browser tab
+       (not embedded) on a desktop browser.${canShareFile(base + ".pension.json", json)
+         ? ` To put it in iCloud&nbsp;Drive or Google&nbsp;Drive, or send it to someone, use <b>Share</b> instead.` : ""}`;
+  // Sharing is offered, never sprung: the share sheet leads with AirDrop
+  // contacts, and this file is a complete financial plan.
+  const shareBtn = els("saveFileShare");
+  if (shareBtn) shareBtn.style.display = canShareFile(base + ".pension.json", json) ? "" : "none";
   // Auto-save is only on the table once there is a file to save to.
   const autoRow = els("autoSaveRow");
   if (autoRow) {
@@ -13263,19 +13330,17 @@ async function doSaveFile(forcePicker) {
       // otherwise (e.g. blocked) fall through to the share sheet / download
     }
   }
-  // iPad / iPhone / Android: the share sheet. Must be called straight from the
-  // tap (no awaits before it) or Safari drops the user-gesture and rejects.
-  if (canShareFile(fname, json)) {
-    try {
-      await navigator.share({ files: [new File([json], fname, { type: "application/json" })], title: fname });
-      fileNotice(`Saved “${planName}” — shared ${fname}; "Save to Files" puts it in the folder you picked`);
-      closeSaveFileModal();
-      return;
-    } catch (e) {
-      if (e && e.name === "AbortError") return; // user closed the share sheet - stay open
-      // NotAllowedError etc: fall through to a plain download
-    }
-  }
+  /* iPad, iPhone and Android used to jump straight to the system share sheet
+     here, and that was the wrong call. The share sheet leads with AirDrop
+     contacts, so the most prominent thing on screen after pressing "Save" was
+     a row of people to send the file to - and the file is a complete personal
+     financial plan. Saving and sending are different intentions, and pressing
+     Save should never put the sending options first.
+
+     Safari has downloaded files straight into Files since iOS 13, so the
+     plain download below works on those devices too, and lands the file
+     without offering to broadcast it. Sharing is still available - it moved
+     to its own button, where it is chosen rather than sprung. */
   try {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([json], { type: "application/json" }));
@@ -13352,6 +13417,32 @@ els("autoSaveOn").addEventListener("change", e => {
 els("saveFileConfirm").addEventListener("click", () => doSaveFile(false));
 // "Save as new file" ignores the remembered file and opens the picker.
 els("saveFileAsNew").addEventListener("click", () => doSaveFile(true));
+
+/* Share, as a deliberate act. navigator.share has to be called straight from
+   the tap - any await first and Safari drops the user gesture and rejects -
+   so the payload is built synchronously here. */
+els("saveFileShare").addEventListener("click", () => {
+  const planName = (els("saveFileName").value || "").trim()
+    .replace(/\.pension$/i, "").replace(/\.json$/i, "").trim()
+    || currentProfileName || "Pension plan";
+  const base = planName.replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-") || "pension-plan";
+  const fname = base + ".pension.json";
+  const json = JSON.stringify(currentPlanPayload(planName), null, 2);
+  saveAsProfile(planName);
+  if (!canShareFile(fname, json)) {
+    saveFileMsg("Sharing isn't available in this browser — use Save file instead.", true);
+    return;
+  }
+  navigator.share({ files: [new File([json], fname, { type: "application/json" })], title: fname })
+    .then(() => {
+      fileNotice(`Shared ${fname} — “Save to Files” puts it in the folder you picked`);
+      closeSaveFileModal();
+    })
+    .catch(e => {
+      if (e && e.name === "AbortError") return;   // closed the sheet: stay put
+      saveFileMsg("That share didn't go through — use Save file instead.", true);
+    });
+});
 // Enter in the name field saves, as it would in any native save dialog.
 els("saveFileName").addEventListener("keydown", e => {
   if (e.key === "Enter") { e.preventDefault(); doSaveFile(false); }
