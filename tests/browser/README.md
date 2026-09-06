@@ -55,3 +55,34 @@ Australia, where super is already tax-free after 60 so there is nothing to
 escape. Checks the caps bind, the tax matches the country's taxable share, and
 that the Australian panel says there is nothing to gain rather than selling the
 strategy anyway.
+
+## test_strategy_verdicts.py
+
+Every "is this worth doing?" panel runs the plan twice and subtracts. This
+pins what is subtracted: spendable money, after income tax, counting what is
+left in the pension, discounted to today. Each of those three was missing at
+some point, and each produced a confident wrong number rather than a crash —
+"move only what comes out tax-free" cost £0 in tax and was reported £320,264
+behind. The assertion that cannot be argued with: a transfer that costs
+nothing cannot leave the household worse off.
+
+## test_wrapper_choice.py
+
+The arithmetic behind "ISA, your pension, or your partner's?" — relief on the
+top slice of each person's pay against the tax on the way out. Checks the four
+cases people actually hit (basic rate, higher rate, the 60% band, and a
+non-taxpayer who still gets 20% at source), and that two people on different
+salaries get different answers. If it ever reports the same relief rate for
+two very different salaries, the page is reading household income where it
+should read one person's.
+
+## test_relocate.py
+
+The Where to live page. A country comparison is the easiest page here to fake:
+plausible percentages beside country names look authoritative and nobody
+checks. So this proves it is computed — the income comes from the plan,
+changing it re-ranks, every country's tax responds to income and household
+size, personal allowances are applied (banding from the first pound made Spain
+look like a 29% jurisdiction), and the honest parts survive: the health
+warning, the no-retirement-visa verdicts, the Schengen 90/180 limit, and the
+fact that leaving the UK gives up the 25% tax-free quarter.
