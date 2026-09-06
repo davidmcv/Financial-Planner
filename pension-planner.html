@@ -2484,12 +2484,10 @@
       <div class="planner-tab" id="planner-tab-funding">
       <div class="card">
         <h3>Funding &amp; smoothing</h3>
-        <label class="check-inline"><input type="checkbox" id="smoothOn"> Use non-pension savings to smooth spending</label>
-        <p class="caption" style="margin-top:-2px;">When on, cash, ISAs, GIAs, tax-free lump sums and any downsizing proceeds are drawn to top income up to your target &mdash; flattening the income line and the later drop-off. The breakdown chart shows exactly where each year's money comes from.</p>
-        <div class="field-row" style="margin-top: 10px; align-items: center;">
-          <button type="button" class="btn-primary" id="maxIncomeBtn">Find my maximum sustainable income</button>
-          <span id="maxIncomeOut" style="font-size: 0.9rem;"></span>
-        </div>
+        <p class="caption" style="margin-top:-2px;">With <b>Use savings to smooth</b> on &mdash; in the options bar under the
+          charts &mdash; cash, ISAs, GIAs, tax-free lump sums and any downsizing proceeds are drawn to top income up to your
+          target, flattening the income line and the later drop-off. The breakdown chart shows exactly where each year's money
+          comes from. <b>Find max income</b>, in the same bar, then sweeps the target to the highest level the plan sustains.</p>
         <p class="caption" style="margin-top: 8px;">Tip: the red target line on the chart above is <b>draggable</b> &mdash; grab it to sweep your income target up and down; pension income and savings are fitted below it to fill any funding gaps. Double-click the chart to reset to the living-standard target.</p>
       </div>
 
@@ -2541,6 +2539,7 @@
           shelters what is left. A pension normally also sits <b>outside your estate</b> for inheritance tax, and an ISA does not, so
           moving money across can increase the tax your heirs pay too. It is worth it mainly if you would otherwise have unused
           personal allowance, or you want money outside the pension for a specific reason.</span></div>
+        <div id="moveOutTradeoff"></div>
         <div class="field-row" id="stratIsaFields">
           <div class="field">
             <label for="stratIsaAmt">Withdraw per person (<span class="cur">&pound;</span> / year)</label>
@@ -2592,7 +2591,19 @@
              full explanations would cost more vertical space than the charts. -->
         <div class="check-row">
           <label class="check-inline" title="Include the house in the total (shown as a line — a house dwarfs the other pots)"><input type="checkbox" id="balanceProperty"> Include property</label>
-          <label class="check-inline" title="Show the chance of still being alive at each age on the charts"><input type="checkbox" id="showSurvival"> Chance of being alive</label>
+          <label class="check-inline" data-def="survivalOverlay"><input type="checkbox" id="showSurvival"> Chance of being alive</label>
+          <label class="check-inline" id="survivalWhoWrap" style="gap:6px;">
+            <span class="hint-inline">for</span>
+            <select id="survivalWho" style="height:30px; padding:2px 8px; font-size:0.85rem;">
+              <option value="either">either of us</option>
+              <option value="you">me</option>
+              <option value="spouse">my partner</option>
+            </select>
+          </label>
+          <label class="check-inline" data-def="smoothing"><input type="checkbox" id="smoothOn"> Use savings to smooth</label>
+          <button type="button" class="btn-ghost" id="maxIncomeBtn" data-def="maxIncome"
+            style="height:32px; padding:0 12px; font-size:0.85rem;">Find max income</button>
+          <span id="maxIncomeOut" style="font-size: 0.85rem; align-self:center;"></span>
           <label class="check-inline" title="Show flat, today's-money numbers (strip inflation-style growth)"><input type="checkbox" id="flatMoney"> Today's money</label>
           <label class="check-inline" title="Level income: draw the pension as needed &amp; bank surplus to close gaps"><input type="checkbox" id="levelOn"> Level income</label>
           <label class="check-inline" title="Run the plan to the maximum modelled age"><input type="checkbox" id="toMaxAge" checked> Run to maximum age</label>
@@ -3795,6 +3806,24 @@ const GLOSSARY = {
    links to it.
    ========================================================================= */
 const DEFINITIONS = {
+  smoothing: {
+    phrases: ["Use savings to smooth"],
+    plain: "Lets the plan spend your non-pension money - cash, ISAs, investment accounts, any tax-free lump sum - to top your income up to the target in years when the pensions alone fall short. With it off, the income line shows pension and salary only, so money sitting in savings is invisible and years can look short of the target when they are not.",
+    expert: "Enables the funding model as the income basis: non-pension pools are drawn in order to meet the target before the shortfall count is taken. With it off the chart plots the raw income stack, so decumulation from non-pension assets is excluded from both the line and the verdict.",
+    src: "drawdown",
+  },
+  maxIncome: {
+    phrases: ["Find max income"],
+    plain: "Searches for the highest yearly income the plan can pay without running out of money, and sets the target line to it. A quick way to answer \u201chow much can I actually afford to spend?\u201d rather than guessing a figure and checking it.",
+    expert: "Solves for the maximum sustainable withdrawal: the largest constant real target the funding model supports across the full horizon without exhausting the pools. Sets plannerTarget to the result.",
+    src: "rls",
+  },
+  survivalOverlay: {
+    phrases: ["Chance of being alive"],
+    plain: "Draws your odds of still being alive at each age, on its own 0-100% scale down the right-hand side. The far end of a plan is real but progressively less likely, and this says so. For a couple you can show either of you, or just one.",
+    expert: "Gompertz survival curve calibrated to the ONS cohort median for each person. \u201cEither of us\u201d is 1-(1-p_you)(1-p_partner), the joint last-survivor probability - the horizon the money actually has to cover.",
+    src: "lifeExp",
+  },
   retireAgeChoice: {
     phrases: ["Retire at age"],
     plain: "The age you stop earning and start living off the plan. It is your choice, but it is not the same as the age you can first touch a private pension, or the age the State Pension starts - retire before those and the years in between have to be paid for out of savings.",
@@ -5077,6 +5106,7 @@ function collectProfileData() {
   data.pclsEarlyIsa = els("pclsEarlyIsa").checked;
   data.toMaxAge = els("toMaxAge").checked;
   data.showSurvival = els("showSurvival").checked;
+  data.survivalWho = els("survivalWho").value;
   data.spouseTakePcls = els("spouseTakePcls").checked;
   data.smoothOn = els("smoothOn").checked;
   data.spendPhasesOn = els("spendPhasesOn").checked;
@@ -5167,6 +5197,7 @@ function applyProfileData(data) {
   els("pclsEarlyIsa").checked = !!data.pclsEarlyIsa;
   if (data.toMaxAge != null) els("toMaxAge").checked = !!data.toMaxAge;
   els("showSurvival").checked = !!data.showSurvival;
+  els("survivalWho").value = data.survivalWho || "either";
   els("spouseTakePcls").checked = !!data.spouseTakePcls;
   els("smoothOn").checked = !!data.smoothOn;
   els("spendPhasesOn").checked = !!data.spendPhasesOn;
@@ -5365,6 +5396,7 @@ function readInputs() {
     pclsEarlyIsa: els("pclsEarlyIsa").checked,
     toMaxAge: els("toMaxAge").checked,
     showSurvival: els("showSurvival").checked,
+    survivalWho: els("survivalWho").value,
     spouseSalary: Math.min(1000000, Math.max(0, money("spouseSalary"))),
     spouseCountry: els("spouseCountry").value || "UK",
     spouseScottish: els("spouseScotland") && els("spouseScotland").value === "scot",
@@ -5702,6 +5734,85 @@ function ongoingContribVerdict(model, plan) {
 /* The panel. States the answer first, then shows the arithmetic behind it,
    then the rules that constrain it - in that order, because the answer is
    what was asked for and the rest is why it should be believed. */
+/* =========================================================================
+   MOVING MONEY OUT OF A PENSION INTO INVESTMENTS: THE TRADE-OFF, COSTED
+   Unlike the lump-sum question this one cannot be answered by running the
+   plan twice, because stratIsaOn is not part of the projection - it feeds the
+   comparison table and the ISA tracker only. So do the arithmetic explicitly
+   on the plan's own numbers and say plainly that the chart will not move.
+
+   The core of it: an ISA and a pension BOTH grow tax-free, so shifting money
+   between them buys no growth advantage. What it costs is the tax to get the
+   money out; what it buys is access before pension age, and no tax on the way
+   out later. Those cancel exactly when your tax rate now equals your rate
+   later - and then inheritance tax breaks the tie the other way.
+   ====================================================================== */
+function renderMoveOutTradeoff(model) {
+  const box = els("moveOutTradeoff");
+  if (!box) return;
+  const inp = model.inp;
+  if (!inp.stratIsaOn || currentCountry !== "UK") { box.innerHTML = ""; return; }
+
+  const amt = Math.max(0, inp.stratIsaAmt || 0);
+  if (!amt) { box.innerHTML = ""; return; }
+
+  const g = (inp.yourPotGrowth || 0) / 100;
+  const horizon = Math.max(1, (model.you.lifeExpAge || 90) - (model.yourMeta.decumStartAge || 65));
+  const firstRow = model.yourRows.find(r => !r.isBridge) || {};
+  const mr = marginalRate(firstRow.annual || 0);
+
+  // Getting it out: a quarter tax-free, the rest at the marginal rate.
+  const taxToMove = amt * (1 - TAXDATA.UK.ufplsTaxFree) * mr;
+  const lands = amt - taxToMove;
+  const grow = v => v * Math.pow(1 + g, horizon);
+
+  // Left alone the whole amount keeps compounding, and is taxed the same way
+  // whenever it is eventually drawn - so compare like with like at the end.
+  const ifLeft = grow(amt);
+  const ifLeftNet = ifLeft * (TAXDATA.UK.ufplsTaxFree + (1 - TAXDATA.UK.ufplsTaxFree) * (1 - mr));
+  const ifMoved = grow(lands);          // already taxed, ISA pays nothing more
+  const delta = ifMoved - ifLeftNet;
+
+  const iht = 0.40;
+  const ihtCost = ifMoved * iht;        // in the estate, where the pension was not
+
+  const money = v => gbp0(Math.abs(v));
+  const pct = Math.round(mr * 100);
+  const tone = delta > 500 ? "" : delta < -500 ? " warn" : " gold";
+  const headline = Math.abs(delta) <= 500
+    ? "A wash on tax &mdash; decided by the other two rows"
+    : delta > 0 ? "Slightly ahead on tax" : "Behind on tax";
+
+  box.innerHTML = `
+    <div class="card" style="margin:8px 0 10px; padding:14px 16px;">
+      <div class="person-title" style="margin-bottom:6px;">
+        <h3 style="margin:0; font-size:1rem;">What moving ${money(amt)} a year actually costs</h3>
+        <span class="pill${tone}">${headline}</span>
+      </div>
+      <p class="caption" style="margin:0 0 8px;">A pension and an ISA <b>both grow free of tax</b>, so moving money between
+        them buys no extra growth. Three things change, and only three:</p>
+      <div class="stat-row">
+        <div class="stat"><span class="label">1. Tax to get it out</span>
+          <span class="value" style="color:var(--critical)">&minus;${money(taxToMove)}</span>
+          <span class="sub">of each ${money(amt)}: a quarter is tax-free, the rest taxed at your ${pct}% retirement rate,
+            so ${money(lands)} actually lands</span></div>
+        <div class="stat"><span class="label">2. Tax later</span>
+          <span class="value">${delta >= 0 ? "+" : "&minus;"}${money(delta)}</span>
+          <span class="sub">after ${horizon} years at ${inp.yourPotGrowth}%: ${money(ifMoved)} from an ISA, tax paid,
+            against ${money(ifLeftNet)} net if left and drawn the same way. These cancel while your tax rate stays the same</span></div>
+        <div class="stat"><span class="label">3. Inheritance tax</span>
+          <span class="value" style="color:var(--critical)">&minus;${money(ihtCost)}</span>
+          <span class="sub">the moved money joins your estate, taxable at 40% above the nil-rate band; left in the pension it
+            normally would not be</span></div>
+      </div>
+      <p class="caption" style="margin:8px 0 0;"><b>So it is worth doing when</b> you will pay a lower rate taking it out than
+        you would later, you need the money before pension age, or you have allowances going spare. <b>It is not worth doing</b>
+        simply to get money into an ISA &mdash; the pension already grows tax-free and is normally outside your estate.</p>
+      <p class="caption" style="margin:6px 0 0;"><b>Note:</b> this strategy is not part of the projection, so the charts will
+        not move when you tick it. It appears in the comparison table and the ISA-allowance tracker, and is costed here.</p>
+    </div>`;
+}
+
 /* =========================================================================
    IS THE 25% TAX-FREE LUMP SUM WORTH TAKING?
    The tax answer is a wash: drawdown here is modelled as UFPLS, so a quarter
@@ -7706,11 +7817,14 @@ function survivalLine(model, today) {
   const curYou = ageAtDate(model.you.dob, today), medYou = model.you.lifeExpAge;
   const curSp = model.spouse ? ageAtDate(model.spouse.dob, today) : null;
   const medSp = model.spouse ? model.spouse.lifeExpAge : null;
+  const who = model.inp.survivalWho || "either";
   return year => {
     const sYou = survivalProb(curYou, medYou, year - model.you.dob.y);
     if (!model.spouse) return sYou;
     const sSp = survivalProb(curSp, medSp, year - model.spouse.dob.y);
-    return 1 - (1 - sYou) * (1 - sSp);
+    if (who === "you") return sYou;
+    if (who === "spouse") return sSp;
+    return 1 - (1 - sYou) * (1 - sSp);   // either of them still alive
   };
 }
 
@@ -9514,7 +9628,7 @@ function renderAll() {
      retirement slider on People used to leave the age beside it stale. */
   updateRetireSliders(model);
   // spouse-specific controls must never show when no spouse is included
-  ["spouseRetireField", "spouseRetireField2", "spouseCareFields", "spouseCareStayFields",
+  ["spouseRetireField", "spouseRetireField2", "spouseCareFields", "spouseCareStayFields", "survivalWhoWrap",
     "stratSpouseContribLabel"].forEach(id => {
     const el = els(id); if (el) el.style.display = model.spouse ? "" : "none";
   });
@@ -9536,6 +9650,11 @@ function renderAll() {
   // The lump-sum verdict sits beside its tick-box on the Pensions page, so it
   // must not be gated on the planner being the open tab.
   renderPclsVerdict(model);
+  renderMoveOutTradeoff(model);
+  // "for whom" only means something while the overlay is drawn, and only when
+  // there are two people to choose between.
+  const swWrap = els("survivalWhoWrap");
+  if (swWrap) swWrap.style.display = (model.spouse && model.inp.showSurvival) ? "" : "none";
   scheduleTableScrollbars();
   scheduleDefTagging();
 }
@@ -10553,7 +10672,11 @@ function updateRetireSliders(model) {
     if (!r) return;
     if (fieldId) els(fieldId).style.display = model.spouse ? "" : "none";
     if (!d || !dob) return;
-    const min = model.today.y, max = dob.y + 75;
+    /* Start the range at the earliest age anyone could plausibly have stopped
+       work rather than at this year, so a plan for someone already retired can
+       be dragged to where it actually happened. The floor is their 18th
+       birthday - before that there is no working life to retire from. */
+    const min = dob.y + 18, max = dob.y + 75;
     if (+r.min !== min) r.min = min;
     if (+r.max !== max) r.max = max;
     if (+r.value !== d.y) r.value = d.y;
@@ -11500,7 +11623,7 @@ function seedDemoProfiles() {
     spouseSalary: "0", spouseContribMonthly: "0", flatMoneyOn: false, levelIncomeOn: false,
     yourIncome: "0", yourIncomeGrowth: "2", cashCurrent: "0", spouseCashCurrent: "0",
     spousePot: "0", spouseDrawdown: "4", spousePotGrowth: "8", spouseIncome: "0", spouseIncomeGrowth: "2",
-    statePensionWeekly: "230.25", statePensionGrowth: "2.5", discountRate: "2.5",
+    statePensionWeekly: "230.25", statePensionGrowth: "2.5", discountRate: "2.5", survivalWho: "either",
     numChildren: "0", numGrandchildren: "0", smallGiftAmount: "250", annualExemption: "3,000",
     giftPerRecipient: "", essentialSpending: "", plannedAnnualGift: "", giftStartYear: String(todayObj().y),
     country: "UK", scotland: "ruk", spouseCountry: "UK", spouseScotland: "ruk", mcSpend: "", mcRuns: "500",
