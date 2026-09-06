@@ -238,6 +238,11 @@
     text-transform: uppercase;
   }
   .profile-box { display: flex; flex-direction: column; gap: 4px; padding: 0 8px; }
+  /* Any rule that sets `display` outranks the browser's own [hidden] styling,
+     so hiding an element by setting .hidden silently did nothing to blocks
+     like .profile-box or .field. One rule, once, so `el.hidden = true` means
+     hidden everywhere. */
+  [hidden] { display: none !important; }
   .profile-label { font-size: 0.72rem; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.04em; }
   .profile-row { display: flex; gap: 6px; }
   .profile-row select {
@@ -914,7 +919,15 @@
     border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;
     margin-bottom: 10px; background: var(--surface-2);
   }
-  .taxopt.na { opacity: 0.72; }
+  /* Options that don't apply are played down, but not to the point of being
+     hard to read: a blanket 0.72 opacity dragged the small print inside them
+     to 3.35:1 against the card, under the 4.5:1 WCAG asks for text this size.
+     The heading and the note are dimmed instead, each to a colour that still
+     passes, and the small tag keeps full contrast - it is the part that says
+     WHY the option doesn't apply, which is the useful bit. */
+  .taxopt.na { opacity: 1; }
+  .taxopt.na .taxopt-head h4 { color: var(--ink-muted); }
+  .taxopt.na > p { color: var(--ink-muted); }
   .taxopt-head { display: flex; align-items: baseline; gap: 10px; justify-content: space-between; flex-wrap: wrap; }
   .taxopt-head h4 { margin: 0; font-size: 0.92rem; font-family: var(--font-display); }
   .taxopt-save { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
@@ -1378,14 +1391,14 @@
           <button data-level="advanced" style="flex:1;" aria-pressed="false">Advanced</button>
         </div>
       </div>
-      <div class="rail-fold-block profile-box" style="padding: 0;">
+      <div class="rail-fold-block profile-box advanced-only" style="padding: 0;">
         <span class="profile-label" id="themeLabel">Theme</span>
         <div class="wording-seg theme-seg" style="width: 100%;" role="group" aria-labelledby="themeLabel">
           <button data-app-theme="night" style="flex:1;" aria-pressed="false">Night</button>
           <button data-app-theme="day" style="flex:1;" aria-pressed="false">Day</button>
         </div>
       </div>
-      <div class="rail-fold-block profile-box" style="padding: 0;">
+      <div class="rail-fold-block profile-box advanced-only" style="padding: 0;">
         <span class="profile-label" id="textSizeLabel">Text size</span>
         <div class="wording-seg text-seg" style="width: 100%;" role="group" aria-labelledby="textSizeLabel">
           <button data-text-scale="1" style="flex:1; font-size: 0.72rem;" aria-label="Normal text size">A</button>
@@ -1394,7 +1407,7 @@
           <button data-text-scale="1.5" style="flex:1; font-size: 1.12rem;" aria-label="Largest text size">A</button>
         </div>
       </div>
-      <div class="rail-fold-block profile-box" style="padding: 0;">
+      <div class="rail-fold-block profile-box" id="chartModeBlock" style="padding: 0;">
         <span class="profile-label" id="chartModeLabel">Charts on a phone</span>
         <div class="wording-seg chartmode-seg" style="width: 100%;" role="group" aria-labelledby="chartModeLabel">
           <button data-chart-mode="full" aria-pressed="false">Full</button>
@@ -1402,7 +1415,7 @@
           <button data-chart-mode="decade" aria-pressed="false">Decades</button>
           <button data-chart-mode="numbers" aria-pressed="false">Numbers</button>
         </div>
-        <span class="hint" style="padding: 0 2px 4px;">Applies on phone-width screens (under 700px).</span>
+        <span class="hint" id="chartModeHint" style="padding: 0 2px 4px;">Applies on phone-width screens (under 700px).</span>
       </div>
       <button class="settings-btn" id="openSettings" title="Shared assumptions"><span aria-hidden="true">&#9881;</span><span class="fold">Assumptions</span></button>
     </div>
@@ -2344,9 +2357,14 @@
         </div>
         <p class="caption" style="margin-top:-4px;">Replays your household plan against ~100 years of (approximate) real annual returns for a UK/global equity portfolio, resampled in random multi-year blocks, to ask: <b>how often does the money last?</b> Withdrawals each year = your spending target minus guaranteed income (State + DB). Historical patterns are no guarantee of the future.</p>
         <div class="field-row" style="margin: 10px 0;">
-          <div class="field">
-            <label for="mcRuns">Simulations</label>
-            <select id="mcRuns"><option>200</option><option selected>500</option><option>1000</option></select>
+          <div class="field" style="flex: 1 1 300px;">
+            <label for="mcRunsSlider">Simulations <b id="mcRunsVal">1,000</b></label>
+            <input type="range" id="mcRunsSlider" class="fld-slider" min="0" max="50" step="1" value="0"
+                   aria-describedby="mcRunsHint">
+            <!-- The number itself, so saved plans and every existing reader of
+                 els("mcRuns").value keep working unchanged. -->
+            <input type="hidden" id="mcRuns" value="1000">
+            <span class="hint" id="mcRunsHint"></span>
           </div>
           <div class="field">
             <label for="mcSpend">Spending target (<span class="cur">&pound;</span>/yr, today's money)</label>
@@ -2354,6 +2372,7 @@
             <span class="hint">Blank = use living-standard target above</span>
           </div>
           <button type="button" class="btn-primary" id="runMcBtn" style="align-self:flex-end;">Run stress test</button>
+          <span class="hint" id="mcProgress" style="display:none; align-self:flex-end; padding-bottom:10px; font-weight:600;"></span>
         </div>
         <div class="chart-wrap"><canvas id="mcChart" height="260" role="img" aria-describedby="mcCaption" aria-label="Market stress test chart. Run the stress test to fill it in."></canvas></div>
         <p class="caption" id="mcCaption"></p>
@@ -2929,7 +2948,7 @@
       </div>
       <span class="hint">Makes every label, number and chart bigger. Your browser's own zoom still works too.</span>
     </div>
-    <div class="field">
+    <div class="field" id="chartModeBlockM">
       <label id="chartModeLabelM">Charts on this screen</label>
       <div class="wording-seg chartmode-seg" role="group" aria-labelledby="chartModeLabelM">
         <button data-chart-mode="full" style="flex:1;">Full</button>
@@ -3900,38 +3919,96 @@ function sampleReturnPath(years, blockLen = 5) {
 
 /* Monte Carlo: does the household pot survive? All in today's money (real
    returns; flat real spending target and guaranteed income). */
-function mcSimulate({ startPot, years, guaranteed, targetSpend, runs }) {
-  const endBalances = [];
-  const paths = []; // retained subset for the fan chart
-  const solventCount = new Array(years + 1).fill(0); // runs still solvent at each year
-  let successes = 0;
-  for (let r = 0; r < runs; r++) {
+/* ---- How many simulations to run ---------------------------------------
+   The ladder is 1,000, then 2,000 at a time, with 100,000 as the last stop:
+   1,000 / 3,000 / 5,000 ... 99,000 / 100,000.
+
+   More runs do not make the model more truthful - the return history it
+   resamples is the same either way - they make the ANSWER STEADIER. A success
+   rate measured over n runs carries a sampling error of about
+   sqrt(p(1-p)/n): around 1.6 percentage points at 1,000 runs, and 0.16 at
+   100,000. So at 1,000 runs a plan can read 88% now and 85% a moment later
+   with nothing changed, and that wobble is the reason to turn this up - not
+   because the high number is more accurate about markets. The hint under the
+   slider says so, with the actual figure. */
+const MC_RUN_STEPS = 51;                 // slider positions 0..50
+const MC_RUNS_MAX = 100000;
+/* The longevity chart runs its own simulation on every redraw, so it is held
+   to a number that finishes inside a frame however high the stress test is
+   turned up. */
+const LONGEVITY_RUNS_CAP = 2000;
+function mcRunsForStep(i) {
+  const n = Math.max(0, Math.min(MC_RUN_STEPS - 1, Math.round(+i || 0)));
+  return n >= MC_RUN_STEPS - 1 ? MC_RUNS_MAX : 1000 + n * 2000;
+}
+function mcStepForRuns(runs) {
+  const r = +runs || 1000;
+  if (r >= MC_RUNS_MAX) return MC_RUN_STEPS - 1;
+  return Math.max(0, Math.min(MC_RUN_STEPS - 2, Math.round((r - 1000) / 2000)));
+}
+// The margin of error on a success rate, in percentage points (95%).
+function mcMarginPct(p, runs) {
+  const q = Math.min(0.999, Math.max(0.001, p));
+  return 1.96 * Math.sqrt(q * (1 - q) / Math.max(1, runs)) * 100;
+}
+
+/* The simulation, in a form that can be run a piece at a time.
+
+   Every figure it produces is a running total - a count of successes, a count
+   of runs still solvent in each year, the ending balances, and a retained
+   sample of paths for the fan chart - so a batch of runs can be added to an
+   accumulator and the whole thing finished later. That is what lets 100,000
+   runs happen without locking the page: the work is done in slices between
+   frames rather than in one blocking loop. */
+function mcAccumulator(years) {
+  return { years, endBalances: [], paths: [], solventCount: new Array(years + 1).fill(0),
+           successes: 0, done: 0 };
+}
+function mcRunBatch(acc, { startPot, years, guaranteed, targetSpend }, n) {
+  for (let r = 0; r < n; r++) {
     const rets = sampleReturnPath(years);
     let pot = startPot, failed = false;
-    const path = [pot];
-    solventCount[0]++;
+    // Only the first 120 runs keep their full path: the fan chart draws from
+    // that sample, and holding 100,000 arrays of 50-odd years would cost
+    // hundreds of megabytes to draw exactly the same picture.
+    const keep = acc.paths.length < 120;
+    const path = keep ? [pot] : null;
+    acc.solventCount[0]++;
     for (let y = 0; y < years; y++) {
       const need = Math.max(0, targetSpend - (guaranteed[y] || 0));
       pot = (pot - need) * (1 + rets[y]);
       if (pot < 0) { failed = true; pot = 0; }
-      if (!failed) solventCount[y + 1]++;
-      path.push(pot);
+      if (!failed) acc.solventCount[y + 1]++;
+      if (keep) path.push(pot);
     }
-    if (!failed) successes++;
-    endBalances.push(pot);
-    if (r < 120) paths.push(path);
+    if (!failed) acc.successes++;
+    acc.endBalances.push(pot);
+    if (keep) acc.paths.push(path);
+    acc.done++;
   }
-  const solventByYear = solventCount.map(c => c / runs); // fraction lasting to each year
+}
+function mcFinish(acc) {
+  const { years, paths, endBalances, solventCount, done } = acc;
+  const runs = Math.max(1, done);
+  const solventByYear = solventCount.map(c => c / runs);
   const bands = [];
   for (let y = 0; y <= years; y++) {
     const vals = paths.map(p => p[y]).sort((a, b) => a - b);
     const pick = q => vals[Math.min(vals.length - 1, Math.floor(q * vals.length))];
     bands.push({ p10: pick(0.10), p25: pick(0.25), p50: pick(0.50), p75: pick(0.75), p90: pick(0.90) });
   }
-  endBalances.sort((a, b) => a - b);
-  const pickEnd = q => endBalances[Math.min(endBalances.length - 1, Math.floor(q * endBalances.length))];
-  return { successPct: successes / runs * 100, bands, solventByYear,
+  const sorted = endBalances.slice().sort((a, b) => a - b);
+  const pickEnd = q => sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))];
+  return { successPct: acc.successes / runs * 100, bands, solventByYear,
            endLow: pickEnd(0.10), endMed: pickEnd(0.50), endHigh: pickEnd(0.90) };
+}
+
+// The blocking form, still used where the caller needs an answer immediately
+// and asks for a small number of runs.
+function mcSimulate({ startPot, years, guaranteed, targetSpend, runs }) {
+  const acc = mcAccumulator(years);
+  mcRunBatch(acc, { startPot, years, guaranteed, targetSpend }, runs);
+  return mcFinish(acc);
 }
 
 // Money inputs are type="text" with data-money="0|2" (decimal places) so
@@ -5655,6 +5732,10 @@ function applyProfileData(data) {
   els("emergencyFields").style.display = data.emergencyOn ? "" : "none";
 
   if (typeof syncSliders === "function") syncSliders();
+  // The saved plan carries the run COUNT; the slider position has to follow it,
+  // and a plan saved before the slider existed carries 200 or 500, which snap
+  // to the nearest stop on the ladder.
+  if (typeof syncMcRuns === "function") syncMcRuns(true);
   renderAll();
 }
 
@@ -9927,11 +10008,79 @@ function runMonteCarlo(model) {
   const targetSpend = plannerTarget != null ? plannerTarget
     : (custom && custom > 0) ? custom
     : (model.rlsTarget || defaultLivingTarget(model.spouse));
-  const runs = parseInt(els("mcRuns").value, 10) || 500;
+  const runs = parseInt(els("mcRuns").value, 10) || 1000;
+  const setup = { startPot, years, guaranteed, targetSpend };
 
-  lastMc = { ...mcSimulate({ startPot, years, guaranteed, targetSpend, runs }),
-             startYear, years, targetSpend, runs, startPot };
-  drawMcChart();
+  /* Small runs finish inside a frame, so do them on the spot - a progress bar
+     that flashes once is worse than no progress bar. Anything larger is run in
+     slices between frames, because 100,000 runs in one loop would lock the
+     page for seconds with nothing on screen to say why. */
+  if (runs <= 5000) {
+    mcCancel();
+    lastMc = { ...mcSimulate({ ...setup, runs }), startYear, years, targetSpend, runs, startPot };
+    drawMcChart();
+    return;
+  }
+  mcRunChunked(setup, runs, startYear);
+}
+
+/* A long stress test, run a slice at a time.
+
+   Each slice runs for about 12ms and then yields, so the browser can paint,
+   scroll and respond to the Cancel button in between. The slice SIZE adapts to
+   what the machine managed last time rather than being a fixed guess, because
+   the work per run depends on how many years the plan covers and how fast the
+   device is - a phone and a laptop are an order of magnitude apart here. */
+let mcJob = null;
+function mcCancel() {
+  if (mcJob) { mcJob.cancelled = true; mcJob = null; }
+  mcProgress(null);
+}
+function mcProgress(job) {
+  const btn = els("runMcBtn"), out = els("mcProgress");
+  if (!btn) return;
+  if (!job) {
+    btn.textContent = "Run stress test";
+    btn.classList.remove("btn-ghost"); btn.classList.add("btn-primary");
+    if (out) out.style.display = "none";
+    return;
+  }
+  const pct = Math.floor(job.acc.done / job.runs * 100);
+  btn.textContent = "Cancel";
+  btn.classList.remove("btn-primary"); btn.classList.add("btn-ghost");
+  if (out) {
+    out.style.display = "";
+    out.textContent = `Running… ${job.acc.done.toLocaleString()} of ${job.runs.toLocaleString()} (${pct}%)`;
+  }
+}
+function mcRunChunked(setup, runs, startYear) {
+  mcCancel();
+  const job = { acc: mcAccumulator(setup.years), runs, batch: 250, cancelled: false };
+  mcJob = job;
+  mcProgress(job);
+  const step = () => {
+    if (job.cancelled) return;
+    const t0 = performance.now();
+    // keep slicing until this frame's budget is spent
+    while (job.acc.done < runs && performance.now() - t0 < 12) {
+      const n = Math.min(job.batch, runs - job.acc.done);
+      mcRunBatch(job.acc, setup, n);
+    }
+    // aim the next batch at the budget, from what this one actually cost
+    const spent = performance.now() - t0;
+    if (spent > 0) job.batch = Math.max(50, Math.min(20000, Math.round(job.batch * 12 / spent)));
+    if (job.acc.done >= runs) {
+      mcJob = null;
+      lastMc = { ...mcFinish(job.acc), startYear, years: setup.years,
+                 targetSpend: setup.targetSpend, runs, startPot: setup.startPot };
+      mcProgress(null);
+      drawMcChart();
+      return;
+    }
+    mcProgress(job);
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 }
 
 function drawMcChart() {
@@ -9979,8 +10128,14 @@ function drawMcChart() {
     `median ${gbp0(lastMc.endMed)}, high ${gbp0(lastMc.endHigh)}. The caption below repeats these figures.`);
   els("mcVerdict").textContent = `${pct.toFixed(0)}% of runs: money lasts`;
   els("mcVerdict").className = "pill" + (pct >= 85 ? "" : pct >= 60 ? " gold" : " warn");
+  // Say how firm the headline is. A success rate is an estimate from a sample,
+  // and at a thousand runs it moves by more than a percentage point between
+  // runs - quoting it bare invites people to read a difference that is noise.
+  const moe = mcMarginPct(pct / 100, lastMc.runs);
   els("mcCaption").innerHTML =
-    `${lastMc.runs.toLocaleString()} simulations, spending target ${gbp0(lastMc.targetSpend)}/yr (today's money) from ${startYear}, ` +
+    `${lastMc.runs.toLocaleString()} simulations, so the ${pct.toFixed(0)}% above is accurate to about ` +
+    `<b>&plusmn;${moe.toFixed(1)} points</b>; run more for a steadier figure. ` +
+    `Spending target ${gbp0(lastMc.targetSpend)}/yr (today's money) from ${startYear}, ` +
     `starting pot ${gbp0(lastMc.startPot)}. Shaded = 10th&ndash;90th and 25th&ndash;75th percentile pot balance; line = median. ` +
     `Ending pot: low ${gbp0(lastMc.endLow)}, median ${gbp0(lastMc.endMed)}, high ${gbp0(lastMc.endHigh)}. ` +
     `Returns resampled in 5-year blocks from an <b>approximate</b> 1925&ndash;2024 UK/global equity real-return history.`;
@@ -10011,7 +10166,14 @@ function longevityData(model) {
   const custom = parseMoney(els("mcSpend").value);
   const targetSpend = plannerTarget != null ? plannerTarget
     : (custom && custom > 0) ? custom : (model.rlsTarget || defaultLivingTarget(model.spouse));
-  const runs = parseInt(els("mcRuns").value, 10) || 500;
+  /* This chart redraws on every render - a tab switch, a resize, a theme
+     change, any edit - and it re-runs the simulation each time. So it must NOT
+     inherit the stress test's run count: at 100,000 runs the whole app would
+     stall every time anything moved. It is capped at a number that draws
+     inside a frame, and the caption says which figure came from where, so the
+     two are never mistaken for each other. */
+  const asked = parseInt(els("mcRuns").value, 10) || 1000;
+  const runs = Math.min(asked, LONGEVITY_RUNS_CAP);
   const sim = mcSimulate({ startPot, years, guaranteed, targetSpend, runs });
   const solvent = sim.solventByYear;
 
@@ -11681,6 +11843,13 @@ function activateTab(tabName) {
     // Canvas has zero width while hidden - draw once visible.
     requestAnimationFrame(() => { drawPlannerChart(lastModel); drawBreakdownChart(lastModel); drawBalanceChart(lastModel); renderScenarioCompare(lastModel); drawMcChart(); drawLongevityChart(lastModel); });
   }
+  /* A hidden panel has no width, so a table inside it cannot be measured and
+     nothing knows whether it overflows. That measurement is what decides
+     whether the scrolling box gets a keyboard tab stop, so on a phone the
+     year-by-year tables were reachable by finger and by mouse and by nothing
+     else until the page happened to re-render. Re-measure once the panel is
+     actually on screen. */
+  scheduleTableScrollbars();
 }
 
 // Planner sub-tabs switching
@@ -12616,9 +12785,40 @@ document.addEventListener("change", e => {
 
 // Monte Carlo.
 els("runMcBtn").addEventListener("click", () => {
+  // While a long run is in flight the same button is the way to stop it.
+  if (mcJob) { mcCancel(); return; }
   if (!lastModel) return;
   runMonteCarlo(lastModel);
 });
+
+/* The simulations slider. Moving it must not start a run - at 100,000 runs a
+   drag across the track would queue fifty of them - so it only sets the number
+   and describes what that number buys. The run happens on the button. */
+function syncMcRuns(fromRunsField) {
+  const slider = els("mcRunsSlider"), hidden = els("mcRuns");
+  if (!slider || !hidden) return;
+  if (fromRunsField) slider.value = String(mcStepForRuns(parseInt(hidden.value, 10)));
+  const runs = mcRunsForStep(slider.value);
+  hidden.value = String(runs);
+  const out = els("mcRunsVal");
+  if (out) out.textContent = runs.toLocaleString("en-GB");
+  slider.setAttribute("aria-valuetext", runs.toLocaleString("en-GB") + " simulations");
+  const hint = els("mcRunsHint");
+  if (hint) {
+    // Quote the margin against the plan's own success rate where there is one,
+    // so the number means something; 85% is a fair stand-in before a first run.
+    const p = lastMc && isFinite(lastMc.successPct) ? lastMc.successPct / 100 : 0.85;
+    const margin = mcMarginPct(p, runs);
+    hint.innerHTML =
+      `Steadier, not more accurate: the success rate settles to about <b>&plusmn;${margin.toFixed(1)} percentage points</b> ` +
+      `at this many runs. It replays the same century of returns either way. ` +
+      (runs >= 20000
+        ? `<b>${runs.toLocaleString("en-GB")} runs takes a few seconds</b> &mdash; the page stays usable and you can cancel.`
+        : `The longevity chart always uses ${LONGEVITY_RUNS_CAP.toLocaleString("en-GB")}, so it stays quick to redraw.`);
+  }
+}
+els("mcRunsSlider").addEventListener("input", () => syncMcRuns(false));
+syncMcRuns(true);
 window.addEventListener("resize", () => {
   // crossing the phone/desktop boundary switches the chart mode on or off
   applyChartMode(false);
@@ -13978,9 +14178,44 @@ function scheduleChartRedraw() {
   });
 }
 
+/* ---- Where the phone chart-mode setting is worth offering ----------------
+   The setting only does anything below 700px, so on a desktop it sat in the
+   sidebar as a control that could not change anything - and "Charts on a
+   phone" on a 27-inch monitor reads as either a bug or a puzzle.
+
+   It is shown on a device that can actually be that narrow: a touch device
+   (phone or tablet, which can rotate or split the screen) or a window that is
+   already narrow. Pointer type is the reliable signal - a phone reports a
+   coarse pointer whatever its resolution - with maxTouchPoints as a fallback
+   for iPadOS Safari, which has been known to describe itself as a Mac.
+
+   On a tablet in landscape it is shown but not yet biting, so the hint says
+   which of the two it is rather than leaving a dead control to be guessed at. */
+function isTouchDevice() {
+  try {
+    if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return true;
+  } catch (e) { /* older browser: fall through to the touch-point count */ }
+  return (navigator.maxTouchPoints || 0) > 1;
+}
+function chartModeRelevant() { return narrowScreen() || isTouchDevice(); }
+function applyChartModeVisibility() {
+  const show = chartModeRelevant();
+  ["chartModeBlock", "chartModeBlockM"].forEach(id => {
+    const el = els(id);
+    if (el) el.hidden = !show;
+  });
+  const hint = els("chartModeHint");
+  if (hint) {
+    hint.textContent = narrowScreen()
+      ? "Applies on this screen now."
+      : "Applies once the screen is under 700px wide — rotate, or use a split screen.";
+  }
+}
+
 /* Applies the chosen mode: the body class the CSS keys off, the pressed state
    of both segmented controls, the folding, the zoom bar - then a redraw. */
 function applyChartMode(redraw) {
+  applyChartModeVisibility();
   const active = chartMode();
   CHART_MODES.forEach(m => document.body.classList.toggle("chartmode-" + m, m === active));
   document.querySelectorAll(".chartmode-seg button").forEach(b => {
@@ -14147,6 +14382,29 @@ function syncTableScrollbars(root) {
     const overflow = box.scrollWidth - box.clientWidth > 2;
     mirror.style.display = overflow ? "" : "none";
     mirror.classList.toggle("is-active", overflow);
+    /* A table wider than its box can be scrolled with a finger or a mouse, and
+       until now with nothing else: there was no way to reach the right-hand
+       columns from a keyboard, which fails WCAG 2.1.1. Giving the scrolling box
+       a tab stop lets the arrow keys move it. Only WHEN it overflows - an
+       unnecessary tab stop on every table on the page is its own barrier - and
+       it is announced as a named region so it is clear what has focus.
+
+       The table's own caption or the card's heading supplies the name, so a
+       screen reader says which table this is rather than "scrollable region". */
+    if (overflow) {
+      box.setAttribute("tabindex", "0");
+      box.setAttribute("role", "region");
+      if (!box.hasAttribute("aria-label")) {
+        const card = box.closest(".card");
+        const head = card && card.querySelector("h2, h3, h4");
+        const name = (head && head.textContent.trim()) || "Table";
+        box.setAttribute("aria-label", name + " (scrollable table)");
+      }
+    } else {
+      box.removeAttribute("tabindex");
+      box.removeAttribute("role");
+      box.removeAttribute("aria-label");
+    }
     if (overflow) {
       mirror.firstChild.style.width = box.scrollWidth + "px";
       mirror.scrollLeft = box.scrollLeft;

@@ -136,13 +136,35 @@ with sync_playwright() as p:
 
     # 9. The rail's four chart-mode buttons fit without being clipped - the bug
     #    that showed "Deca" and "Numb".
+    #     The block is hidden on a pointer device now, because the setting only
+    #     bites under 700px and a dead control in the sidebar is its own bug. A
+    #     hidden element measures zero and would pass this check without it
+    #     meaning anything, so the device test is overridden to make the block
+    #     appear the way it does on a phone or tablet, then it is measured.
+    shown = pg.evaluate("""() => {
+      const before = document.getElementById('chartModeBlock').hidden;
+      window.isTouchDevice = () => true;      // pretend this is a tablet
+      applyChartModeVisibility();
+      return { wasHiddenOnDesktop: before,
+               nowShown: !document.getElementById('chartModeBlock').hidden }; }""")
+    assert shown["wasHiddenOnDesktop"], \
+        "the phone chart-mode block is showing on a desktop pointer device - it can't do anything there"
+    assert shown["nowShown"], "the chart-mode block did not appear when the device looked like a tablet"
     rail = pg.evaluate("""() => [...document.querySelectorAll('.rail .chartmode-seg button')]
       .map(b => ({ t: b.textContent, clipped: b.scrollWidth - b.clientWidth > 1,
                    inside: b.getBoundingClientRect().right <=
                      document.querySelector('.rail').getBoundingClientRect().right + 1 }))""")
     assert rail and all(not r["clipped"] and r["inside"] for r in rail), rail
     assert [r["t"] for r in rail] == ["Full", "Zoom", "Decades", "Numbers"], rail
-    print("9. rail chart-mode buttons all fit: " + ", ".join(r["t"] for r in rail))
+    # ...and put the real test back, so later checks see the real page
+    pg.evaluate("() => { delete window.isTouchDevice; }")
+    pg.reload()
+    pg.wait_for_function("document.querySelectorAll('#profileSelect option').length > 2")
+    pg.evaluate("""() => { localStorage.setItem('pensionPlanner.rememberChoice','advanced');
+      experienceLevel = 'advanced'; applyLevel(); activateTab('planner'); renderAll(); }""")
+    pg.wait_for_timeout(900)
+    print("9. chart-mode block hidden on desktop; its buttons all fit when a tablet shows it: "
+          + ", ".join(r["t"] for r in rail))
 
     # 10. The age/date line under each event flag uses the higher-contrast
     #     tone. It was --ink-faint, which on the Night theme is grey on dark
