@@ -14,6 +14,10 @@ matches the country's taxable share, and that each country's cap binds. It also
 checks the wording on the control follows the country, since a UK ISA label on
 a French plan is its own kind of wrong answer.
 
+It also checks the tax-efficient modes keep their promise: "only what comes
+out tax-free" must charge no tax at all, and the taxable slice it solves for
+must actually fit inside the allowance headroom.
+
 The AU case is the interesting one. Super is already tax-free after 60, so
 there is nothing to gain; the app says so rather than offering the strategy as
 though it were free money.
@@ -140,6 +144,39 @@ def main():
             off = pg.evaluate(POT_LEFT, False)
             if on != off:
                 print(f"  note: accumulated pot differs before drawdown ({on:,} vs {off:,})")
+
+        # The tax-efficient modes must keep the promise they make. "Only what
+        # comes out tax-free" solves for the withdrawal whose taxable slice
+        # fits the unused personal allowance, so the tax charged must be zero -
+        # it was 15% until the transfer tax stopped using household income with
+        # the pension drawdown left out.
+        set_country("UK")
+        pg.evaluate("""() => { const e = document.getElementById('yourPot');
+          e.value = '250,000'; e.dispatchEvent(new Event('change', {bubbles:true})); }""")
+        pg.wait_for_timeout(700)
+        for mode in ("taxfree", "basic", "fixed"):
+            pg.evaluate("""(m) => { const e = document.getElementById('moveOutMode');
+              e.value = m; e.dispatchEvent(new Event('change', {bubbles:true})); }""", mode)
+            pg.wait_for_timeout(900)
+            t = pg.evaluate(TRANSFERS)
+            taken = t["gross"] - t["net"]
+            solved = pg.evaluate("() => { const m = computeAll(); return m.yourSolvedMove; }")
+            if mode == "taxfree":
+                if t["gross"] > 0 and taken > 1:
+                    failures.append(f"tax-free mode charged {taken:,.0f} of tax - it must charge nothing")
+                else:
+                    print(f"\ntax-free mode: moved {t['gross']:,.0f} for {taken:,.0f} of tax ✓")
+                if solved and solved["gross"] > 0:
+                    # the taxable slice must land inside the headroom it solved for
+                    slice_ = solved["gross"] * 0.75
+                    if slice_ > solved["headroom"] * 1.01:
+                        failures.append(f"tax-free: taxable slice {slice_:,.0f} exceeds headroom {solved['headroom']:,.0f}")
+                    else:
+                        print(f"  taxable slice {slice_:,.0f} fits headroom {solved['headroom']:,.0f} ✓")
+            elif mode == "basic":
+                print(f"basic-rate mode: moved {t['gross']:,.0f} for {taken:,.0f} of tax")
+            else:
+                print(f"fixed mode:      moved {t['gross']:,.0f} for {taken:,.0f} of tax")
 
         # The panel must say the AU case is not worth doing rather than sell it.
         set_country("AU")

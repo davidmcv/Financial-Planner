@@ -2568,6 +2568,15 @@
         <div id="moveOutTradeoff"></div>
         <div class="field-row" id="stratIsaFields">
           <div class="field">
+            <label for="moveOutMode" data-def="moveOutMode">How much to move each year</label>
+            <select id="moveOutMode">
+              <option value="fixed" selected>A fixed amount (below)</option>
+              <option value="taxfree">Only what comes out tax-free</option>
+              <option value="basic">Up to the top of basic rate</option>
+            </select>
+            <span class="hint" id="moveOutModeHint"></span>
+          </div>
+          <div class="field" id="stratIsaAmtField">
             <label for="stratIsaAmt">Withdraw per person (<span class="cur">&pound;</span> / year)</label>
             <input type="text" inputmode="decimal" data-money="0" id="stratIsaAmt" value="20,000">
             <span class="hint" id="stratIsaHint"></span>
@@ -3927,6 +3936,12 @@ const GLOSSARY = {
    links to it.
    ========================================================================= */
 const DEFINITIONS = {
+  moveOutMode: {
+    phrases: ["How much to move each year"],
+    plain: "Moving money from a pension to an ISA is not free: a quarter of each withdrawal is tax-free and the rest is taxed as income on the way out. If you pay the same rate now as you would later, the two wrappers come out exactly equal - both grow tax-free, so all you have done is pay the tax sooner. It only wins if the rate you pay now is lower than the rate you would pay later. \u201cOnly what comes out tax-free\u201d moves the most that fits inside your unused personal allowance, so no tax is paid at all; \u201cup to the top of basic rate\u201d moves more, at 20%, to avoid drawing it later at 40%.",
+    expert: "Selects the annual transfer size. Fixed uses the entered amount. Tax-free solves for the gross UFPLS withdrawal whose 75% taxable slice exactly fills unused personal allowance. Basic-rate fills to the higher-rate threshold. Both are then capped by the wrapper's annual subscription limit. At a constant marginal rate the transfer is value-neutral by construction - gross x (1 - 0.75mr) into the ISA equals gross x (0.25 + 0.75(1-mr)) net out of the pension - so any gain is rate arbitrage, offset against losing the pension's usual exclusion from the estate.",
+    src: "isa",
+  },
   lifeTables: {
     phrases: ["Sex recorded at birth"],
     plain: "Used only to pick the right life-expectancy table. Men and women have different average lifespans, and the plan needs to know how many years of retirement to cover. It affects nothing else.",
@@ -4902,6 +4917,43 @@ function moveOutPerYearFor(inp) {
   return Math.max(0, Math.min(inp.stratIsaAmt || 0, r.annualLimit));
 }
 
+/* =========================================================================
+   THE TAX-EFFICIENT TRANSFER
+   Moving pension money into an ISA is value-neutral at a constant tax rate:
+   both wrappers grow tax-free, so paying the tax now instead of later changes
+   nothing. Per £1, (1 - 0.75mr) lands in the ISA and 0.25 + 0.75(1 - mr) is
+   what the same £1 is worth net if left - identical for every rate.
+
+   So the only way it pays is rate arbitrage: move while your rate is low, so
+   you are not drawing it later while your rate is high. That is what these
+   modes do. "Tax-free" solves for the withdrawal whose taxable slice just
+   fills unused personal allowance, so there is no tax to move it at all;
+   "basic" fills to the higher-rate threshold, paying 20% now rather than 40%
+   later.
+
+   Headroom depends on the person's other income in retirement, which is only
+   known once their projection exists - so the caller builds a provisional
+   projection with no transfers and passes its first settled year in here. */
+function taxEfficientMoveOut(row, mode, rules) {
+  if (!row || (mode !== "taxfree" && mode !== "basic")) return null;
+  const uk = TAXDATA.UK;
+  const share = rules.taxableFraction || 0;
+  if (share <= 0) return { gross: 0, headroom: 0, other: 0, limitedBy: "nothing is taxed here anyway" };
+
+  // What already fills the bands: State Pension and DB in full, drawdown on
+  // the UFPLS basis.
+  const other = (row.state || 0) + (row.db || 0) + (row.private || 0) * share;
+  const ceiling = mode === "taxfree" ? ukPersonalAllowance(other) : uk.bands[1][0];
+  const headroom = Math.max(0, ceiling - other);
+  const gross = headroom / share;             // withdrawal whose taxable slice fills it
+  const capped = Math.max(0, Math.min(gross, rules.annualLimit));
+  return {
+    gross: capped, headroom, ceiling, other,
+    limitedBy: headroom <= 0 ? "no allowance left"
+      : capped < gross ? "the wrapper's annual limit" : "your remaining allowance",
+  };
+}
+
 /* ---- Paying into a pension after you have retired -----------------------
    Legal, and routinely done - but hedged with rules that decide whether it is
    worth anything, so they are modelled rather than glossed over:
@@ -5316,6 +5368,7 @@ function collectProfileData() {
   data.stratSaveOn = els("stratSaveOn").checked;
   data.stratPclsOn = els("stratPclsOn").checked;
   data.stratIsaOn = els("stratIsaOn").checked;
+  data.moveOutMode = els("moveOutMode").value;
   data.stratRecycleOn = els("stratRecycleOn").checked;
   data.stratRecycleAmt = els("stratRecycleAmt").value;
   data.stratSpouseContribOn = els("stratSpouseContribOn").checked;
@@ -5402,6 +5455,7 @@ function applyProfileData(data) {
   els("stratSaveOn").checked = !!data.stratSaveOn;
   els("stratPclsOn").checked = !!data.stratPclsOn;
   els("stratIsaOn").checked = !!data.stratIsaOn;
+  els("moveOutMode").value = data.moveOutMode || "fixed";
   els("stratRecycleOn").checked = !!data.stratRecycleOn;
   if (data.stratRecycleAmt != null) els("stratRecycleAmt").value = data.stratRecycleAmt;
   els("stratSpouseContribOn").checked = !!data.stratSpouseContribOn;
@@ -5551,6 +5605,7 @@ function readInputs() {
     emergencyMonths: Math.max(0, parseInt(els("emergencyMonths").value, 10) || 0),
     premiumBonds: money("premiumBonds"),
     isaGrowth: parseFloat(els("isaGrowth").value) || 0,
+    moveOutMode: els("moveOutMode").value,
     spouseContribMonthly: money("spouseContribMonthly"),
     spousePremiumBonds: money("spousePremiumBonds"),
     premiumBondsRate: parseFloat(els("premiumBondsRate").value) || 0,
@@ -6099,13 +6154,28 @@ function renderMoveOutTradeoff(model) {
   const box = els("moveOutTradeoff");
   if (!box) return;
   const r = moveOutRules();
+  const inp = model.inp;
 
   // Keep the control's own wording in step with the country it applies to.
   const lbl = els("stratIsaLabel"), hint = els("stratIsaHint");
   if (lbl) lbl.textContent = r.verb + " over time";
   if (hint) hint.innerHTML = r.note;
 
-  const inp = model.inp;
+  // The typed amount only applies in fixed mode; the others solve for it.
+  const modeSel = els("moveOutMode"), amtField = els("stratIsaAmtField"), modeHint = els("moveOutModeHint");
+  const mode = inp.moveOutMode || "fixed";
+  if (amtField) amtField.style.display = mode === "fixed" ? "" : "none";
+  if (modeSel) modeSel.disabled = currentCountry !== "UK";
+  if (modeHint) {
+    modeHint.innerHTML = currentCountry !== "UK"
+      ? "The tax-efficient options use UK allowances; on this plan the fixed amount is used."
+      : mode === "taxfree"
+        ? "Each year, the most whose taxable slice still fits inside the unused personal allowance &mdash; so no tax is paid to move it."
+        : mode === "basic"
+          ? "Each year, enough to fill the basic-rate band &mdash; 20% now, to avoid drawing it later at 40%."
+          : "Uses the amount below, whatever tax that attracts.";
+  }
+
   if (!inp.stratIsaOn) { box.innerHTML = ""; return; }
   const sum = moveOutSummary(model);
   if (!sum || sum.grossReal <= 0) {
@@ -6133,6 +6203,21 @@ function renderMoveOutTradeoff(model) {
     : delta > 500 ? "Ahead, on these numbers"
     : delta < -500 ? "Behind, on these numbers" : "Much the same either way";
 
+  /* When the solver picked the amount, say what it picked and what limited it,
+     per person - a couple's headroom is rarely the same on both sides. */
+  const describeSolved = (label, sv) => sv ? `
+    <div class="stat"><span class="label">${label}</span>
+      <span class="value">${gbp0(sv.gross)}/yr</span>
+      <span class="sub">${sv.headroom > 0
+        ? `${gbp0(sv.headroom)} of allowance left after ${gbp0(sv.other)} of other taxable income &mdash; limited by ${sv.limitedBy}`
+        : `no allowance left: ${gbp0(sv.other)} of other taxable income already fills it, so nothing can come out tax-free`}</span></div>` : "";
+  const solvedNote = (model.yourSolvedMove || model.spouseSolvedMove)
+    ? `<div class="stat-row" style="margin-bottom:10px;">
+         ${describeSolved("You can move", model.yourSolvedMove)}
+         ${describeSolved("Your partner can move", model.spouseSolvedMove)}
+       </div>`
+    : "";
+
   const capNote = r.lifetimeCap != null
     ? `a lifetime cap of ${money(r.lifetimeCap)}`
     : r.annualLimit === Infinity ? "no cap on the amount" : `${money(r.annualLimit)} per person a year`;
@@ -6146,6 +6231,14 @@ function renderMoveOutTradeoff(model) {
       <p class="caption" style="margin:0 0 8px;">Destination: <b>${r.wrapper}</b>, ${capNote}.
         ${Math.round(r.taxableFraction * 100)}% of each withdrawal is taxed as income on the way out.
         This is modelled in full &mdash; the pot really goes down and the charts move with it.</p>
+      <div class="notice info" style="margin:0 0 10px;"><span class="icon" aria-hidden="true">&#8505;</span><span>
+        <b>Why this is not free money.</b> Both wrappers grow tax-free &mdash; the ISA growth rate here is the same
+        ${inp.isaGrowth}% as the pension pot, and nothing taxes the growth in either. So at the <b>same</b> tax rate the two
+        come out <b>exactly equal</b>: ${money(1)} of pension leaves ${(1 - r.taxableFraction * 0.2).toFixed(2)} in an ISA at
+        20%, and that same ${money(1)} left in the pension is worth ${(0.25 + 0.75 * 0.8).toFixed(2)} net when drawn at 20%.
+        Identical, for every rate. Moving only wins as <b>rate arbitrage</b> &mdash; paying a low rate now instead of a
+        higher one later &mdash; which is what the tax-efficient options above are for.</span></div>
+      ${solvedNote}
       <div class="stat-row">
         <div class="stat"><span class="label">Moved</span><span class="value">${money(sum.grossReal)}</span>
           <span class="sub">over ${sum.span} year${sum.span === 1 ? "" : "s"}, from ${sum.firstYear} to ${sum.lastYear}</span></div>
@@ -6785,30 +6878,74 @@ function computeAll(overrides = {}) {
   const equityAccrued = comp.total;
   const atYou = Object.assign({}, at, { shares: at.shares + equityAccrued });
 
-  const yourBuilt = buildPersonProjection(you, {
+  /* The tax-efficient modes need to know what else fills the tax bands in
+     retirement, and that is only known once the projection exists. So build it
+     once with no transfers, read the first settled year, solve for the amount
+     that fits the chosen headroom, then build it again for real. Only done for
+     those modes - a fixed amount needs no first pass. */
+  const moveOutMode = inp.moveOutMode || "fixed";
+  const yourCfg = {
     mode: inp.yourMode, potToday: inp.yourPot, drawdown: inp.yourDrawdown, potGrowth: inp.yourPotGrowth,
     employerContribution, annualAllowance: inp.annualAllowance, takePcls: inp.yourTakePcls, pclsCountry: currentCountry, pclsEarlyIsa: inp.pclsEarlyIsa, toMaxAge: inp.toMaxAge,
     salary: inp.yourSalary, taperCountry: currentCountry,
-    moveOutPerYear: moveOutPerYearFor(inp), moveOutLifetimeCap: moveOutRules().lifetimeCap,
+    moveOutLifetimeCap: moveOutRules().lifetimeCap,
     startIncome: inp.yourIncome, incomeGrowth: inp.yourIncomeGrowth,
     retireDate: inp.retireDate, retireSpend: inp.retireSpend, assets: atYou,
     spWeekly: inp.spWeekly, spGrowth: inp.spGrowth, discount: inp.discount, today,
-  });
+  };
+  let yourSolvedMove = null, yourMoveOtherIncome = 0;
+  let yourMovePerYear = moveOutPerYearFor(inp);
+  if (inp.stratIsaOn && inp.yourMode === "pot") {
+    /* Their own taxable income in retirement, which is what the tax on a
+       transfer must be judged against - not the household's, and not with the
+       pension drawdown left out, which is what made a "tax-free" transfer
+       still get charged 15%. */
+    const probe = buildPersonProjection(you, Object.assign({}, yourCfg, { moveOutPerYear: 0 }));
+    const firstSettled = (probe.rows || []).find(r => !r.isBridge) || (probe.rows || [])[0];
+    const share = moveOutRules().taxableFraction || 0;
+    if (firstSettled) {
+      yourMoveOtherIncome = (firstSettled.state || 0) + (firstSettled.db || 0)
+                          + (firstSettled.private || 0) * share;
+    }
+    if (currentCountry === "UK" && moveOutMode !== "fixed") {
+      yourSolvedMove = taxEfficientMoveOut(firstSettled, moveOutMode, moveOutRules());
+      yourMovePerYear = yourSolvedMove ? yourSolvedMove.gross : 0;
+    }
+  }
+  const yourBuilt = buildPersonProjection(you, Object.assign({}, yourCfg, { moveOutPerYear: yourMovePerYear }));
   let yourRows = yourBuilt.rows;
   const yourEffectivePot = yourBuilt.meta.accumulatedPot;
 
   let spouseRows = [], spouseBuilt = { meta: { mode: inp.spouseMode, accumulatedPot: 0 } };
+  let spouseSolvedMove = null, spouseMoveOtherIncome = 0;
   let transferNote = null;
   if (spouse) {
-    spouseBuilt = buildPersonProjection(spouse, {
+    /* Same two-pass for the partner: their headroom is their own, so a couple
+       with one large pension and one small one can move very different amounts
+       tax-free - which is most of the point of doing it per person. */
+    const spouseCfg = {
       mode: inp.spouseMode, potToday: inp.spousePot, drawdown: inp.spouseDrawdown, potGrowth: inp.spousePotGrowth,
       employerContribution: (inp.spouseContribMonthly || 0) * 12, annualAllowance: Infinity, takePcls: inp.spouseTakePcls, pclsCountry: inp.spouseCountry, pclsEarlyIsa: inp.pclsEarlyIsa, toMaxAge: inp.toMaxAge,
       salary: inp.spouseSalary, taperCountry: inp.spouseCountry,
-      moveOutPerYear: moveOutPerYearFor(inp), moveOutLifetimeCap: moveOutRules().lifetimeCap,
+      moveOutLifetimeCap: moveOutRules().lifetimeCap,
       startIncome: inp.spouseIncome, incomeGrowth: inp.spouseIncomeGrowth,
       retireDate: inp.spouseRetireDate, retireSpend: 0, assets: atSpouse,
       spWeekly: spouseSpWeekly, spGrowth: inp.spGrowth, discount: inp.discount, today,
-    });
+    };
+    let spouseMovePerYear = moveOutPerYearFor(inp);
+    if (inp.stratIsaOn && inp.spouseMode === "pot") {
+      const sProbe = buildPersonProjection(spouse, Object.assign({}, spouseCfg, { moveOutPerYear: 0 }));
+      const sFirst = (sProbe.rows || []).find(r => !r.isBridge) || (sProbe.rows || [])[0];
+      const share = moveOutRules().taxableFraction || 0;
+      if (sFirst) {
+        spouseMoveOtherIncome = (sFirst.state || 0) + (sFirst.db || 0) + (sFirst.private || 0) * share;
+      }
+      if (inp.spouseCountry === "UK" && moveOutMode !== "fixed") {
+        spouseSolvedMove = taxEfficientMoveOut(sFirst, moveOutMode, moveOutRules());
+        spouseMovePerYear = spouseSolvedMove ? spouseSolvedMove.gross : 0;
+      }
+    }
+    spouseBuilt = buildPersonProjection(spouse, Object.assign({}, spouseCfg, { moveOutPerYear: spouseMovePerYear }));
     spouseRows = spouseBuilt.rows;
 
     const tr = applyTransferV2(you, spouse, yourBuilt.meta, spouseBuilt.meta, yourRows, spouseRows,
@@ -6866,7 +7003,10 @@ function computeAll(overrides = {}) {
            employerContribution, uncappedContribution, equityAccrued, comp, workYears,
            personalNet, personalGross, personalRelief, personalHigherReclaim, personalTaxSaving, personalContribTax,
            transferNote, gifting, giftSchedule, assetTotals: at, assetTotalsSpouse: atSpouse,
-           yourMeta: yourBuilt.meta, spouseMeta: spouseBuilt.meta, rlsTarget, spouseSpWeekly };
+           yourMeta: yourBuilt.meta, spouseMeta: spouseBuilt.meta, rlsTarget, spouseSpWeekly,
+           // what the tax-efficient solver settled on, for the panel to explain
+           moveOutMode, yourSolvedMove, spouseSolvedMove,
+           yourMoveOtherIncome, spouseMoveOtherIncome };
 }
 
 /* ---------- render: People tab reacts via inputs directly, no render needed ---------- */
@@ -7808,12 +7948,24 @@ function householdFunding(model, targetOverride) {
      already paying that year, on the share the country treats as taxable. */
   const moRules = moveOutRules();
   const moveOutDest = moRules.dest;
+  /* Tax on a transfer is that person's own affair: their taxable retirement
+     income decides the rate, not the household's total. Using the household
+     row also left the pension drawdown out entirely, so a transfer solved to
+     sit inside someone's personal allowance was still charged basic rate.
+     The taxable slice is taxed band by band on top of what they already have,
+     rather than at a single marginal rate, so a transfer that straddles a
+     threshold is charged correctly. */
   const moveOutTax = inp.stratIsaOn
-    ? (gross, row, who) => {
+    ? (gross, _row, who) => {
         if (!(gross > 0)) return 0;
-        const otherIncome = who === "spouse" ? (row ? row.state + row.db : 0) : (row ? row.salary + row.state + row.db : 0);
-        const mr = marginalRate(otherIncome + gross * moRules.taxableFraction);
-        return gross * (1 - moRules.taxableFraction * mr);
+        const other = who === "spouse" ? (model.spouseMoveOtherIncome || 0) : (model.yourMoveOtherIncome || 0);
+        const taxable = gross * moRules.taxableFraction;
+        const scottish = els("scotland") && els("scotland").value === "scot";
+        const at = g => currentCountry === "UK" ? ukIncomeTax(g, scottish)
+          : currentCountry === "US" ? usIncomeTax(g)
+          : currentCountry === "FR" ? frIncomeTax(g) : auIncomeTax(g);
+        const charge = Math.max(0, at(other + taxable) - at(other));
+        return gross - charge;
       }
     : null;
 
@@ -12097,7 +12249,7 @@ function seedDemoProfiles() {
     bonusAmount: "0", bonusDeferYears: "2", bonusCashPct: "0", bonusDeferredPct: "50", bonusRsuPct: "50",
     rsuHeld: "0", rsuHeldYears: "2", rsuAmount: "0", rsuVestYears: "2",
     sayeMonthly: "0", sayeTermYears: "3", sayeDiscount: "20", oneOffCash: "0", oneOffYear: String(todayObj().y + 1), extraSave: "0",
-    stratSaveAmt: "10,000", stratIsaAmt: "20,000", stratSaveOn: false, stratPclsOn: false, stratIsaOn: true,
+    stratSaveAmt: "10,000", stratIsaAmt: "20,000", stratSaveOn: false, stratPclsOn: false, stratIsaOn: true, moveOutMode: "fixed",
     stratRecycleOn: true, stratRecycleAmt: "2,880",
     stratSpouseContribOn: true, stratSpouseContribAmt: "2,880",
     goGoPct: "120", goGoUntilAge: "75", slowGoPct: "100", slowGoUntilAge: "85", noGoPct: "80",
