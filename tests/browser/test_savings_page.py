@@ -29,7 +29,10 @@ with sync_playwright() as p:
     pg.on("console", lambda m: errors.append(f"console: {m.text}") if m.type == "error" else None)
     pg.goto(FILE)
     pg.wait_for_function("document.querySelectorAll('#profileSelect option').length > 2")
-    pg.evaluate("() => { experienceLevel = 'advanced'; applyLevel(); renderAll(); }")
+    # The landing page hides the rail until a choice is made, so make the
+    # choice this test is about - the detailed pages - and leave it.
+    pg.evaluate("""() => { localStorage.setItem('pensionPlanner.rememberChoice', 'advanced');
+      experienceLevel = 'advanced'; applyLevel(); activateTab('people'); renderAll(); }""")
     pg.wait_for_timeout(1000)
 
     # 1. The pages hold what they say they hold.
@@ -49,7 +52,10 @@ with sync_playwright() as p:
           "the pot, its contributions and employer pensions stayed on Pensions")
 
     # 2. The tab is named Pensions now, and Savings sits between People and it.
+    #    Only the buttons actually on screen count: the brief-mode page has its
+    #    own rail button, hidden here, and it is not part of the detailed order.
     tabs = pg.evaluate("""() => [...document.querySelectorAll('.rail .tab-btn')]
+      .filter(b => getComputedStyle(b).display !== 'none')
       .map(b => ({ tab: b.dataset.tab, text: b.textContent.trim() }))""")
     # the labels carry an emoji, so match on the words rather than equality
     names = [t["text"] for t in tabs]
