@@ -6187,15 +6187,9 @@ function renderMoveOutTradeoff(model) {
   // What the plan looks like without it, so the difference is measured rather
   // than argued. Same machinery the lump-sum verdict uses.
   const off = computeAll({ stratIsaOn: false });
-  const measure = m => {
-    const f = householdFunding(m);
-    if (!f.years.length) return { lifetime: 0, left: 0 };
-    const lifetime = f.years.reduce((t, y) => t + (f.byYear[y].total || 0), 0);
-    const last = f.byYear[f.years[f.years.length - 1]].balances || {};
-    return { lifetime, left: Object.values(last).reduce((t, v) => t + (typeof v === "number" ? v : 0), 0) };
-  };
-  const a = measure(model), b = measure(off);
-  const delta = (a.lifetime - b.lifetime) + (a.left - b.left);
+  const a = planMeasure(model), b = planMeasure(off);
+  const delta = (a.spendable - b.spendable) + (a.left - b.left);
+  const grossDelta = (a.lifetime - b.lifetime) + (a.left - b.left);
 
   const money = v => gbp0(Math.abs(v));
   const tone = r.worseByDesign ? " warn" : delta > 500 ? "" : delta < -500 ? " warn" : " gold";
@@ -6250,8 +6244,14 @@ function renderMoveOutTradeoff(model) {
         <div class="stat"><span class="label">Difference it made</span>
           <span class="value" style="color:${delta >= 0 ? "var(--good)" : "var(--critical)"}">
             ${delta >= 0 ? "+" : "&minus;"}${money(delta)}</span>
-          <span class="sub">against the same plan with this switched off</span></div>
+          <span class="sub"><b>after income tax</b>, against the same plan with this switched off</span></div>
       </div>
+      <p class="caption" style="margin:8px 0 0;">Measured on what you can <b>spend</b>, in today's money, counting what is
+        still left at the end &mdash; including anything the drawdown rule never took out of the pension, valued net of the
+        tax that would be due on it. Over the whole plan this
+        ${a.tax <= b.tax ? "saves" : "costs"} <b>${money(Math.abs(a.tax - b.tax))}</b> of income tax${a.tax <= b.tax ? "" : " more"}.
+        Before tax the same comparison reads ${grossDelta >= 0 ? "+" : "&minus;"}${money(grossDelta)}, which is the wrong
+        measure: pension income arrives with tax still owing on it and ${r.wrapper} money does not.</p>
       ${r.worseByDesign ? `<p class="caption" style="margin:8px 0 0;"><b>Worth knowing:</b> ${r.note}
         Moving money out gives up that treatment, and outside super the growth is taxed &mdash; which this model does not
         charge you for, so the figure above is if anything flattering. In ${COUNTRIES[currentCountry].name} the usual answer
@@ -6275,23 +6275,15 @@ function renderMoveOutTradeoff(model) {
 function pclsCompare() {
   const withLump = computeAll({ yourTakePcls: true });
   const without  = computeAll({ yourTakePcls: false });
-  const measure = m => {
-    const f = householdFunding(m);
-    if (!f.years.length) return null;
-    const lifetime = f.years.reduce((sum, y) => sum + (f.byYear[y].total || 0), 0);
-    const last = f.byYear[f.years[f.years.length - 1]].balances || {};
-    const left = Object.values(last).reduce((sum, v) => sum + (typeof v === "number" ? v : 0), 0);
-    // Years the plan cannot meet the target - the thing a plan is actually for.
-    const shortfall = f.years.filter(y => {
-      const r = f.byYear[y];
-      return r.total < r.target - 0.5;
-    }).length;
-    return { lifetime, left, shortfall, exhausted: f.exhaustedYear };
-  };
-  const a = measure(withLump), b = measure(without);
+  const a = planMeasure(withLump), b = planMeasure(without);
   if (!a || !b) return null;
+  // Spendable, not gross: taking the lump sum moves money from a taxable
+  // pension into pots that are drawn tax-free, so a gross comparison reads
+  // that saving as a loss.
   return { withLump: a, without: b,
-           lifetimeDelta: a.lifetime - b.lifetime,
+           lifetimeDelta: a.spendable - b.spendable,
+           grossDelta: a.lifetime - b.lifetime,
+           taxDelta: a.tax - b.tax,
            leftDelta: a.left - b.left };
 }
 
@@ -6357,11 +6349,11 @@ function renderPclsVerdict(model) {
           <span class="value" style="color:${sameShortfall ? "var(--ink)" : "var(--critical)"}">
             ${c.withLump.shortfall} vs ${c.without.shortfall}</span>
           <span class="sub">taking it, versus leaving it &mdash; whether the plan still does its job</span></div>
-        <div class="stat"><span class="label">Gross drawdown</span>
+        <div class="stat"><span class="label">Spendable income</span>
           <span class="value" style="color:${c.lifetimeDelta >= 0 ? "var(--good)" : "var(--critical)"}">
             ${c.lifetimeDelta >= 0 ? "+" : "&minus;"}${money(c.lifetimeDelta)}</span>
-          <span class="sub">the pension pays out a fixed % of a smaller pot, so this falls &mdash; but most of it was
-            already well above your target and would never have been spent</span></div>
+          <span class="sub">everything drawn over the plan, after income tax, in today's money
+            ${Math.abs(c.taxDelta) > 500 ? ` &mdash; ${c.taxDelta < 0 ? "saving" : "costing"} ${money(c.taxDelta)} of tax` : ""}</span></div>
         <div class="stat"><span class="label">Left at the end</span>
           <span class="value" style="color:${c.leftDelta >= 0 ? "var(--good)" : "var(--critical)"}">
             ${c.leftDelta >= 0 ? "+" : "&minus;"}${money(c.leftDelta)}</span>
@@ -7864,18 +7856,33 @@ function householdFunding(model, targetOverride) {
                            lastRow(model.yourRows), lastRow(model.spouseRows));
 
   const inc = {};
-  const blank = () => ({ state: 0, db: 0, pension: 0, potPension: 0, salary: 0 });
-  const addRows = (rows, mode) => rows.forEach(r => {
+  /* Income is kept per person as well as pooled. The pooled figures are what
+     the charts stack; the per-person ones are what income tax has to be worked
+     out on, because tax bands are personal - a couple each drawing £30,000 pay
+     far less than one person drawing £60,000, and a household total cannot
+     tell those apart. */
+  const side = () => ({ state: 0, db: 0, pension: 0, potPension: 0, salary: 0 });
+  const blank = () => ({ state: 0, db: 0, pension: 0, potPension: 0, salary: 0,
+                         you: side(), sp: side() });
+  const addRows = (rows, mode, who) => rows.forEach(r => {
     const b = inc[r.date.y] || (inc[r.date.y] = blank());
+    const p = b[who];
     b.state += r.state; b.db += (r.db || 0);
-    if (!r.isBridge) { b.pension += r.private; if (mode === "pot") b.potPension += r.private; }
+    p.state += r.state; p.db += (r.db || 0);
+    if (!r.isBridge) {
+      b.pension += r.private; p.pension += r.private;
+      if (mode === "pot") { b.potPension += r.private; p.potPension += r.private; }
+    }
   });
-  addRows(model.yourRows, inp.yourMode); if (spouse) addRows(model.spouseRows, inp.spouseMode);
+  addRows(model.yourRows, inp.yourMode, "you");
+  if (spouse) addRows(model.spouseRows, inp.spouseMode, "sp");
   // salary of anyone still working counts towards the target
   Object.keys(inc).forEach(y => {
     let sal = 0;
-    if (+y < inp.retireDate.y) sal += inp.yourSalary;
-    if (spouse && inp.spouseRetireDate && +y < inp.spouseRetireDate.y) sal += inp.spouseSalary;
+    if (+y < inp.retireDate.y) { sal += inp.yourSalary; inc[y].you.salary = inp.yourSalary; }
+    if (spouse && inp.spouseRetireDate && +y < inp.spouseRetireDate.y) {
+      sal += inp.spouseSalary; inc[y].sp.salary = inp.spouseSalary;
+    }
     inc[y].salary = sal;
   });
 
@@ -7948,6 +7955,39 @@ function householdFunding(model, targetOverride) {
      already paying that year, on the share the country treats as taxable. */
   const moRules = moveOutRules();
   const moveOutDest = moRules.dest;
+
+  /* ---- What the household can actually spend --------------------------
+     `total` is the money arriving, gross. Some of it is taxable income and
+     some of it is not, and a pound of each is NOT worth the same: pension
+     drawdown arrives with income tax still to pay, while an ISA draw, the
+     tax-free lump sum and a downsize arrive clean.
+
+     That difference has to be taken out before two plans are compared. Adding
+     gross pension pounds to tax-free ISA pounds and calling the sum "lifetime
+     income" charged the ISA route for tax it never pays and credited the
+     pension route with tax it does - which is how "move only what comes out
+     tax-free" managed to look £320k behind while costing £0 in tax.
+
+     How much of a withdrawal is taxable follows the country: three quarters
+     in the UK on the UFPLS basis, all of it in the US and France, none of it
+     from Australian super after 60. That is the same fraction the transfer
+     rules use, so it is read from there rather than written down twice. */
+  const drawTaxable = moRules.taxableFraction;
+  const scottishTax = els("scotland") && els("scotland").value === "scot";
+  const taxOn = g => !(g > 0) ? 0
+    : currentCountry === "UK" ? ukIncomeTax(g, scottishTax)
+    : currentCountry === "US" ? usIncomeTax(g)
+    : currentCountry === "FR" ? frIncomeTax(g) : auIncomeTax(g);
+  /* Pooled pension money - the flexible draw in level mode, and anything drawn
+     from a pension paid into after retiring - is not attributed to one person
+     by the model, so it is split evenly across the couple. That is the right
+     shape (two sets of bands, not one) even where it is not the exact split. */
+  const pooledShare = spouse ? 0.5 : 1;
+  const personTax = (p, pooled) => {
+    const flat = p.pension - p.potPension;          // annuity / flat income: taxable in full
+    const fromPot = (level ? 0 : p.potPension) + pooled;  // pot money: taxable share only
+    return taxOn(p.salary + p.state + p.db + flat + fromPot * drawTaxable);
+  };
   /* Tax on a transfer is that person's own affair: their taxable retirement
      income decides the rate, not the household's total. Using the household
      row also left the pension drawdown out entirely, so a transfer solved to
@@ -7997,7 +8037,13 @@ function householdFunding(model, targetOverride) {
     const pensionShown = (level ? b.pension - b.potPension : b.pension) + potDraw;
     const total = fixedIncome + potDraw + draws.pcls + draws.downsize + draws.cash
       + draws.cashISA + draws.gia + draws.ssISA + draws.ongoingPen;
-    byYear[y] = { year: y, salary: b.salary, state: b.state, db: b.db, pension: pensionShown, ...draws, target, total };
+    // Income tax on the year, per person, so bands are personal; then what is
+    // left to actually spend.
+    const pooledPension = potDraw + draws.ongoingPen;
+    const tax = personTax(b.you, pooledPension * pooledShare)
+      + (spouse ? personTax(b.sp, pooledPension * pooledShare) : 0);
+    byYear[y] = { year: y, salary: b.salary, state: b.state, db: b.db, pension: pensionShown, ...draws, target, total,
+                  tax, spendable: total - tax };
     // What's LEFT after this year's draws - the stock behind the flows above,
     // so the balance chart can show each pool depleting. In fixed-drawdown mode
     // the pension pot isn't part of `pool` (the %-drawdown rows own it), so it
@@ -8061,10 +8107,108 @@ function householdFunding(model, targetOverride) {
     if (level) flexPot *= (1 + gInvest);
   }
   const years = Object.keys(byYear).map(Number).sort((a, b) => a - b);
-  return { years, byYear, exhaustedYear, leftoverPot: level ? flexPot : null,
+
+  /* ---- What is still in the pension at the end ------------------------
+     Under the fixed %-drawdown rule the pot is never emptied: it pays out a
+     percentage of whatever is left, so it decays towards zero without ever
+     reaching it - and where growth outruns the drawdown rate it does not even
+     decay. A plan that leaves money in the pension therefore ENDS with a
+     large balance that was never drawn and never taxed.
+
+     That balance is real money the household still owns, but it appeared
+     nowhere: not in the income totals (never withdrawn) and not in
+     `balances.pot`, which is zero outside level mode because the %-drawdown
+     rows own the pot rather than the pool. So any comparison against "leave
+     it in the pension" was scoring the leave-it plan on its income alone
+     while charging the move-it plan for every pound it converted into
+     spendable savings. On the demo household that hid £832,531.
+
+     The balance CHART already fills this in from the projections
+     (fundingBalances); this is the same figure, for the comparisons. */
+  const potTail = rows => {
+    if (!rows || !rows.length) return 0;
+    const last = rows[rows.length - 1];
+    if (last.potStart == null) return 0;      // flat-income mode has no pot
+    return Math.max(0, last.potStart - (last.private || 0) - (last.moved || 0));
+  };
+  const potResidue = level ? 0
+    : deflateAt(potTail(model.yourRows) + (spouse ? potTail(model.spouseRows) : 0), endYear);
+
+  /* ...but a pound still inside the pension is not worth a pound in an ISA:
+     whoever draws it pays income tax on the taxable share. Counting it gross
+     would just tilt the comparison the other way. It is valued at the lowest
+     positive marginal rate in this country - the cheapest it could possibly
+     be drawn at, so the "leave it alone" plan is given the benefit of the
+     doubt rather than penalised. The rate is measured off the country's own
+     tax function rather than written down again here. */
+  const lowestRate = (() => {
+    for (let g = 1000; g <= 300000; g += 500) {
+      const r = (taxOn(g + 100) - taxOn(g)) / 100;
+      if (r > 0.001) return r;
+    }
+    return 0;
+  })();
+  const potResidueNet = potResidue * (1 - drawTaxable * lowestRate);
+
+  return { years, byYear, exhaustedYear, potResidue, potResidueNet, residueRate: lowestRate,
+           leftoverPot: level ? flexPot : null,
            // enough to reconstruct the pools BEFORE retirement, so the balance
            // chart can show them building as well as running down
            basis: { by, bs, gInvest, gCash, gCashISA, startYear, todayY: today.y, defl } };
+}
+
+/* ---- Judging one plan against another ----------------------------------
+   Every "is this strategy worth it?" panel works the same way: run the plan
+   with the switch on, run it with the switch off, subtract. What is subtracted
+   has to be the money the household can SPEND, not the money that arrives.
+
+   Gross totals cannot answer the question. Pension drawdown arrives with
+   income tax still owing on it; an ISA draw, the tax-free lump sum and the
+   proceeds of a downsize do not. A strategy that moves money from the first
+   kind to the second looks worse on a gross total by exactly the tax it just
+   saved you - which is the wrong sign, not merely the wrong size.
+
+   And it has to be timing-neutral. Two plans that spend the same money at
+   different TIMES cannot be compared by adding their yearly figures up: over
+   fifty years at 8% growth, the plan that spends least early always wins by
+   compounding alone, whatever the tax. That is not a finding about tax, it is
+   arithmetic about hoarding - and it is why "move money out and spend it"
+   looked over a million pounds behind "leave it in the pot and never draw it".
+
+   So every figure is discounted back to today at the rate the money would
+   otherwise have earned. At that rate a pound spent now and a pound left to
+   grow and spent in 2078 are worth the same, which is the point: what is left
+   to differ between the two plans is the tax, which is the question being
+   asked.
+
+   So this is the one place that decides, and both panels use it.  */
+function planMeasure(m) {
+  const f = householdFunding(m);
+  const empty = { lifetime: 0, spendable: 0, tax: 0, left: 0, pools: 0, residue: 0,
+                  residueGross: 0, shortfall: 0, exhausted: null };
+  if (!f.years.length) return empty;
+  const basis = f.basis || {};
+  const g = basis.gInvest || 0;
+  const todayY = basis.todayY != null ? basis.todayY : f.years[0];
+  const pv = (v, y) => v / Math.pow(1 + g, Math.max(0, y - todayY));
+
+  let lifetime = 0, spendable = 0, tax = 0, shortfall = 0;
+  f.years.forEach(y => {
+    const r = f.byYear[y];
+    lifetime += pv(r.total || 0, y);
+    spendable += pv(r.spendable != null ? r.spendable : (r.total || 0), y);
+    tax += pv(r.tax || 0, y);
+    // Years the plan cannot meet the target - the thing a plan is actually for.
+    if (r.target && (r.total || 0) < r.target - 0.5) shortfall++;
+  });
+  const endY = f.years[f.years.length - 1];
+  const last = f.byYear[endY].balances || {};
+  const pools = pv(Object.values(last).reduce((t, v) => t + (typeof v === "number" ? v : 0), 0), endY);
+  // What is left = the savings pools PLUS whatever the %-drawdown rule never
+  // took out of the pension, valued net of the tax that would be due on it.
+  const residue = pv(f.potResidueNet || 0, endY);
+  return { lifetime, spendable, tax, left: pools + residue, pools, residue,
+           residueGross: pv(f.potResidue || 0, endY), shortfall, exhausted: f.exhaustedYear };
 }
 
 /* What's LEFT each year - the stock behind the income flows. The income charts
