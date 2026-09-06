@@ -106,24 +106,33 @@ with sync_playwright() as p:
     assert after["date"][:4] in taxYear, (taxYear, after["date"])
     print(f"7. the Tax page picked it up without being visited: '{taxYear}'")
 
-    # 8. Major Events options: one flowing row, each taking its own width, and
-    #    the survival tick-box last.
+    # 8. Major Events options: one flowing row, each item taking its own width.
+    #    The row holds tick-boxes, a picker and a button now, so it is read by
+    #    whatever control each item carries rather than assuming a checkbox.
+    #    "Chance of being alive" and the "for whom" picker must stay adjacent -
+    #    separated, the picker reads as belonging to whichever option precedes
+    #    it, which is exactly the sort of quiet mis-labelling this file exists
+    #    to catch.
     pg.evaluate("() => activateTab('planner')")
     pg.wait_for_timeout(1200)
     row = pg.evaluate("""() => {
       const box = document.querySelector('.check-row');
       const items = [...box.querySelectorAll('.check-inline')];
       const r = box.getBoundingClientRect();
-      return { ids: items.map(i => i.querySelector('input').id),
+      return { ids: items.map(i => { const c = i.querySelector('input, select'); return c ? c.id : i.id; }),
                display: getComputedStyle(box).display, wrap: getComputedStyle(box).flexWrap,
                inside: items.every(i => i.getBoundingClientRect().right <= r.right + 1),
                // each takes its own width, not an equal share of a grid
                widths: items.map(i => Math.round(i.getBoundingClientRect().width)) }; }""")
     assert row["display"] == "flex" and row["wrap"] == "wrap", row
-    assert row["ids"][-1] == "showSurvival", row["ids"]
+    assert "showSurvival" in row["ids"], row["ids"]
+    assert row["ids"].index("survivalWho") == row["ids"].index("showSurvival") + 1, row["ids"]
+    # both of the options asked for under the planner are here, not buried
+    assert "smoothOn" in row["ids"], row["ids"]
+    assert pg.query_selector("#maxIncomeBtn") is not None, "no 'find max income' control in the row"
     assert row["inside"], "an option overflowed the row"
     assert len(set(row["widths"])) > 1, row["widths"]     # not forced to equal columns
-    print(f"8. options flow and wrap ({row['widths']}), survival tick-box last")
+    print(f"8. options flow and wrap ({row['widths']}), survival picker beside its tick-box")
 
     # 9. The rail's four chart-mode buttons fit without being clipped - the bug
     #    that showed "Deca" and "Numb".
