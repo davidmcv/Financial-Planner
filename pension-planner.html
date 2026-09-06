@@ -2533,7 +2533,7 @@
           </div>
         </div>
 
-        <label class="check-inline"><input type="checkbox" id="stratIsaOn" checked> Move pension to ISA over time</label>
+        <label class="check-inline" data-def="moveOutStrategy"><input type="checkbox" id="stratIsaOn" checked> <span id="stratIsaLabel">Move pension to ISA over time</span></label>
         <div class="notice warn" style="margin: 8px 0 10px;"><span class="icon" aria-hidden="true">&#9888;</span><span>Think hard before doing this. Taking money out of a pension to put it back into an ISA
           usually <b>costs more in tax than it saves</b>: 75% of each withdrawal is taxed as income on the way out, while the ISA only
           shelters what is left. A pension normally also sits <b>outside your estate</b> for inheritance tax, and an ISA does not, so
@@ -2544,7 +2544,7 @@
           <div class="field">
             <label for="stratIsaAmt">Withdraw per person (<span class="cur">&pound;</span> / year)</label>
             <input type="text" inputmode="decimal" data-money="0" id="stratIsaAmt" value="20,000">
-            <span class="hint">From retirement, moved into a Stocks &amp; Shares ISA for tax-free growth (25% tax-free, 75% taxed as income)</span>
+            <span class="hint" id="stratIsaHint"></span>
           </div>
         </div>
 
@@ -3001,11 +3001,12 @@ function generateFlatGrowthSeries(startAge, startDate, endAge, startIncome, grow
   return series;
 }
 
-function generateDcDrawdownSeries(startAge, startDate, endAge, potValue, drawdownPct, growthPct, injectionDate, injectionAmount) {
+function generateDcDrawdownSeries(startAge, startDate, endAge, potValue, drawdownPct, growthPct, injectionDate, injectionAmount, moveOut) {
   const drawdownRate = drawdownPct / 100;
   const growthRate = growthPct / 100;
   let pot = potValue;
   let injected = false;
+  let movedSoFar = 0;
   const series = [];
   for (let age = startAge, offset = 0; age <= endAge; age++, offset++) {
     const rowDate = addYearsMonths(startDate, offset, 0);
@@ -3014,19 +3015,38 @@ function generateDcDrawdownSeries(startAge, startDate, endAge, potValue, drawdow
       injected = true;
     }
     const withdrawal = pot * drawdownRate;
-    series.push({ age, date: rowDate, private: withdrawal, potStart: pot });
-    pot = (pot - withdrawal) * (1 + growthRate);
+    /* Money moved into a tax-free wrapper leaves the pot ON TOP of the normal
+       drawdown, and is NOT income - it is the same money in a different place,
+       so it must not appear on the income line. The amount actually moved is
+       recorded per year for the funding model, which pays the tax on it and
+       credits the net to the destination pool. */
+    let moved = 0;
+    if (moveOut && moveOut.perYear > 0) {
+      const room = moveOut.lifetimeCap != null
+        ? Math.max(0, moveOut.lifetimeCap - movedSoFar) : Infinity;
+      moved = Math.min(moveOut.perYear, room, Math.max(0, pot - withdrawal));
+      movedSoFar += moved;
+      if (moved > 0) moveOut.movedByYear[rowDate.y] = (moveOut.movedByYear[rowDate.y] || 0) + moved;
+    }
+    series.push({ age, date: rowDate, private: withdrawal, potStart: pot, moved });
+    pot = (pot - withdrawal - moved) * (1 + growthRate);
   }
   return series;
 }
 
-function remainingDcPotAtEnd(startAge, endAge, potValue, drawdownPct, growthPct) {
+function remainingDcPotAtEnd(startAge, endAge, potValue, drawdownPct, growthPct, moveOutPerYear, lifetimeCap) {
   const drawdownRate = drawdownPct / 100;
   const growthRate = growthPct / 100;
-  let pot = potValue;
+  let pot = potValue, movedSoFar = 0;
   for (let age = startAge; age <= endAge; age++) {
     const withdrawal = pot * drawdownRate;
-    pot = (pot - withdrawal) * (1 + growthRate);
+    let moved = 0;
+    if (moveOutPerYear > 0) {
+      const room = lifetimeCap != null ? Math.max(0, lifetimeCap - movedSoFar) : Infinity;
+      moved = Math.min(moveOutPerYear, room, Math.max(0, pot - withdrawal));
+      movedSoFar += moved;
+    }
+    pot = (pot - withdrawal - moved) * (1 + growthRate);
   }
   return pot;
 }
@@ -3124,7 +3144,8 @@ function applyPensionTransfer(you, spouse, yourRows, spouseRows, cfg) {
 
   if (deceasedPot === null) return { yourRows, spouseRows, note: null };
 
-  const remaining = remainingDcPotAtEnd(deceased.nmpaAge, deceased.lifeExpAge, deceasedPot, deceasedDrawdown, deceasedGrowth);
+  const remaining = remainingDcPotAtEnd(deceased.nmpaAge, deceased.lifeExpAge, deceasedPot, deceasedDrawdown, deceasedGrowth,
+    cfg.moveOutPerYear || 0, cfg.moveOutLifetimeCap ?? null);
   if (remaining <= 0) return { yourRows, spouseRows, note: null };
 
   const transferDate = addYearsMonths(deceased.lifeExpDate, 0, 1);
@@ -3766,6 +3787,9 @@ const GLOSSARY = {
   annualAllowance: { url: "https://www.gov.uk/tax-on-your-private-pension/annual-allowance", label: "Pension annual allowance (gov.uk)" },
   pcls:          { url: "https://www.gov.uk/tax-on-pension/whats-tax-free", label: "25% tax-free lump sum (gov.uk)" },
   isa:           { url: "https://www.gov.uk/individual-savings-accounts", label: "ISAs (gov.uk)" },
+  rothIra:       { url: "https://www.irs.gov/retirement-plans/roth-iras", label: "Roth IRAs (IRS)" },
+  pea:           { url: "https://www.service-public.fr/particuliers/vosdroits/F22449", label: "Plan d'épargne en actions (service-public.fr)" },
+  super:         { url: "https://moneysmart.gov.au/how-super-works/superannuation", label: "Superannuation (ASIC Moneysmart)" },
   ni:            { url: "https://www.gov.uk/national-insurance", label: "National Insurance (gov.uk)" },
   taper:         { url: "https://www.gov.uk/guidance/pension-schemes-work-out-your-tapered-annual-allowance", label: "Tapered annual allowance (gov.uk)" },
   rls:           { url: "https://www.retirementlivingstandards.org.uk/", label: "PLSA Retirement Living Standards" },
@@ -3806,6 +3830,12 @@ const GLOSSARY = {
    links to it.
    ========================================================================= */
 const DEFINITIONS = {
+  moveOutStrategy: {
+    phrases: ["Move pension to a tax-free wrapper"],
+    plain: "Takes a set amount out of the pension each year and puts it somewhere the growth is not taxed. You pay income tax to get it out, so it only pays if your tax rate now is lower than it will be later, or you want the money reachable sooner. It is modelled properly here: the pot really does go down, the tax really is paid, and what is left really does land in your savings, so every chart responds.",
+    expert: "An annual decumulation transfer from the pension wrapper into the country's tax-exempt investment wrapper, capped by that country's annual or lifetime limit. The withdrawal is applied on top of the scheduled drawdown, taxed on the country's taxable fraction at the marginal rate for that year's other income, and the net credited to the destination pool where it compounds and is available to the funding model.",
+    src: "isa",
+  },
   smoothing: {
     phrases: ["Use savings to smooth"],
     plain: "Lets the plan spend your non-pension money - cash, ISAs, investment accounts, any tax-free lump sum - to top your income up to the target in years when the pensions alone fall short. With it off, the income line shows pension and salary only, so money sitting in savings is invisible and years can look short of the target when they are not.",
@@ -4684,6 +4714,63 @@ function fmtNum(n) { return (Number(n) || 0).toLocaleString("en-GB"); }
 const DB_GROWTH_DEFAULT = 2.5;
 // The ISA subscription limit, per person per tax year (UK, 2025/26).
 const ISA_ANNUAL_LIMIT = 20000;
+
+/* =========================================================================
+   MOVING PENSION MONEY INTO A TAX-FREE WRAPPER, PER COUNTRY
+   Every country has some version of "take it out of the retirement account
+   and put it somewhere the growth is not taxed", but the tax to get it out
+   and the size of the door differ. `taxableFraction` is how much of each
+   withdrawal is taxed as income at the person's marginal rate; `dest` is the
+   funding pool it lands in.
+   ========================================================================= */
+const MOVE_OUT = {
+  UK: {
+    wrapper: "Stocks & Shares ISA", verb: "Move pension into an ISA",
+    annualLimit: ISA_ANNUAL_LIMIT, lifetimeCap: null,
+    taxableFraction: 1 - 0.25,        // UFPLS: a quarter comes out tax-free
+    dest: "ssISA",
+    src: "isa",
+    note: "£20,000 per person a year. A quarter of each withdrawal is tax-free, the rest is taxed as income.",
+  },
+  US: {
+    wrapper: "Roth IRA", verb: "Convert to a Roth IRA",
+    annualLimit: Infinity, lifetimeCap: null,   // conversions are not capped
+    taxableFraction: 1,               // traditional 401(k)/IRA is fully taxable on the way out
+    dest: "ssISA",
+    src: "rothIra",
+    note: "A Roth conversion has no annual cap, but the whole amount is taxed as ordinary income in the year you convert.",
+  },
+  FR: {
+    wrapper: "PEA", verb: "Move into a PEA",
+    annualLimit: Infinity, lifetimeCap: 150000, // €150,000 of payments, for life
+    taxableFraction: 1,               // PER capital taxed at the barème on exit
+    dest: "ssISA",
+    src: "pea",
+    note: "€150,000 of payments in a lifetime. Money leaving a PER is taxed at the barème; after five years PEA gains escape income tax (social charges still apply, and are not modelled).",
+  },
+  AU: {
+    wrapper: "outside super", verb: "Move out of super",
+    annualLimit: Infinity, lifetimeCap: null,
+    taxableFraction: 0,               // super income is already tax-free from 60
+    dest: "gia",
+    src: "super",
+    /* The honest case: there is nothing to gain here. Super is already
+       tax-free after 60, so moving money out costs nothing on the way but
+       gives up the concession. The model does not tax investment growth in a
+       general account, so the charts will show this as roughly neutral rather
+       than the loss it really is - said plainly in the panel. */
+    worseByDesign: true,
+    note: "Super income is already tax-free from 60, so there is no tax to escape and nothing to gain by moving money out.",
+  },
+};
+const moveOutRules = () => MOVE_OUT[currentCountry] || MOVE_OUT.UK;
+/* What each person actually shifts a year: what they asked for, capped by the
+   country's annual allowance. Zero unless the strategy is on. */
+function moveOutPerYearFor(inp) {
+  if (!inp.stratIsaOn) return 0;
+  const r = moveOutRules();
+  return Math.max(0, Math.min(inp.stratIsaAmt || 0, r.annualLimit));
+}
 
 /* ---- Paying into a pension after you have retired -----------------------
    Legal, and routinely done - but hedged with rules that decide whether it is
@@ -5735,81 +5822,100 @@ function ongoingContribVerdict(model, plan) {
    then the rules that constrain it - in that order, because the answer is
    what was asked for and the rest is why it should be believed. */
 /* =========================================================================
-   MOVING MONEY OUT OF A PENSION INTO INVESTMENTS: THE TRADE-OFF, COSTED
-   Unlike the lump-sum question this one cannot be answered by running the
-   plan twice, because stratIsaOn is not part of the projection - it feeds the
-   comparison table and the ISA tracker only. So do the arithmetic explicitly
-   on the plan's own numbers and say plainly that the chart will not move.
-
-   The core of it: an ISA and a pension BOTH grow tax-free, so shifting money
-   between them buys no growth advantage. What it costs is the tax to get the
-   money out; what it buys is access before pension age, and no tax on the way
-   out later. Those cancel exactly when your tax rate now equals your rate
-   later - and then inheritance tax breaks the tie the other way.
+   MOVING MONEY OUT OF A PENSION: WHAT THE PLAN ACTUALLY DID
+   This strategy is now part of the projection, so rather than costing it in
+   the abstract the panel reports the transfers the model made - how much
+   moved, what the tax cost, where it went - and runs the plan with the
+   strategy off to show the difference it made. Every country has its own
+   wrapper, door size and tax on the way out; MOVE_OUT carries the rules.
    ====================================================================== */
+function moveOutSummary(model) {
+  const moved = {};
+  [model.yourMeta, model.spouseMeta].forEach(m => {
+    if (!m || !m.movedByYear) return;
+    Object.entries(m.movedByYear).forEach(([y, v]) => { moved[y] = (moved[y] || 0) + v; });
+  });
+  const years = Object.keys(moved).map(Number).sort((a, b) => a - b);
+  if (!years.length) return null;
+  const gross = years.reduce((t, y) => t + moved[y], 0);
+  const f = householdFunding(model);
+  const net = f.years.reduce((t, y) => t + ((f.byYear[y] || {}).movedNet || 0), 0);
+  const grossReal = f.years.reduce((t, y) => t + ((f.byYear[y] || {}).moved || 0), 0);
+  return { firstYear: years[0], lastYear: years[years.length - 1], span: years.length,
+           gross, grossReal, net, tax: grossReal - net };
+}
+
 function renderMoveOutTradeoff(model) {
   const box = els("moveOutTradeoff");
   if (!box) return;
+  const r = moveOutRules();
+
+  // Keep the control's own wording in step with the country it applies to.
+  const lbl = els("stratIsaLabel"), hint = els("stratIsaHint");
+  if (lbl) lbl.textContent = r.verb + " over time";
+  if (hint) hint.innerHTML = r.note;
+
   const inp = model.inp;
-  if (!inp.stratIsaOn || currentCountry !== "UK") { box.innerHTML = ""; return; }
+  if (!inp.stratIsaOn) { box.innerHTML = ""; return; }
+  const sum = moveOutSummary(model);
+  if (!sum || sum.grossReal <= 0) {
+    box.innerHTML = `<div class="notice empty" style="margin:8px 0;"><span class="icon">&#8505;</span>
+      Nothing moves yet &mdash; set an amount below, and check there is a pension pot being drawn to move it out of.</div>`;
+    return;
+  }
 
-  const amt = Math.max(0, inp.stratIsaAmt || 0);
-  if (!amt) { box.innerHTML = ""; return; }
-
-  const g = (inp.yourPotGrowth || 0) / 100;
-  const horizon = Math.max(1, (model.you.lifeExpAge || 90) - (model.yourMeta.decumStartAge || 65));
-  const firstRow = model.yourRows.find(r => !r.isBridge) || {};
-  const mr = marginalRate(firstRow.annual || 0);
-
-  // Getting it out: a quarter tax-free, the rest at the marginal rate.
-  const taxToMove = amt * (1 - TAXDATA.UK.ufplsTaxFree) * mr;
-  const lands = amt - taxToMove;
-  const grow = v => v * Math.pow(1 + g, horizon);
-
-  // Left alone the whole amount keeps compounding, and is taxed the same way
-  // whenever it is eventually drawn - so compare like with like at the end.
-  const ifLeft = grow(amt);
-  const ifLeftNet = ifLeft * (TAXDATA.UK.ufplsTaxFree + (1 - TAXDATA.UK.ufplsTaxFree) * (1 - mr));
-  const ifMoved = grow(lands);          // already taxed, ISA pays nothing more
-  const delta = ifMoved - ifLeftNet;
-
-  const iht = 0.40;
-  const ihtCost = ifMoved * iht;        // in the estate, where the pension was not
+  // What the plan looks like without it, so the difference is measured rather
+  // than argued. Same machinery the lump-sum verdict uses.
+  const off = computeAll({ stratIsaOn: false });
+  const measure = m => {
+    const f = householdFunding(m);
+    if (!f.years.length) return { lifetime: 0, left: 0 };
+    const lifetime = f.years.reduce((t, y) => t + (f.byYear[y].total || 0), 0);
+    const last = f.byYear[f.years[f.years.length - 1]].balances || {};
+    return { lifetime, left: Object.values(last).reduce((t, v) => t + (typeof v === "number" ? v : 0), 0) };
+  };
+  const a = measure(model), b = measure(off);
+  const delta = (a.lifetime - b.lifetime) + (a.left - b.left);
 
   const money = v => gbp0(Math.abs(v));
-  const pct = Math.round(mr * 100);
-  const tone = delta > 500 ? "" : delta < -500 ? " warn" : " gold";
-  const headline = Math.abs(delta) <= 500
-    ? "A wash on tax &mdash; decided by the other two rows"
-    : delta > 0 ? "Slightly ahead on tax" : "Behind on tax";
+  const tone = r.worseByDesign ? " warn" : delta > 500 ? "" : delta < -500 ? " warn" : " gold";
+  const headline = r.worseByDesign ? `Nothing to gain in ${COUNTRIES[currentCountry].name}`
+    : delta > 500 ? "Ahead, on these numbers"
+    : delta < -500 ? "Behind, on these numbers" : "Much the same either way";
+
+  const capNote = r.lifetimeCap != null
+    ? `a lifetime cap of ${money(r.lifetimeCap)}`
+    : r.annualLimit === Infinity ? "no cap on the amount" : `${money(r.annualLimit)} per person a year`;
 
   box.innerHTML = `
     <div class="card" style="margin:8px 0 10px; padding:14px 16px;">
       <div class="person-title" style="margin-bottom:6px;">
-        <h3 style="margin:0; font-size:1rem;">What moving ${money(amt)} a year actually costs</h3>
+        <h3 style="margin:0; font-size:1rem;">${r.verb}: what the plan did</h3>
         <span class="pill${tone}">${headline}</span>
       </div>
-      <p class="caption" style="margin:0 0 8px;">A pension and an ISA <b>both grow free of tax</b>, so moving money between
-        them buys no extra growth. Three things change, and only three:</p>
+      <p class="caption" style="margin:0 0 8px;">Destination: <b>${r.wrapper}</b>, ${capNote}.
+        ${Math.round(r.taxableFraction * 100)}% of each withdrawal is taxed as income on the way out.
+        This is modelled in full &mdash; the pot really goes down and the charts move with it.</p>
       <div class="stat-row">
-        <div class="stat"><span class="label">1. Tax to get it out</span>
-          <span class="value" style="color:var(--critical)">&minus;${money(taxToMove)}</span>
-          <span class="sub">of each ${money(amt)}: a quarter is tax-free, the rest taxed at your ${pct}% retirement rate,
-            so ${money(lands)} actually lands</span></div>
-        <div class="stat"><span class="label">2. Tax later</span>
-          <span class="value">${delta >= 0 ? "+" : "&minus;"}${money(delta)}</span>
-          <span class="sub">after ${horizon} years at ${inp.yourPotGrowth}%: ${money(ifMoved)} from an ISA, tax paid,
-            against ${money(ifLeftNet)} net if left and drawn the same way. These cancel while your tax rate stays the same</span></div>
-        <div class="stat"><span class="label">3. Inheritance tax</span>
-          <span class="value" style="color:var(--critical)">&minus;${money(ihtCost)}</span>
-          <span class="sub">the moved money joins your estate, taxable at 40% above the nil-rate band; left in the pension it
-            normally would not be</span></div>
+        <div class="stat"><span class="label">Moved</span><span class="value">${money(sum.grossReal)}</span>
+          <span class="sub">over ${sum.span} year${sum.span === 1 ? "" : "s"}, from ${sum.firstYear} to ${sum.lastYear}</span></div>
+        <div class="stat"><span class="label">Tax to move it</span>
+          <span class="value" style="color:var(--critical)">&minus;${money(sum.tax)}</span>
+          <span class="sub">${sum.grossReal > 0 ? Math.round(100 * sum.tax / sum.grossReal) : 0}% of what left the pension</span></div>
+        <div class="stat"><span class="label">Landed in the ${r.wrapper}</span><span class="value">${money(sum.net)}</span>
+          <span class="sub">where it grows and can be drawn on later</span></div>
+        <div class="stat"><span class="label">Difference it made</span>
+          <span class="value" style="color:${delta >= 0 ? "var(--good)" : "var(--critical)"}">
+            ${delta >= 0 ? "+" : "&minus;"}${money(delta)}</span>
+          <span class="sub">against the same plan with this switched off</span></div>
       </div>
-      <p class="caption" style="margin:8px 0 0;"><b>So it is worth doing when</b> you will pay a lower rate taking it out than
-        you would later, you need the money before pension age, or you have allowances going spare. <b>It is not worth doing</b>
-        simply to get money into an ISA &mdash; the pension already grows tax-free and is normally outside your estate.</p>
-      <p class="caption" style="margin:6px 0 0;"><b>Note:</b> this strategy is not part of the projection, so the charts will
-        not move when you tick it. It appears in the comparison table and the ISA-allowance tracker, and is costed here.</p>
+      ${r.worseByDesign ? `<p class="caption" style="margin:8px 0 0;"><b>Worth knowing:</b> ${r.note}
+        Moving money out gives up that treatment, and outside super the growth is taxed &mdash; which this model does not
+        charge you for, so the figure above is if anything flattering. In ${COUNTRIES[currentCountry].name} the usual answer
+        is to leave it where it is.</p>`
+      : `<p class="caption" style="margin:8px 0 0;"><b>It pays when</b> your tax rate on the way out is lower than the rate you
+        would pay later, or you want the money reachable before pension age. <b>It does not pay</b> simply to be in a
+        ${r.wrapper}: the pension already grows tax-free${currentCountry === "UK" ? " and normally sits outside your estate for inheritance tax" : ""}.</p>`}
     </div>`;
 }
 
@@ -6217,9 +6323,19 @@ function buildPersonProjection(p, o) {
         meta.accumulatedPot *= 0.75;
       }
     }
+    /* The strategy only makes sense out of a pot that is being drawn, and only
+       once drawdown has started - which is exactly the span this series
+       covers. Recorded per year so householdFunding can tax it and bank the
+       net; meta carries it out of here. */
+    const mo = o.moveOutPerYear > 0
+      ? { perYear: o.moveOutPerYear, lifetimeCap: o.moveOutLifetimeCap ?? null, movedByYear: {} }
+      : null;
     const series = generateDcDrawdownSeries(
       decumStartAge, decumStartDate, endAge, meta.accumulatedPot, o.drawdown, o.potGrowth,
-      o.injectionDate || null, o.injectionAmount || 0);
+      o.injectionDate || null, o.injectionAmount || 0, mo);
+    meta.movedByYear = mo ? mo.movedByYear : {};
+    meta.moveOutPerYear = o.moveOutPerYear || 0;
+    meta.moveOutLifetimeCap = o.moveOutLifetimeCap ?? null;
     decumSeries = {}; series.forEach(s => { decumSeries[s.date.y] = s; });
   }
 
@@ -6286,7 +6402,8 @@ function applyTransferV2(you, spouse, youMeta, spouseMeta, yourRows, spouseRows,
   if (deadMeta.mode !== "pot" || deadMeta.accumulatedPot <= 0) return { yourRows, spouseRows, note: null };
 
   const remaining = remainingDcPotAtEnd(deadMeta.decumStartAge, dead.lifeExpAge,
-    deadMeta.accumulatedPot, deadMeta.drawdown, deadMeta.growth);
+    deadMeta.accumulatedPot, deadMeta.drawdown, deadMeta.growth,
+    deadMeta.moveOutPerYear || 0, deadMeta.moveOutLifetimeCap ?? null);
   if (remaining <= 0) return { yourRows, spouseRows, note: null };
 
   const transferDate = addYearsMonths(dead.lifeExpDate, 0, 1);
@@ -6383,6 +6500,7 @@ function computeAll(overrides = {}) {
   const yourBuilt = buildPersonProjection(you, {
     mode: inp.yourMode, potToday: inp.yourPot, drawdown: inp.yourDrawdown, potGrowth: inp.yourPotGrowth,
     employerContribution, annualAllowance: inp.annualAllowance, takePcls: inp.yourTakePcls, pclsCountry: currentCountry, pclsEarlyIsa: inp.pclsEarlyIsa, toMaxAge: inp.toMaxAge,
+    moveOutPerYear: moveOutPerYearFor(inp), moveOutLifetimeCap: moveOutRules().lifetimeCap,
     startIncome: inp.yourIncome, incomeGrowth: inp.yourIncomeGrowth,
     retireDate: inp.retireDate, retireSpend: inp.retireSpend, assets: atYou,
     spWeekly: inp.spWeekly, spGrowth: inp.spGrowth, discount: inp.discount, today,
@@ -6396,6 +6514,7 @@ function computeAll(overrides = {}) {
     spouseBuilt = buildPersonProjection(spouse, {
       mode: inp.spouseMode, potToday: inp.spousePot, drawdown: inp.spouseDrawdown, potGrowth: inp.spousePotGrowth,
       employerContribution: (inp.spouseContribMonthly || 0) * 12, annualAllowance: Infinity, takePcls: inp.spouseTakePcls, pclsCountry: inp.spouseCountry, pclsEarlyIsa: inp.pclsEarlyIsa, toMaxAge: inp.toMaxAge,
+      moveOutPerYear: moveOutPerYearFor(inp), moveOutLifetimeCap: moveOutRules().lifetimeCap,
       startIncome: inp.spouseIncome, incomeGrowth: inp.spouseIncomeGrowth,
       retireDate: inp.spouseRetireDate, retireSpend: 0, assets: atSpouse,
       spWeekly: spouseSpWeekly, spGrowth: inp.spGrowth, discount: inp.discount, today,
@@ -7384,6 +7503,19 @@ function householdFunding(model, targetOverride) {
   }
   let flexPot = 0;
 
+  /* Tax on money moved out of the pension, at the marginal rate the person is
+     already paying that year, on the share the country treats as taxable. */
+  const moRules = moveOutRules();
+  const moveOutDest = moRules.dest;
+  const moveOutTax = inp.stratIsaOn
+    ? (gross, row, who) => {
+        if (!(gross > 0)) return 0;
+        const otherIncome = who === "spouse" ? (row ? row.state + row.db : 0) : (row ? row.salary + row.state + row.db : 0);
+        const mr = marginalRate(otherIncome + gross * moRules.taxableFraction);
+        return gross * (1 - moRules.taxableFraction * mr);
+      }
+    : null;
+
   const byYear = {};
   let exhaustedYear = null;
   for (let y = startYear; y <= endYear; y++) {
@@ -7430,6 +7562,25 @@ function householdFunding(model, targetOverride) {
       const room = ISA_ANNUAL_LIMIT * (spouse ? 2 : 1);
       const move = Math.min(pool.pcls, room);
       pool.pcls -= move; pool.ssISA += move;
+    }
+
+    /* The pension -> wrapper strategy, as an actual movement of money. The
+       pot was already reduced by this amount when the drawdown series was
+       built; here the tax is paid on the taxable share and the NET lands in
+       the destination pool, where it grows and can be drawn on later like any
+       other savings. It is deliberately NOT added to income: it is the same
+       money in a different place, and putting it on the income line would
+       flatter the plan by counting it twice. */
+    if (moveOutTax) {
+      const grossMoved = (model.yourMeta.movedByYear || {})[y] || 0;
+      const grossMovedSp = spouse ? (model.spouseMeta.movedByYear || {})[y] || 0 : 0;
+      const net = moveOutTax(grossMoved, byYear[y], "you") + moveOutTax(grossMovedSp, byYear[y], "spouse");
+      if (net > 0) {
+        pool[moveOutDest] += deflateAt(net, y);
+        byYear[y].moved = deflateAt(grossMoved + grossMovedSp, y);
+        byYear[y].movedNet = deflateAt(net, y);
+        byYear[y].balances[moveOutDest] = pool[moveOutDest];
+      }
     }
 
     /* Carry on paying into a pension. The NET payment comes out of savings
