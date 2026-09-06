@@ -3252,10 +3252,55 @@ let currentCountry = "UK";
 const CUR = () => COUNTRIES[currentCountry].currency;
 // Fixed data colours for charts - independent of the UI theme so series
 // stay distinguishable on the Night (black), Day (white) and Forest themes.
-const CHART = {
-  private: "#2E9E82", state: "#17604A", db: "#4a90a4", bridge: "#C9954A",
-  salYou: "#4a7ab5", salSpouse: "#8b7fd1", payIn: "#5b7fa6", crit: "#E06666",
+/* Chart series colours, validated rather than chosen by eye.
+   The previous set failed on measurable grounds against the dark surface:
+   the State Pension green sat at 2.46:1 contrast, three hues fell below the
+   chroma floor and read as grey, and two pairs were too close to separate -
+   "pay in" against a spouse's salary was ΔE 9.6 for NORMAL vision, under the
+   15 floor, so nobody could reliably tell them apart, colour-blind or not.
+
+   These are stepped per theme from a validated categorical order, assigned so
+   that colours ADJACENT IN A STACK are the ones held apart: the retirement
+   stack runs salary -> bridge -> private -> db -> state, and the accumulation
+   stack salary -> spouse salary -> paying in. Both clear every hard gate in
+   both themes (worst adjacent CVD ΔE 8.4 dark / 9.1 light against a target of
+   8; worst normal-vision ΔE 19.8 dark / 22.9 light against a floor of 15).
+
+   A series can be absent - plenty of households have no DB pension - and its
+   neighbours then become adjacent, so the pairs that only appear in that case
+   are validated too: with DB missing the private pot sits directly against the
+   State Pension, at ΔE 35.8 light / 24.6 dark. Choosing hues for the listed
+   order alone put two greens together the moment DB was empty, which is how
+   the first attempt at this ended up a wash of green.
+
+   Light mode raises contrast warnings on the lighter fills, which oblige
+   visible relief rather than being dismissable - every chart here carries a
+   legend and a "show these figures as a table" panel, which is that relief.
+
+   Re-check with the data-viz palette validator after any change; do not
+   reason about these by eye. */
+const CHART_HUES = {
+  light: { salYou: "#2a78d6", bridge: "#eb6834", private: "#1baf7a", db: "#eda100",
+           state: "#4a3aa7", salSpouse: "#008300", payIn: "#e87ba4", crit: "#d64545" },
+  dark:  { salYou: "#3987e5", bridge: "#d95926", private: "#199e70", db: "#c98500",
+           state: "#9085e9", salSpouse: "#008300", payIn: "#d55181", crit: "#e66767" },
 };
+const CHART = Object.assign({}, CHART_HUES.dark);
+/* The overlay lines are a different mark - solid or dashed strokes over the
+   fills - so they carry their own identity without competing for a
+   categorical slot. Stepped per theme like everything else. */
+const CHART_LINES = {
+  light: { netWork: "#b35c00", netRet: "#a8347a", survival: "#5c6b64" },
+  dark:  { netWork: "#D98C2B", netRet: "#C75B9C", survival: "#8fa39a" },
+};
+let CHART_LINE = Object.assign({}, CHART_LINES.dark);
+/* Day is the only light theme; Night and Forest are both dark grounds. */
+function chartsAreOnLightGround() { return appTheme === "day"; }
+function applyChartPalette() {
+  const mode = chartsAreOnLightGround() ? "light" : "dark";
+  Object.assign(CHART, CHART_HUES[mode]);
+  CHART_LINE = Object.assign({}, CHART_LINES[mode]);
+}
 const SANS = 'system-ui, -apple-system, "Segoe UI", "Inter", "Helvetica Neue", Arial, sans-serif';
 
 // Gift / inheritance / estate tax, per country. The mechanisms differ a lot, so
@@ -7952,9 +7997,28 @@ function decadeSnapshots(buckets, getYear) {
    50/50 before it is taxed, so each person's allowance and lower bands are
    used once. Real splits are rarely equal, so treat it as an indication - the
    Tax tab does the per-person arithmetic properly. */
-const CHART_NET_WORK = "#D98C2B";   // take-home while working
-const CHART_NET_RET = "#C75B9C";    // take-home once retired
-const CHART_SURVIVAL = "#7F8D87";   // chance of still being alive
+/* Read through CHART_LINE so they step with the theme; see applyChartPalette. */
+const CHART_NET_WORK = { toString: () => CHART_LINE.netWork };
+const CHART_NET_RET = { toString: () => CHART_LINE.netRet };
+const CHART_SURVIVAL = { toString: () => CHART_LINE.survival };
+
+/* The seam between stacked bands: a thin stroke in the chart's own background
+   colour along the top edge of a band, so the next band up starts against the
+   surface rather than flush against another fill. Cheap, and it does the
+   separating that colour alone cannot promise once a band can be empty. */
+function stackSeam(ctx, years, cum, x, yPix) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.strokeStyle = themeColor("--paper", "#000");
+  ctx.lineWidth = 2;
+  ctx.globalAlpha = 0.9;
+  years.forEach((y, i) => {
+    const px = x(y), py = yPix(cum[i]);
+    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  });
+  ctx.stroke();
+  ctx.restore();
+}
 
 /* The survival overlay. Once the plan runs past life expectancy the later
    years are real but progressively less likely, and a chart that draws year
@@ -8335,6 +8399,7 @@ function drawPlannerChart(model) {
         ctx.lineTo(x(accYears[i].year), yPix(accCum[i]));
       }
       ctx.closePath(); ctx.fillStyle = layer.color; ctx.fill();
+      stackSeam(ctx, accYears.map(a => a.year), accCum, x, yPix);
     });
   }
 
@@ -8355,6 +8420,10 @@ function drawPlannerChart(model) {
       ctx.lineTo(x(years[i]), yPix(cum[i]));
     }
     ctx.closePath(); ctx.fillStyle = layer.color; ctx.fill();
+    /* A 2px seam in the surface colour along the top of each band. Touching
+       fills read as one shape however close their colours are, and a band can
+       always be empty - so this separation cannot rely on the hues alone. */
+    stackSeam(ctx, years, cum, x, yPix);
   });
 
   // events adjustment line (total +/- events)
@@ -12653,6 +12722,7 @@ function applyAppTheme() {
   else document.documentElement.dataset.appTheme = appTheme;
   document.querySelectorAll(".theme-seg button").forEach(b =>
     b.classList.toggle("active", b.dataset.appTheme === appTheme));
+  applyChartPalette();        // series colours are stepped per theme, not flipped
   if (lastModel) renderAll(); // charts re-read the chrome colours
 }
 document.querySelectorAll(".theme-seg").forEach(seg => seg.addEventListener("click", e => {
