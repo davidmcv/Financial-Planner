@@ -1072,9 +1072,18 @@
     .bottomnav .tab-btn {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 2px; background: none; border: none; cursor: pointer;
-      color: var(--ink-faint); font: inherit; font-size: 0.62rem; letter-spacing: 0.01em;
+      color: var(--ink-faint); font: inherit; letter-spacing: 0.01em;
       padding: 4px 2px; border-radius: 10px; min-height: 48px;
       -webkit-tap-highlight-color: transparent;
+      /* The bar carries every tab and must not scroll sideways, so each label
+         has only a share of the screen to live in - about an eighth of it.
+         Sizing the label in rem alone meant it grew with the text-size
+         setting until "Savings" and "Planner" overflowed their buttons at
+         1.5x on a 393px phone. The vw term caps it at what actually fits;
+         the rem term still lets it grow on a wider phone. The icon above it
+         keeps its full size, and every button carries an aria-label, so the
+         smaller text costs nothing to a screen reader. */
+      font-size: min(0.62rem, 2.7vw);
     }
     .bottomnav .tab-btn .icon { font-size: 1.15rem; line-height: 1; opacity: 0.9; }
     .bottomnav .tab-btn.active { color: var(--accent-strong); }
@@ -1132,7 +1141,7 @@
   }
 
   @media (max-width: 400px) {
-    .bottomnav .tab-btn { font-size: 0.56rem; }
+    .bottomnav .tab-btn { font-size: min(0.56rem, 2.5vw); }
     .stat-row { gap: 8px; }
   }
 
@@ -1324,6 +1333,7 @@
       <button class="tab-btn" id="tabbtn-planner" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-planner" data-tab="planner"><span class="icon" aria-hidden="true">&#128506;</span><span class="fold">Planner</span></button>
       <button class="tab-btn advanced-only" id="tabbtn-tax" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-tax" data-tab="tax"><span class="icon" aria-hidden="true">&#9878;</span><span class="fold">Tax</span></button>
       <button class="tab-btn advanced-only" id="tabbtn-gifting" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-gifting" data-tab="gifting"><span class="icon" aria-hidden="true">&#127873;</span><span class="fold">Gifting</span></button>
+      <button class="tab-btn advanced-only" id="tabbtn-relocate" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-relocate" data-tab="relocate"><span class="icon" aria-hidden="true">&#127758;</span><span class="fold">Where to live</span></button>
     </nav>
     <div class="rail-footer">
       <div class="rail-fold-block profile-box" style="padding: 0;">
@@ -2562,9 +2572,8 @@
         <label class="check-inline" data-def="moveOutStrategy"><input type="checkbox" id="stratIsaOn" checked> <span id="stratIsaLabel">Move pension to ISA over time</span></label>
         <div class="notice warn" style="margin: 8px 0 10px;"><span class="icon" aria-hidden="true">&#9888;</span><span>Think hard before doing this. Taking money out of a pension to put it back into an ISA
           usually <b>costs more in tax than it saves</b>: 75% of each withdrawal is taxed as income on the way out, while the ISA only
-          shelters what is left. A pension normally also sits <b>outside your estate</b> for inheritance tax, and an ISA does not, so
-          moving money across can increase the tax your heirs pay too. It is worth it mainly if you would otherwise have unused
-          personal allowance, or you want money outside the pension for a specific reason.</span></div>
+          shelters what is left. It is worth it mainly if you would otherwise have unused personal allowance, or you want money
+          outside the pension for a specific reason. <b>On inheritance tax the old answer has changed:</b> <span id="ihtClauseMoveOut"></span>.</span></div>
         <div id="moveOutTradeoff"></div>
         <div class="field-row" id="stratIsaFields">
           <div class="field">
@@ -2683,6 +2692,26 @@
         <div id="taxOptimiseList"></div>
       </div>
 
+      <div class="card" id="wrapperChoiceCard">
+        <div class="person-title">
+          <h2>&#127919; ISA, your pension, or your partner's?</h2>
+        </div>
+        <p class="caption" style="margin: -4px 0 10px;">The same &pound;1,000 of money in hand, put in three places and
+          followed through to what you can actually spend. Growth is the same in all of them, so it cancels out &mdash;
+          what decides it is the relief going in against the tax coming out.</p>
+        <div id="wrapperChoice"></div>
+      </div>
+
+      <div class="card" id="shelterCard">
+        <div class="person-title">
+          <h2>&#127974; Tax-free by design: NS&amp;I, gilts and the rest</h2>
+        </div>
+        <p class="caption" style="margin: -4px 0 10px;">Not everything needs a wrapper. A few things are outside income tax
+          or capital gains tax by their own rules, which makes them useful once ISA and pension room is used up &mdash; and
+          largely pointless while it is not.</p>
+        <div id="shelterList"></div>
+      </div>
+
       <p class="caption">Simplified models of each country's headline income tax (UK includes National Insurance and the Scotland/rest-of-UK band differences; Australia includes the Medicare levy and tax-free super from 60; US is federal only; France is the bar&egrave;me with household parts, excluding social charges). Planning estimates, not tax advice.</p>
     </section>
 
@@ -2752,6 +2781,80 @@
       <div id="giftingCards"></div>
     </section>
 
+    <!-- WHERE TO LIVE -->
+    <section class="panel" id="tab-relocate" role="tabpanel" aria-labelledby="tabbtn-relocate">
+      <div class="panel-head">
+        <h1>Where to live</h1>
+        <p>What your retirement income would be taxed at in each country, what it would take to get in, and what happens to
+          the pension and the ISA on the way. Ranked on your own figures, not on general comparisons.</p>
+      </div>
+
+      <div class="notice warn">
+        <span class="icon" aria-hidden="true">&#9888;</span>
+        <span><b>Read this first.</b> These are simplified headline models of each country's tax on pension income, built to
+          tell a big difference from a small one. They leave out regional surcharges, means-tested benefits and your personal
+          circumstances, and immigration and tax rules change with every government. Treat this as the shortlist you take to
+          a cross-border adviser &mdash; not as the answer. Sources and the date they were checked are at the foot of the page.</span>
+      </div>
+
+      <div class="card">
+        <h2>Your position</h2>
+        <div class="field-row">
+          <div class="field">
+            <label for="relocIncome">Retirement income to compare (<span class="cur">&pound;</span> / year)</label>
+            <input type="text" inputmode="decimal" data-money="0" id="relocIncome">
+            <span class="hint">Taken from your plan's first full retirement year. Change it to test a different level.</span>
+          </div>
+          <div class="field">
+            <label for="relocPeople">Household</label>
+            <select id="relocPeople">
+              <option value="1">Just me</option>
+              <option value="2">A couple</option>
+            </select>
+            <span class="hint">Most countries tax individuals, so splitting the same income across two people usually
+              lowers the bill. France pools it and divides by two, which is why it does better than its rates suggest.</span>
+          </div>
+          <div class="field">
+            <label for="relocCompare">Compare on</label>
+            <select id="relocCompare">
+              <option value="tax">Tax alone</option>
+              <option value="both">Tax and cost of living</option>
+            </select>
+            <span class="hint">Cost of living is an indicative index against the UK at 100. A cheaper country can beat a
+              lower-tax one.</span>
+          </div>
+        </div>
+        <div id="relocSummary"></div>
+      </div>
+
+      <div class="card">
+        <h2>The comparison</h2>
+        <div id="relocTable"></div>
+      </div>
+
+      <div class="card" id="relocWinterCard">
+        <div class="person-title">
+          <h2>&#9924; Winters abroad, summers at home</h2>
+        </div>
+        <div id="relocWinter"></div>
+      </div>
+
+      <div class="card">
+        <h2>Country by country</h2>
+        <p class="caption" style="margin:-4px 0 10px;">Pick one to see how you would get in, what happens to the pension and
+          the ISA, and what to do before you go.</p>
+        <div class="wording-seg" role="group" aria-label="Country" id="relocCountrySeg" style="margin-bottom:12px;"></div>
+        <div id="relocDetail"></div>
+      </div>
+
+      <div class="card">
+        <h2>Moving the money</h2>
+        <div id="relocMoney"></div>
+      </div>
+
+      <p class="caption" id="relocSources"></p>
+    </section>
+
   </main>
 
   <!-- Mobile bottom tab bar (all tabs, no horizontal scroll) -->
@@ -2764,6 +2867,7 @@
     <button class="tab-btn" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-planner" aria-label="Planner" data-tab="planner"><span class="icon" aria-hidden="true">&#128506;</span>Planner</button>
     <button class="tab-btn advanced-only" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-tax" aria-label="Tax" data-tab="tax"><span class="icon" aria-hidden="true">&#9878;</span>Tax</button>
     <button class="tab-btn advanced-only" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-gifting" aria-label="Gifting" data-tab="gifting"><span class="icon" aria-hidden="true">&#127873;</span>Gifts</button>
+    <button class="tab-btn advanced-only" role="tab" aria-selected="false" tabindex="-1" aria-controls="tab-relocate" aria-label="Where to live" data-tab="relocate"><span class="icon" aria-hidden="true">&#127758;</span>Live</button>
   </nav>
 </div>
 
@@ -4988,6 +5092,33 @@ const UK_PENSION_RULES = {
 };
 const NON_EARNER_NET = UK_PENSION_RULES.nonEarnerGross * (1 - UK_PENSION_RULES.reliefAtSource); // £2,880
 
+/* ---- Pensions and inheritance tax --------------------------------------
+   The single biggest change to UK retirement planning in a decade, and the
+   app used to state the OLD position as a plain fact in four places: "a
+   pension normally sits outside your estate for inheritance tax".
+
+   From 6 April 2027 most unused pension funds and death benefits count as
+   part of the estate. Money left to a spouse or civil partner stays exempt,
+   as does death-in-service from a registered scheme. So the sentence is
+   true today, false in a plan that runs past April 2027, and every plan in
+   this app runs past April 2027.
+
+   One place decides how it is worded, and the wording moves with the date
+   rather than needing a code change on the day. */
+const PENSION_IHT_DATE = { y: 2027, m: 4, d: 6 };
+function pensionIhtInForce(when) {
+  const t = when || new Date();
+  return t >= new Date(PENSION_IHT_DATE.y, PENSION_IHT_DATE.m - 1, PENSION_IHT_DATE.d);
+}
+/* A short clause safe to drop into a sentence about leaving money in a
+   pension. Never states the old position without its expiry date. */
+function pensionIhtClause() {
+  return pensionIhtInForce()
+    ? "unused pension funds now count towards your estate for inheritance tax, so this is no longer a reason to leave money in one"
+    : "unused pension funds stay outside your estate for inheritance tax only until 6 April 2027, and count towards it from then "
+      + "(money left to a spouse or civil partner stays exempt)";
+}
+
 // Gross a net contribution up by the relief the provider adds at source.
 function grossUpContribution(net) { return net / (1 - UK_PENSION_RULES.reliefAtSource); }
 
@@ -6160,6 +6291,9 @@ function renderMoveOutTradeoff(model) {
   const lbl = els("stratIsaLabel"), hint = els("stratIsaHint");
   if (lbl) lbl.textContent = r.verb + " over time";
   if (hint) hint.innerHTML = r.note;
+  const ihtSpan = els("ihtClauseMoveOut");
+  if (ihtSpan) ihtSpan.innerHTML = currentCountry === "UK" ? pensionIhtClause()
+    : "this is a UK rule and does not apply to this plan's country";
 
   // The typed amount only applies in fixed mode; the others solve for it.
   const modeSel = els("moveOutMode"), amtField = els("stratIsaAmtField"), modeHint = els("moveOutModeHint");
@@ -6258,7 +6392,9 @@ function renderMoveOutTradeoff(model) {
         is to leave it where it is.</p>`
       : `<p class="caption" style="margin:8px 0 0;"><b>It pays when</b> your tax rate on the way out is lower than the rate you
         would pay later, or you want the money reachable before pension age. <b>It does not pay</b> simply to be in a
-        ${r.wrapper}: the pension already grows tax-free${currentCountry === "UK" ? " and normally sits outside your estate for inheritance tax" : ""}.</p>`}
+        ${r.wrapper}: the pension already grows tax-free.${currentCountry === "UK"
+          ? ` <b>Inheritance tax has changed the old answer here:</b> ${pensionIhtClause()} &mdash; so "leave it in the pension
+              for your heirs" is much weaker advice than it was, and moving money out is correspondingly less costly.` : ""}</p>`}
     </div>`;
 }
 
@@ -6449,8 +6585,7 @@ function renderRecycleVerdict(model) {
       <b>age ${UK_PENSION_RULES.reliefStopsAge}</b> &mdash; the plan stops contributing then.
       Once a pot has been flexibly accessed the money-purchase annual allowance falls to
       <b>${money(UK_PENSION_RULES.mpaa)}</b>, which ${money(UK_PENSION_RULES.nonEarnerGross)} sits comfortably inside,
-      so being in drawdown does not block it. Pensions also sit outside the estate for inheritance tax on deaths
-      before April 2027. This is a projection, not advice.</p>`;
+      so being in drawdown does not block it. On inheritance tax, ${pensionIhtClause()}. This is a projection, not advice.</p>`;
 }
 
 function calculateGiftingSummary(numChildren, numGrandchildren, smallGiftAmount, annualExemption,
@@ -10158,8 +10293,7 @@ function taxOptimisations(model, you, spouse) {
         title: `${label(f)}: ${money(over)} of retirement income is taxed at 40%`,
         why: `Taking that slice from an <b>ISA or general savings instead</b> would leave the
               pension untouched and the income out of higher rate. The same spending, ${money(over * 0.20)}
-              less tax &mdash; and it leaves more in the pension, which is outside the estate for
-              inheritance tax before April 2027.` });
+              less tax. (It also leaves more in the pension, though ${pensionIhtClause()}.)` });
     }
   });
 
@@ -10197,14 +10331,877 @@ function taxOptimisations(model, you, spouse) {
     title: "Draw in the right order: allowance, then ISA, then pension",
     why: `Fill the ${money(PA)} personal allowance from the pension first because it costs no tax;
           take anything above that from ISAs and savings, which are already taxed; and leave the
-          pension alone after that. Pensions sit <b>outside the estate</b> for inheritance tax on
-          deaths before April 2027, so a pound left in a pension is worth more to whoever inherits
-          it than a pound left in an ISA.` });
+          pension alone after that. On inheritance tax, ${pensionIhtClause()} &mdash; so the old rule of thumb
+          that a pound left in a pension is worth more to your heirs than a pound in an ISA is on its way
+          out, and for deaths from April 2027 the two are treated alike.` });
 
   return opts;
 }
 
 let taxOptFilter = "all";
+
+/* =========================================================================
+   WHERE SHOULD THE NEXT £1,000 GO?  ISA, your pension, or your partner's.
+
+   The whole question reduces to one comparison, and it is worth writing down
+   because it is not the one most people make.
+
+   Put £1 of GROSS pay into a pension. It costs you (1 - r) of take-home,
+   where r is the rate of relief you actually get on that slice. It comes back
+   as (1 - w), where w is the tax on £1 of withdrawal - which on the UK's
+   UFPLS basis is three quarters of your retirement marginal rate, because a
+   quarter of every withdrawal is tax-free.
+
+       pension, per £1 of take-home given up:   (1 - w) / (1 - r)
+       ISA, per £1 of take-home given up:       1
+
+   So the pension wins whenever r > w. In UK terms, w is three quarters of the
+   rate you will pay in retirement, which is why a basic-rate payer who will
+   still be basic rate in retirement is STILL better off in a pension - 20%
+   relief in against an effective 15% out - and why the answer flips only when
+   your retirement rate will be higher than your rate today.
+
+   Two things then dominate everything else:
+
+     * Relief follows the rate on the SLICE being contributed, not your
+       average rate, and not your partner's. That is the whole answer to "can
+       I get 40% relief?": only on pay above the higher-rate threshold. If one
+       of you is over it and the other is not, the same £1,000 buys 40p of
+       relief in one pension and 20p in the other.
+
+     * Between £100,000 and £125,140 the personal allowance is withdrawn at
+       £1 for every £2, so relief on that slice is 60%. Nothing else in the
+       UK system comes close.
+
+   Relief at source pays 20% even to a non-taxpayer, so the floor is 20% up to
+   the greater of £3,600 gross or 100% of relevant earnings. That is modelled,
+   because it is the case where the answer surprises people most.
+   ===================================================================== */
+function wrapperChoice(model, you, spouse) {
+  if (currentCountry !== "UK") return null;
+  const NET = 1000;                       // the money in hand being invested
+  const scot = model.inp.scotland === "scot";
+  const slice = 1000;                     // measure rates on a £1,000 slice
+
+  /* The rate of relief on the top slice of this person's pay - read off the
+     tax function rather than assumed, so the 60% band and the Scottish bands
+     come out on their own. */
+  const reliefOn = sal => {
+    if (!(sal > 0)) return 0;
+    const lo = Math.max(0, sal - slice);
+    return (ukIncomeTax(sal, scot) - ukIncomeTax(lo, scot)) / (sal - lo || 1);
+  };
+  const niOn = sal => {
+    if (!(sal > 0)) return 0;
+    const lo = Math.max(0, sal - slice);
+    return (ukNI(sal) - ukNI(lo)) / (sal - lo || 1);
+  };
+  /* Tax on £1 MORE withdrawn in retirement. A quarter of a withdrawal is
+     tax-free, so this is 0.75 x the marginal band rate - the number that
+     actually matters, and the one people leave out. */
+  const withdrawalRateFor = f => {
+    const g = f && f.ret ? f.ret.gross : 0;
+    const taxAt = x => {
+      const net = taxOnRetirement(x, 0, (f.ret && f.ret.age) || 67, f.ctry, f.scot);
+      return x - net;
+    };
+    return (taxAt(g + slice) - taxAt(g)) / slice;
+  };
+
+  const person = f => {
+    if (!f) return null;
+    const marginal = reliefOn(f.salary);
+    // Relief at source gives 20% to everyone, taxpayer or not.
+    const relief = Math.max(0.20, marginal);
+    const ni = niOn(f.salary);              // only saved via salary sacrifice
+    const w = Math.max(0, Math.min(1, withdrawalRateFor(f)));
+    // What £1,000 of take-home turns into, and what it is worth on the way out
+    const grossIn = NET / (1 - relief);
+    const outValue = grossIn * (1 - w);
+    // The earnings ceiling on relief: 100% of relevant earnings, or £3,600.
+    const earningsCap = Math.max(UK_PENSION_RULES.nonEarnerGross, f.salary);
+    const aa = taperedAnnualAllowance(f.salary, AA_STANDARD);
+    return {
+      who: f.who, salary: f.salary, marginal, relief, ni, withdrawalRate: w,
+      grossIn, outValue, ratio: outValue / NET,
+      inTaper: f.salary > UK_THRESHOLDS.taperFrom && f.salary <= TAXDATA.UK.bands[2][0],
+      higherRate: marginal >= 0.39,
+      cap: Math.min(earningsCap, aa), earningsCap, aa,
+      retireGross: f.ret ? f.ret.gross : 0,
+    };
+  };
+
+  const y = person(you), s = person(spouse);
+  // Salary sacrifice: the contribution is taken from gross pay, so employee NI
+  // on that slice is saved as well. Worth more to a basic-rate payer than most
+  // people expect, because their NI rate is the higher one.
+  [y, s].forEach(p => {
+    if (!p) return;
+    const grossSac = NET / (1 - p.relief - p.ni);
+    p.sacrificeGrossIn = p.ni > 0 ? grossSac : p.grossIn;
+    p.sacrificeValue = p.sacrificeGrossIn * (1 - p.withdrawalRate);
+    p.sacrificeRatio = p.sacrificeValue / NET;
+  });
+
+  const isa = { ratio: 1, outValue: NET, label: "Stocks & Shares ISA" };
+  const options = [{ id: "isa", label: isa.label, ratio: 1, outValue: NET, person: null }];
+  if (y) options.push({ id: "you", label: "Your pension", ratio: y.ratio, outValue: y.outValue, person: y });
+  if (s) options.push({ id: "spouse", label: "Your partner's pension", ratio: s.ratio, outValue: s.outValue, person: s });
+  options.sort((a, b) => b.ratio - a.ratio);
+  return { you: y, spouse: s, isa, options, best: options[0], scot };
+}
+
+function renderWrapperChoice(model, you, spouse) {
+  const box = els("wrapperChoice");
+  if (!box) return;
+  const w = wrapperChoice(model, you, spouse);
+  if (!w) {
+    box.innerHTML = `<div class="notice empty"><span class="icon">&#8505;</span>
+      This comparison is built on UK pension and ISA rules. The plan's country is
+      ${COUNTRIES[currentCountry].name}, so it isn't shown.</div>`;
+    return;
+  }
+  const pc = v => (v * 100).toFixed(0) + "%";
+  const who = p => (p.who === "spouse" ? "Your partner" : "You");
+  const whoLower = p => (p.who === "spouse" ? "your partner" : "you");
+
+  const card = p => {
+    if (!p) return "";
+    const beatsIsa = p.ratio > 1.001;
+    return `
+      <div class="card" style="margin:0; padding:12px 14px;">
+        <div class="person-title" style="margin-bottom:6px;">
+          <h3 style="margin:0; font-size:0.98rem;">${who(p)}: ${gbp0(p.salary)}</h3>
+          <span class="pill${beatsIsa ? " good" : " warn"}">${beatsIsa
+            ? `${gbp0(p.outValue - 1000)} ahead of an ISA` : "an ISA does better"}</span>
+        </div>
+        <div class="stat-row">
+          <div class="stat"><span class="label">Relief on the next ${gbp0(1000)}</span>
+            <span class="value">${pc(p.relief)}</span>
+            <span class="sub">${p.inTaper
+              ? "inside the £100,000&ndash;£125,140 band, where the personal allowance is withdrawn as well &mdash; the 60% rate"
+              : p.higherRate ? "this slice of pay is in the higher-rate band"
+              : p.marginal < 0.20 ? "relief at source pays 20% even where no tax is due on this slice"
+              : "this slice of pay is in the basic-rate band"}</span></div>
+          <div class="stat"><span class="label">Tax on the way out</span>
+            <span class="value">${pc(p.withdrawalRate)}</span>
+            <span class="sub">a quarter of every withdrawal is tax-free, so this is three quarters of
+              ${p.who === "spouse" ? "their" : "your"} marginal rate on ${gbp0(p.retireGross)} of retirement income</span></div>
+          <div class="stat"><span class="label">${gbp0(1000)} in hand becomes</span>
+            <span class="value">${gbp0(p.grossIn)}</span>
+            <span class="sub">in the pension, after relief</span></div>
+          <div class="stat"><span class="label">Worth, after tax</span>
+            <span class="value" style="color:${beatsIsa ? "var(--good)" : "var(--critical)"}">${gbp0(p.outValue)}</span>
+            <span class="sub">against ${gbp0(1000)} from an ISA &mdash; growth is the same in both, so it cancels</span></div>
+        </div>
+        ${p.ni > 0 ? `<p class="caption" style="margin:8px 0 0;"><b>By salary sacrifice</b> ${whoLower(p)} also save
+          ${pc(p.ni)} National Insurance on that slice, taking ${gbp0(1000)} in hand to
+          <b>${gbp0(p.sacrificeGrossIn)}</b> in the pension and <b>${gbp0(p.sacrificeValue)}</b> after tax. Ask whether the
+          employer passes on any of their own NI saving too &mdash; many do.</p>` : ""}
+        <p class="caption" style="margin:6px 0 0;">Ceiling this year: <b>${gbp0(p.cap)}</b> gross &mdash;
+          ${p.aa < p.earningsCap
+            ? `the annual allowance, tapered to ${gbp0(p.aa)} by ${gbp0(p.salary)} of income`
+            : `100% of relevant earnings (the annual allowance of ${gbp0(p.aa)} is not the binding limit)`}.</p>
+      </div>`;
+  };
+
+  const b = w.best;
+  const runner = w.options[1];
+  const headline = b.id === "isa"
+    ? "An ISA is the better home for the next £1,000"
+    : `${b.label} is the better home for the next ${gbp0(1000)}`;
+  const margin = runner ? b.outValue - runner.outValue : 0;
+
+  const bothPensions = w.you && w.spouse;
+  const gap = bothPensions ? w.you.relief - w.spouse.relief : 0;
+
+  box.innerHTML = `
+    <div class="notice ${b.id === "isa" ? "info" : "good"}" style="margin:0 0 12px;">
+      <span class="icon" aria-hidden="true">&#127919;</span>
+      <span><b>${headline}.</b> On ${gbp0(1000)} of money in hand it comes back as
+      <b>${gbp0(b.outValue)}</b> after tax${runner ? (Math.abs(margin) < 1
+        ? `, exactly the same as ${runner.label.toLowerCase()} &mdash; on these figures there is nothing to choose between them`
+        : `, against ${gbp0(runner.outValue)} from ${runner.label.toLowerCase()} &mdash; ${gbp0(Math.abs(margin))} better`) : ""}.
+      Growth is identical in every one of these wrappers, so it cancels out entirely and the answer is decided by
+      tax relief in against tax out.</span>
+    </div>
+    ${bothPensions && Math.abs(gap) > 0.01 ? `
+      <div class="notice ${Math.abs(gap) >= 0.15 ? "warn" : "info"}" style="margin:0 0 12px;">
+        <span class="icon" aria-hidden="true">&#9878;</span>
+        <span><b>Relief is personal, and yours differ.</b> The same ${gbp0(1000)} buys
+        <b>${pc(w.you.relief)}</b> of relief in your pension and <b>${pc(w.spouse.relief)}</b> in your partner's,
+        because relief follows the tax rate on the slice of pay being contributed &mdash; not household income, and not an
+        average. ${gap > 0
+          ? `Yours is the higher rate, so pension contributions are worth more in <b>your</b> name.`
+          : `Your partner's is the higher rate, so pension contributions are worth more in <b>their</b> name.`}
+        ${w.you.marginal < 0.39 && w.spouse.marginal >= 0.39
+          ? ` You are not a higher-rate taxpayer on this slice, so you cannot get 40% relief on it &mdash; your partner can.`
+          : w.spouse.marginal < 0.39 && w.you.marginal >= 0.39
+          ? ` Your partner is not a higher-rate taxpayer on this slice, so they cannot get 40% relief on it &mdash; you can.`
+          : ""}</span>
+      </div>` : ""}
+    <div class="field-row" style="gap:12px;">
+      ${card(w.you)}
+      ${card(w.spouse)}
+    </div>
+    <div class="card" style="margin:12px 0 0; padding:12px 14px;">
+      <h3 style="margin:0 0 6px; font-size:0.98rem;">The rule underneath it</h3>
+      <p class="caption" style="margin:0;">A pension beats an ISA whenever the relief going <b>in</b> beats the tax coming
+      <b>out</b> &mdash; and the tax coming out is only three quarters of your retirement rate, because a quarter of every
+      withdrawal is tax-free. So a basic-rate payer who stays basic rate in retirement is <b>still</b> ahead in a pension:
+      20% in against an effective 15% out. The ISA wins on two other grounds instead: you can reach the money at any age,
+      and it is never taxed on the way out at all &mdash; which is worth most if your retirement income will be taxed at a
+      higher rate than your pay is now. ${currentCountry === "UK" ? `On inheritance tax, ${pensionIhtClause()}.` : ""}</p>
+    </div>`;
+}
+
+/* =========================================================================
+   LIVING SOMEWHERE ELSE
+
+   Where would a UK retirement income be taxed least, what would it take to
+   move there, and what happens to the pension and the ISA on the way?
+
+   Each country carries a `tax(income, opts)` that returns the annual tax on a
+   couple's or a single person's retirement income, so the ranking is computed
+   from the plan's own numbers rather than asserted. These are deliberately
+   simplified headline models - national income tax on pension income, plus
+   the social or health contributions that actually bite on pensioners - and
+   each says what it leaves out. They are enough to tell a £15,000-a-year
+   difference from a £1,000 one, which is the decision being made here; they
+   are not a substitute for advice in the destination country.
+
+   Everything below is the position as at September 2026, from public
+   sources. Immigration rules and special tax regimes change with each
+   government - the Italian flat tax was extended in April 2026, Spain's
+   golden visa was abolished in 2025 - so every one of these is a starting
+   point for a conversation with a professional, not an answer.
+   ===================================================================== */
+const EUR = 1.17, CAD = 1.71, USD = 1.27, AUD = 1.92;   // per £1, indicative
+
+/* Banding a pension straight from the first pound is how comparisons of this
+   kind end up wrong by thousands. Every one of these countries has a personal
+   minimum, an age-related addition or a pension-specific deduction before the
+   rates bite, and leaving them out made Spain look like a 29% jurisdiction on
+   a £46,000 household income when the real figure is far lower. So each
+   country carries the allowance a retired person actually gets, in its own
+   currency, and it is taken off before the bands. These are the standard
+   figures, not the full set of regional and age-tapered variants. */
+const bandTax = (income, bands, allowance) =>
+  taxBands(Math.max(0, income - (allowance || 0)), bands);
+
+const RELOCATE = {
+  UK: {
+    name: "United Kingdom", flag: "&#127468;&#127463;", currency: "£", home: true,
+    costIndex: 100, healthcare: "NHS, free at the point of use",
+    summary: "The baseline. Nothing to arrange, no visa, and the ISA keeps working.",
+    tax: (inc, o) => {
+      const per = inc / (o.people || 1);
+      // pension drawdown on the UFPLS basis: a quarter of it is tax-free
+      return (o.people || 1) * ukIncomeTax(per * 0.75, o.scot);
+    },
+    taxNote: "Income tax on 75% of drawdown (a quarter of every withdrawal is tax-free), plus the State Pension in full. No National Insurance on pension income.",
+    lumpSum: "The 25% tax-free lump sum works as intended, capped at £268,275.",
+    wealthTax: "None.",
+    iht: "40% above the nil-rate bands. Unused pension funds join the estate from 6 April 2027.",
+    residency: "You already live here.",
+    immigration: [],
+    money: ["Nothing to move.", "ISAs keep their tax-free status only while you are UK resident."],
+    risks: ["Frozen income tax thresholds to at least April 2028 mean fiscal drag pulls more of your income into higher bands each year."],
+  },
+
+  IT: {
+    name: "Italy", flag: "&#127470;&#127481;", currency: "€",
+    costIndex: 78, healthcare: "SSN public system; residents register and pay a modest annual contribution",
+    summary: "The most generous headline deal in Europe for a foreign pensioner - if you will live in a small town in the south.",
+    tax: (inc, o) => {
+      if (o.regime === "flat7") return inc * 0.07;
+      const per = inc / (o.people || 1);
+      const bands = [[0, 0.23], [28000, 0.35], [50000, 0.43]];
+      // pension detrazioni create a no-tax area of roughly EUR 8,500 each
+      return (o.people || 1) * bandTax(per * EUR, bands, 8500) / EUR;
+    },
+    regimes: [{
+      id: "flat7", name: "7% flat tax for foreign pensioners",
+      what: `A substitute tax of <b>7% on ALL foreign income</b> - pension, dividends, rent, interest, capital gains -
+             for ten consecutive years. Not a reduced rate on pension income only: the whole of your foreign income.`,
+      conditions: [
+        "You receive a foreign pension.",
+        "You have not been Italian tax resident in any of the previous five years.",
+        "You move your tax residence to a qualifying town of up to 30,000 people in Abruzzo, Basilicata, Calabria, Campania, Molise, Puglia, Sardinia or Sicily, or a designated central earthquake-zone town.",
+      ],
+      note: "The population ceiling was raised from 20,000 to 30,000 by Law 34/2026 in April 2026, which brought roughly seventy-five more mid-sized towns into range - the difference between a hill village and somewhere with a hospital and a station.",
+    }],
+    taxNote: "Ordinary IRPEF runs 23% / 35% / 43% after the pension detrazioni, which create a no-tax area of roughly EUR 8,500 each, plus regional and municipal surcharges of roughly 1-3% which are not modelled here. The 7% regime replaces all of it on foreign income.",
+    lumpSum: "Italy does not recognise the UK's 25% tax-free lump sum. Under the 7% regime it would be taxed at 7%; under ordinary rates, as income. Taking it while still UK resident is the usual answer.",
+    wealthTax: "IVIE and IVAFE: roughly 1.06% on foreign property and 0.2% on foreign financial assets. The 7% regime exempts you from both, and from foreign-asset reporting.",
+    iht: "4% to children above a €1m per-heir allowance - among the lowest in Europe.",
+    residency: "Tax resident if registered as resident, or present more than 183 days in a calendar year.",
+    immigration: [
+      { name: "Elective Residence Visa", who: "The retiree route. No work permitted, in Italy or remotely.",
+        needs: "Passive income of roughly €32,000 a year single, €38,000–40,000 a couple, plus about €6,200 per dependent child. Pension, rent and annuities count; a salary does not. Long-term accommodation must be arranged before applying.",
+        then: "Apply at the consulate in the UK, then within 8 days of arrival apply for the permesso di soggiorno at the local Questura. Renewable, and leads to permanent residence after five years and citizenship after ten." },
+      { name: "Digital Nomad Visa", who: "Only if you are still working remotely for a non-Italian employer or clients.",
+        needs: "Higher income threshold, professional qualifications, and health cover.", then: "Not a retirement route; listed because people confuse the two." },
+    ],
+    money: [
+      "Take the 25% tax-free lump sum <b>before</b> becoming Italian tax resident, or lose its tax-free status.",
+      "A UK SIPP can usually stay where it is. Under the UK–Italy treaty private pension income is taxable in Italy, so it should be paid gross - file an HMRC form to stop UK tax being deducted at source.",
+      "UK government service pensions (civil service, armed forces, most NHS and teachers) stay taxable in the UK whatever you do. They are the exception to everything below.",
+      "An ISA is <b>not</b> tax-free in Italy. Under the 7% regime it is caught at 7% like everything else; under ordinary rates the income and gains are taxable. Consider realising gains before you leave.",
+      "Do not rush into a QROPS transfer. For most people it costs more in fees than it saves, and an overseas transfer charge of 25% applies unless you are resident in the same country as the scheme.",
+    ],
+    risks: [
+      "The 7% regime is only available in specific towns, and the town must genuinely be your home - the tax authority checks.",
+      "Ten years, then ordinary IRPEF rates of up to 43% plus surcharges.",
+      "Regional and municipal surcharges are extra on top of the national bands.",
+    ],
+  },
+
+  ES: {
+    name: "Spain", flag: "&#127466;&#127480;", currency: "€",
+    costIndex: 76, healthcare: "Public system via the convenio especial or S1 for UK state pensioners",
+    summary: "Easy to get into, comfortable to live in, and one of the heavier tax regimes for someone with a large pension pot.",
+    tax: (inc, o) => {
+      const per = inc / (o.people || 1);
+      // state + typical autonomous community combined, savings income excluded
+      const bands = [[0, 0.19], [12450, 0.24], [20200, 0.30], [35200, 0.37], [60000, 0.45], [300000, 0.47]];
+      /* Personal minimum EUR 5,550, plus EUR 1,150 from age 65, plus the
+         earned-income reduction that pension income qualifies for. Roughly
+         EUR 8,600 for a retired person - without it Spain looks far worse
+         than it is. */
+      return (o.people || 1) * bandTax(per * EUR, bands, 8600) / EUR;
+    },
+    taxNote: "Combined state and regional rates, roughly 19% to 47%, after a personal minimum of about EUR 8,600 for a retired person (EUR 5,550 personal, EUR 1,150 from age 65, plus the earned-income reduction pensions qualify for). The exact bands vary by autonomous community - Madrid is the cheapest, Catalonia and Valencia among the dearest. Pension income is taxed as general income, not at the lower savings rates.",
+    lumpSum: "Spain does not recognise the 25% tax-free lump sum: taken while Spanish resident it is taxed as ordinary pension income, at rates up to 47%. This is the single most expensive mistake British retirees make in Spain.",
+    wealthTax: "An annual wealth tax above roughly €700,000 of net assets, on worldwide wealth. Madrid applies 100% relief so it is effectively nil there; most other regions charge it. A national solidarity tax picks up very large estates in the regions that do not.",
+    iht: "Regional, and highly variable - generous allowances between spouses and children in most regions, punitive in a few.",
+    residency: "Tax resident after 183 days in a calendar year, and the non-lucrative visa effectively requires you to live there.",
+    immigration: [
+      { name: "Non-Lucrative Visa (NLV)", who: "The standard retirement route. No work at all, including remote work for a UK employer.",
+        needs: "Passive income of about €2,400 a month for the main applicant (400% of IPREM, roughly €28,800 a year), plus about €600 a month per dependant. Private health insurance with no co-payments, and a clean criminal record certificate.",
+        then: "Apply at the Spanish consulate in the UK. Valid one year, then renewed for two and two. Permanent residence after five years. Renewal requires you to have spent at least 183 days a year in Spain - which makes you tax resident, by design." },
+      { name: "Digital Nomad Visa", who: "Remote workers and the self-employed with mostly non-Spanish clients.",
+        needs: "Around €2,760 a month, and can carry the Beckham regime - a 24% flat rate on Spanish employment income for up to six years.",
+        then: "Not available to the retired, and the Beckham regime does not shelter foreign pension income." },
+    ],
+    money: [
+      "Take the 25% lump sum before becoming Spanish tax resident. Afterwards it is taxed in full.",
+      "Under the UK–Spain treaty most UK pensions - state and private - are taxable <b>only</b> in Spain once you are resident there.",
+      "UK government service pensions remain taxable only in the UK, but Spain still counts them when working out the rate on your other income.",
+      "ISAs are not recognised. Income and gains inside them become taxable Spanish income, and they must be reported on the Modelo 720 foreign-asset return.",
+      "Time the move across the Spanish tax year, which is the calendar year. Arriving in July rather than June can decide whether you are resident for the whole of that year.",
+    ],
+    risks: [
+      "Wealth tax outside Madrid on a large pot.",
+      "Modelo 720 reporting of foreign assets, with heavy penalties for getting it wrong.",
+      "The 183-day requirement for visa renewal and the 183-day test for tax residence are the same threshold - you cannot satisfy one and dodge the other.",
+    ],
+  },
+
+  CA: {
+    name: "Canada", flag: "&#127464;&#127462;", currency: "C$",
+    costIndex: 92, healthcare: "Provincial coverage after a waiting period of up to three months",
+    summary: "Straightforward tax treatment of UK pensions. The problem is getting in: there is no retirement visa.",
+    tax: (inc, o) => {
+      const per = inc / (o.people || 1);
+      // federal plus a mid-range province, combined
+      const bands = [[0, 0.20], [55867, 0.30], [111733, 0.38], [173205, 0.45], [246752, 0.50]];
+      /* Basic personal amount, plus the age amount from 65 and the pension
+         income amount, as a combined federal-and-provincial credit expressed
+         as an allowance: roughly C$21,000 for a retired person. */
+      return (o.people || 1) * bandTax(per * CAD, bands, 21000) / CAD;
+    },
+    taxNote: "Federal plus provincial rates combined, using a mid-range province, after roughly C$21,000 of basic personal, age and pension income credits. Alberta is materially cheaper and Quebec dearer. Canada taxes worldwide income of residents.",
+    lumpSum: "The UK lump sum is generally taxable in Canada, though a portion may be sheltered on the basis that it represents a return of contributions. Take it before you become Canadian resident.",
+    wealthTax: "None.",
+    iht: "No inheritance tax, but a deemed disposition at death: unrealised capital gains are taxed as though everything were sold.",
+    residency: "Residence is decided by ties - home, spouse, dependants - not purely by a day count.",
+    immigration: [
+      { name: "There is no retirement visa", who: "Canada has no immigration route designed for retirees, and this is the binding constraint.",
+        needs: "&mdash;", then: "Everything below is a workaround." },
+      { name: "Family sponsorship", who: "A child or grandchild who is a Canadian citizen or permanent resident can sponsor a parent or grandparent.",
+        needs: "The sponsor must meet an income test and undertake to support you financially for up to 20 years.",
+        then: "The Parents and Grandparents Programme is capped and operates by lottery from an existing pool; no new expressions of interest are being accepted in 2026." },
+      { name: "Super Visa", who: "Parents and grandparents of Canadian citizens or permanent residents.",
+        needs: "Private Canadian medical insurance, a sponsor meeting an income threshold, and a medical exam.",
+        then: "Not residence, but a multi-entry visa valid up to 10 years allowing stays of up to five years at a time - in practice the most realistic route for a retired parent." },
+      { name: "Visitor", who: "Anyone.", needs: "&mdash;",
+        then: "Up to six months per entry. No healthcare, no residence, and no path to either." },
+    ],
+    money: [
+      "Under the UK–Canada treaty UK pension income is taxable in Canada once you are resident, with relief for any UK tax.",
+      "ISAs are not recognised and, worse, are often treated as ordinary taxable accounts with onerous reporting. Many advisers suggest closing them before arrival.",
+      "A UK SIPP is generally respected as a pension; growth inside it is not taxed annually. Get this confirmed before moving anything.",
+      "The deemed disposition at death makes holding large unrealised gains more expensive than it looks.",
+    ],
+    risks: ["Immigration, not tax, is the obstacle.", "Healthcare waiting period of up to three months on arrival in most provinces."],
+  },
+
+  US: {
+    name: "United States", flag: "&#127482;&#127480;", currency: "$",
+    costIndex: 104, healthcare: "Private until Medicare at 65, and Medicare needs a work-record qualification",
+    summary: "Federal tax is moderate, but healthcare, state taxes and the near-total absence of a retirement visa dominate.",
+    tax: (inc, o) => (o.people || 1) * usIncomeTax((inc / (o.people || 1)) * USD) / USD,
+    taxNote: "Federal only, filing as a single person per adult. State income tax is not included and ranges from nothing (Florida, Texas, Nevada) to over 13% (California).",
+    lumpSum: "The UK's 25% tax-free lump sum is <b>not</b> reliably tax-free in the US. The common belief that the treaty protects it is an over-reading of Article 17; the IRS position is that a partial drawdown is not a 'lump-sum distribution', and it is taxable. Take it before becoming US resident.",
+    wealthTax: "None federally.",
+    iht: "Federal estate tax with a large exemption; some states add their own at much lower thresholds.",
+    residency: "The substantial presence test, and US citizens and green-card holders are taxed on worldwide income wherever they live.",
+    immigration: [
+      { name: "There is no retirement visa", who: "The US has no route for retirees with means. This is the binding constraint.",
+        needs: "&mdash;", then: "Everything below is a workaround." },
+      { name: "E-2 Treaty Investor", who: "UK nationals qualify by treaty. You must invest a substantial sum in a real, active US business and direct it.",
+        needs: "Typically $150,000 or more, an operating business, and jobs. Passive property investment does not count.",
+        then: "Renewable indefinitely in two-year increments, but never leads to a green card by itself. Ends if the business does." },
+      { name: "EB-5 Immigrant Investor", who: "A direct route to a green card by investment.",
+        needs: "$800,000 in a targeted employment area or $1,050,000 elsewhere, creating ten jobs, and the money genuinely at risk.",
+        then: "Conditional green card, then permanent. It also makes you a US taxpayer on worldwide income for life, until you formally expatriate." },
+      { name: "Visa Waiver / B-2", who: "Anyone.", needs: "&mdash;",
+        then: "90 days visa-free, or up to six months on a B-2 visitor visa. No residence and no healthcare." },
+    ],
+    money: [
+      "Take the 25% lump sum before you become a US person. Afterwards it is likely taxable in full.",
+      "ISAs get no US recognition, and funds inside them are usually PFICs - a punitive US tax regime with heavy reporting. This alone is a reason to unwind them first.",
+      "SIPPs are generally respected under the treaty, but reporting (FBAR, Form 8938, sometimes 3520) is unavoidable.",
+      "Once you are a US person, US tax follows you for as long as you hold that status, wherever you live.",
+    ],
+    risks: [
+      "Healthcare before 65 is the single largest cost, and Medicare requires 40 quarters of US work credits.",
+      "State income tax can swamp the federal saving.",
+      "Worldwide taxation on the basis of status, not residence.",
+    ],
+  },
+
+  FR: {
+    name: "France", flag: "&#127467;&#127479;", currency: "€",
+    costIndex: 85, healthcare: "PUMa after three months' residence; UK state pensioners can use an S1",
+    summary: "High headline rates, but a 10% pension deduction and household quotient make a couple's position better than it looks.",
+    tax: (inc, o) => {
+      const parts = o.people === 2 ? 2 : 1;
+      const perPart = (inc * EUR * 0.90) / parts;     // 10% deduction on pensions
+      return parts * frIncomeTax(perPart) / EUR;
+    },
+    taxNote: "The barème with the household quotient (two parts for a couple) and the 10% pension deduction. Social charges on foreign pensions are reduced or nil where an S1 covers your healthcare - which it does for UK state pensioners.",
+    lumpSum: "France may allow a 7.5% levy on a lump sum taken in one go, subject to conditions - one of the few countries where taking it after moving can work out well. Take advice first; the conditions are strict.",
+    wealthTax: "IFI, on real estate only, above €1.3m.",
+    iht: "Progressive to 45% between parents and children, with a €100,000 per child allowance. Spouses are exempt.",
+    residency: "Tax resident on home, main stay, or centre of economic interests.",
+    immigration: [
+      { name: "Visiteur (long-stay visitor) visa", who: "The retirement route. No work permitted.",
+        needs: "Resources at least at the French minimum wage level - roughly €1,600 a month - health insurance, and accommodation.",
+        then: "Long-stay visa validated on arrival, renewed annually, then a multi-year card. Permanent residence after five years." },
+    ],
+    money: [
+      "Under the treaty UK private pensions are taxable only in France; government service pensions stay UK-taxable.",
+      "ISAs are not recognised; the French assurance-vie is the nearest equivalent and is worth setting up after arrival.",
+      "The 7.5% lump-sum levy is the one genuine opportunity here, and it has conditions - do not assume it.",
+    ],
+    risks: ["Social charges if you are not covered by an S1.", "Wealth tax on French and foreign property above €1.3m."],
+  },
+
+  AU: {
+    name: "Australia", flag: "&#127462;&#127482;", currency: "A$",
+    costIndex: 95, healthcare: "Medicare, with a reciprocal agreement for UK visitors",
+    summary: "Superannuation is tax-free after 60 - but that applies to Australian super, not to your UK pension.",
+    tax: (inc, o) => {
+      const per = (inc / (o.people || 1)) * AUD;
+      /* SAPTO, the seniors and pensioners tax offset, lifts the effective
+         tax-free threshold to roughly A$35,000 for a single pensioner. It is
+         means-tested away above that; modelled here as an allowance, which is
+         the right order of magnitude and stops Australia looking punitive on
+         a modest income. */
+      const afterOffset = Math.max(0, per - 16800);
+      return (o.people || 1) * auIncomeTax(afterOffset) / AUD;
+    },
+    taxNote: "Resident rates plus the 2% Medicare levy, with the seniors and pensioners tax offset approximated as an allowance (it lifts the effective tax-free threshold to about A$35,000 and is withdrawn above that). Australian superannuation is tax-free from 60; a UK pension is not, and is taxed as ordinary income.",
+    lumpSum: "Not recognised. Worse, transferring a UK pension to an Australian super fund brings the growth since you became Australian resident into tax.",
+    wealthTax: "None.",
+    iht: "None - no inheritance or estate tax at all.",
+    residency: "Resident on the basis of domicile and the 183-day test.",
+    immigration: [
+      { name: "There is no retirement visa", who: "The investor retirement visa closed to new applicants. Parent visas are the main route.",
+        needs: "&mdash;", then: "Everything below is a workaround." },
+      { name: "Parent visas", who: "Parents of an Australian citizen or permanent resident.",
+        needs: "A balance-of-family test, and a substantial contribution charge. Non-contributory queues run to decades.",
+        then: "Contributory parent visas cost tens of thousands per person but are processed in years rather than decades." },
+    ],
+    money: [
+      "No inheritance tax is the standout feature.",
+      "Transferring a UK pension into Australian super is heavily restricted - most Australian funds are not QROPS, and transfers before 55 are effectively impossible.",
+      "ISAs are not recognised.",
+    ],
+    risks: ["Immigration is the obstacle.", "Distance and the cost of returning."],
+  },
+};
+
+/* =========================================================================
+   THINGS THAT ARE TAX-FREE WITHOUT A WRAPPER
+
+   Asked directly: should we use National Savings to avoid tax, and what else
+   like gilts carries a tax break? The honest answer has a shape - a couple of
+   these are genuinely outside the tax system, most are outside ONE tax and
+   not the other, and nearly all of them are beaten by simply using the ISA
+   and pension room first. So each one says what it is exempt FROM, because
+   that is the distinction that gets lost.
+
+   Figures are the position for the 2026/27 UK tax year, checked in September
+   2026. Rates on NS&I products move often - the Premium Bonds prize rate in
+   particular is reset every few months - so they are labelled with what they
+   are rather than presented as fixed.
+   ===================================================================== */
+const TAX_SHELTERS = [
+  {
+    id: "premiumBonds", name: "NS&I Premium Bonds", verdict: "genuinely tax-free, but not an investment",
+    tone: "good",
+    limit: "£50,000 per person",
+    free: "Income tax AND capital gains tax. Prizes do not use up your Personal Savings Allowance either.",
+    what: `Prizes are drawn monthly rather than paid as interest, and every prize is free of income tax and CGT. With
+           £50,000 each, a couple can hold £100,000 completely outside the tax system.`,
+    catch: `There is no return, only a chance of one. The prize <b>rate</b> is an average across all holders, and the
+            median holder does worse than it because a few very large prizes pull the average up. Over any long period
+            it is a cash holding that loses to inflation. Treat it as tax-free cash, not as an investment.`,
+    whenGood: `Once ISA room is used, for money you want in cash anyway, and especially for a higher- or additional-rate
+               taxpayer whose Personal Savings Allowance is £500 or £0.`,
+  },
+  {
+    id: "gilts", name: "Gilts held directly (especially low-coupon)", verdict: "no CGT, but the coupon is still taxed",
+    tone: "good",
+    limit: "no limit",
+    free: "Capital gains tax only. The interest (the coupon) remains taxable income.",
+    what: `UK government bonds are exempt from CGT. A gilt bought below par and held to maturity at £100 therefore
+           delivers a completely untaxed gain. Low-coupon gilts take almost all of their return that way &mdash; a tiny
+           taxable coupon and a large tax-free pull to par &mdash; which is why higher-rate taxpayers buy them
+           instead of holding cash.`,
+    catch: `Only gilts and qualifying corporate bonds get this. Bond <b>funds</b> do not: they are taxed as offshore or
+            onshore funds, with income taxed as interest and gains chargeable. Buying a gilt fund to get the gilt
+            treatment is the common and expensive mistake.`,
+    whenGood: `Higher-rate and additional-rate taxpayers with money outside ISA and pension room, for a known date &mdash;
+               school fees, a house purchase, a bridge to pension age.`,
+  },
+  {
+    id: "isaWrap", name: "ISAs", verdict: "the first thing to fill",
+    tone: "good",
+    limit: "£20,000 per person per year",
+    free: "Income tax and capital gains tax, on everything inside, for as long as it stays there.",
+    what: `£20,000 each per tax year across all ISA types. Nothing inside is taxed and nothing has to be declared.
+           From 6 April 2027 the <b>cash</b> ISA share drops to £12,000 for the under-65s, with the remaining £8,000
+           available only for stocks and shares; the overall £20,000 is unchanged, and the over-65s keep the full
+           £20,000 in cash.`,
+    catch: `Inside your estate for inheritance tax, unlike a pension before April 2027. The allowance does not carry
+            forward &mdash; an unused year is gone.`,
+    whenGood: "Almost always, before any of the others on this list.",
+  },
+  {
+    id: "psa", name: "The allowances you already have", verdict: "free, and routinely wasted",
+    tone: "info",
+    limit: "varies by tax band",
+    free: "Interest, dividends and gains up to each allowance.",
+    what: `The Personal Savings Allowance covers £1,000 of interest for a basic-rate taxpayer, £500 for a higher-rate
+           taxpayer and nothing at all at the additional rate. On top of that there is the dividend allowance and the
+           CGT annual exempt amount, both much reduced from where they were but not zero. A couple with unequal incomes
+           can often double the useful ones simply by holding assets in the right name.`,
+    catch: `They cannot be carried forward, and the savings allowance disappears exactly when the tax rate rises.`,
+    whenGood: "Before buying any product at all. Transfers between spouses are free of CGT and IHT, so re-arranging costs nothing.",
+  },
+  {
+    id: "nsandi", name: "Other NS&I accounts", verdict: "safe, usually not tax-free",
+    tone: "warn",
+    limit: "varies by product",
+    free: "Nothing, unless the product says so. Only Premium Bonds and NS&I's own ISAs are tax-free.",
+    what: `NS&I is backed by HM Treasury, so 100% of the money is protected rather than the £85,000 the FSCS covers
+           elsewhere. That is the real product.`,
+    catch: `Direct Saver, Income Bonds and Guaranteed Growth Bonds pay <b>taxable</b> interest like any other account.
+            "It's National Savings" is not a tax answer &mdash; only Premium Bonds and the NS&I ISAs are outside tax.`,
+    whenGood: "Large cash balances where you care more about absolute safety than the rate.",
+  },
+  {
+    id: "vctEis", name: "VCTs and EIS", verdict: "big reliefs, big risk",
+    tone: "warn",
+    limit: "£200,000 (VCT) / £1m (EIS) a year",
+    free: "30% income tax relief up front; VCT dividends and gains are tax-free; EIS gains are exempt after 3 years and carry IHT relief after 2.",
+    what: `The largest reliefs in the UK system, and priced accordingly: they exist to push money into small, young,
+           unquoted companies.`,
+    catch: `The relief is real and so is the risk of losing the lot. The tax tail should never wag this dog, and these
+            only make sense once pension and ISA room is exhausted and the money is genuinely surplus.`,
+    whenGood: "Additional-rate taxpayers with a tapered £10,000 annual allowance and no pension room left.",
+  },
+];
+
+/* ---- The Where to live page --------------------------------------------
+   Ranked from the plan's own retirement income. Everything on the page is
+   derived from that one number and the household size, so changing either
+   re-ranks the lot rather than re-labelling a fixed list. */
+let relocCountry = "IT";
+let relocIncomeOverride = null;
+
+function relocBaseIncome(model) {
+  if (relocIncomeOverride != null) return relocIncomeOverride;
+  if (!model) return 40000;
+  const f = householdFunding(model);
+  if (!f.years.length) return 40000;
+  // the first year in which nobody is still on a salary - a settled year
+  const settled = f.years.find(y => (f.byYear[y].salary || 0) <= 0);
+  const r = f.byYear[settled != null ? settled : f.years[0]];
+  return Math.max(0, Math.round(r.total || 0));
+}
+
+function relocRank(model) {
+  const income = relocBaseIncome(model);
+  const people = +(els("relocPeople") ? els("relocPeople").value : 2) || 1;
+  const mode = els("relocCompare") ? els("relocCompare").value : "tax";
+  const scot = model && model.inp.scotland === "scot";
+  const home = RELOCATE[currentCountry] ? currentCountry : "UK";
+
+  const rows = Object.keys(RELOCATE).map(code => {
+    const c = RELOCATE[code];
+    // A country with a special regime is shown at its best available rate,
+    // labelled - it would be misleading to rank Italy on rates nobody who
+    // moves there for the tax would actually pay.
+    const plain = c.tax(income, { people, scot });
+    const best = c.regimes && c.regimes.length
+      ? Math.min(plain, c.tax(income, { people, scot, regime: c.regimes[0].id }))
+      : plain;
+    const usesRegime = best < plain - 1;
+    const net = income - best;
+    // Cost of living converts spending power, not tax: £1 buys more in Italy.
+    const effective = mode === "both" ? net * (100 / c.costIndex) : net;
+    return { code, c, tax: best, plain, usesRegime, net, effective,
+             rate: income > 0 ? best / income : 0 };
+  });
+  const homeRow = rows.find(r => r.code === home);
+  rows.forEach(r => { r.vsHome = homeRow ? r.effective - homeRow.effective : 0; });
+  rows.sort((a, b) => b.effective - a.effective);
+  return { rows, income, people, mode, home, homeRow };
+}
+
+function renderRelocate(model) {
+  const table = els("relocTable");
+  if (!table) return;
+  const inc = els("relocIncome");
+  if (inc && document.activeElement !== inc) {
+    inc.value = Math.round(relocBaseIncome(model)).toLocaleString("en-GB");
+    // Money inputs get a slider attached to them automatically; writing the
+    // value straight into the box leaves that slider sitting at zero next to
+    // a five-figure number, which reads as a broken control.
+    if (typeof syncSliders === "function") syncSliders();
+  }
+  /* The household defaults to whatever the plan says rather than to one
+     person. Most countries tax individuals, so this single setting moves the
+     answer by thousands - it should not start on the wrong one. */
+  const ppl = els("relocPeople");
+  if (ppl && !ppl.dataset.touched) ppl.value = model && model.spouse ? "2" : "1";
+
+  const { rows, income, people, mode, homeRow } = relocRank(model);
+  const pc = v => (v * 100).toFixed(1) + "%";
+
+  // ---- summary -----------------------------------------------------------
+  const best = rows[0];
+  const sum = els("relocSummary");
+  if (sum) {
+    const gain = homeRow ? best.effective - homeRow.effective : 0;
+    sum.innerHTML = `
+      <div class="notice ${gain > 1000 ? "good" : "info"}" style="margin:10px 0 0;">
+        <span class="icon" aria-hidden="true">&#127758;</span>
+        <span>On <b>${gbp0(income)}</b> a year${people === 2 ? " between the two of you" : ""},
+        ${best.code === (homeRow && homeRow.code)
+          ? `you are already in the best-placed country on this comparison.`
+          : `<b>${best.c.name}</b> leaves you the most: <b>${gbp0(best.net)}</b> after tax
+             ${mode === "both" ? `, worth <b>${gbp0(best.effective)}</b> in UK spending power once the cost of living is
+             taken into account` : ""} &mdash; <b>${gbp0(Math.abs(gain))} a year ${gain >= 0 ? "more" : "less"}</b> than
+             staying put.${best.usesRegime ? ` That assumes you qualify for the ${best.c.regimes[0].name.toLowerCase()},
+             which has conditions.` : ""}`}
+        </span>
+      </div>`;
+  }
+
+  // ---- table -------------------------------------------------------------
+  table.innerHTML = `
+    <div style="overflow-x:auto;">
+    <table class="data">
+      <thead><tr>
+        <th>Country</th><th class="num">Tax a year</th><th class="num">Effective rate</th>
+        <th class="num">Left after tax</th>
+        ${mode === "both" ? `<th class="num">Cost of living</th><th class="num">In UK spending power</th>` : ""}
+        <th class="num">vs staying put</th><th>Getting in</th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(r => `
+          <tr${r.code === (homeRow && homeRow.code) ? ' style="font-weight:600;"' : ""}>
+            <td>${r.c.flag} ${r.c.name}${r.c.home ? " <span class='hint-inline'>(now)</span>" : ""}
+              ${r.usesRegime ? `<br><span class="hint-inline">on the ${r.c.regimes[0].name.toLowerCase()}</span>` : ""}</td>
+            <td class="num">${gbp0(r.tax)}</td>
+            <td class="num">${pc(r.rate)}</td>
+            <td class="num">${gbp0(r.net)}</td>
+            ${mode === "both" ? `<td class="num">${r.c.costIndex}</td><td class="num">${gbp0(r.effective)}</td>` : ""}
+            <td class="num" style="color:${r.vsHome > 500 ? "var(--good)" : r.vsHome < -500 ? "var(--critical)" : "inherit"}">
+              ${r.code === (homeRow && homeRow.code) ? "&mdash;"
+                : (r.vsHome >= 0 ? "+" : "&minus;") + gbp0(Math.abs(r.vsHome))}</td>
+            <td>${r.c.home ? "&mdash;"
+              : r.c.immigration.length && /no retirement visa/i.test(r.c.immigration[0].name)
+                ? "<b>No retirement visa</b>" : r.c.immigration[0] ? r.c.immigration[0].name : "&mdash;"}</td>
+          </tr>`).join("")}
+      </tbody>
+    </table></div>
+    <p class="caption" style="margin:10px 0 0;">Tax is national income tax on pension income at the household size shown,
+      after each country's personal, age and pension allowances, converted at indicative exchange rates. It excludes
+      regional and municipal surcharges, social charges where an S1 or treaty removes them, means-tested benefits, and
+      property or wealth taxes &mdash; those are listed per country below.
+      <b>The UK row is lower than the rates suggest for a real reason:</b> a quarter of every pension withdrawal is tax-free
+      here, and nowhere else on this list recognises that. Leaving the UK gives it up. A lower tax bill is also not the same
+      as a better life.</p>`;
+
+  // ---- winter abroad -----------------------------------------------------
+  const win = els("relocWinter");
+  if (win) {
+    win.innerHTML = `
+      <p>Buying somewhere for the winter and coming home for the summer is a different question from emigrating, and it
+        turns on two separate day counts that do not line up.</p>
+      <div class="stat-row" style="margin:10px 0;">
+        <div class="stat"><span class="label">In the Schengen area</span><span class="value">90 days</span>
+          <span class="sub">in any rolling 180 &mdash; Italy, Spain and France all draw on the same allowance, and since
+            April 2026 the EU Entry/Exit System counts you automatically at the border</span></div>
+        <div class="stat"><span class="label">A British winter</span><span class="value">~150 days</span>
+          <span class="sub">November to March is about 150 days &mdash; comfortably more than the 90 you are allowed</span></div>
+        <div class="stat"><span class="label">UK tax residence</span><span class="value">183 days</span>
+          <span class="sub">plus the ties tests, which can make you UK resident on far fewer days</span></div>
+      </div>
+      <p><b>So a full winter away does not fit inside the visa-free allowance.</b> Owning the property makes no difference at
+        all &mdash; there is no second-home exemption, and no EU-level agreement for British owners despite repeated talk of
+        one. Three ways round it:</p>
+      <ul>
+        <li><b>Shorten the stay.</b> Ninety days &mdash; say January to March &mdash; needs no visa, no residence and no
+          change to your tax position. This is what most people end up doing.</li>
+        <li><b>Get a long-stay visa without becoming tax resident.</b> Italy's elective residence and Spain's non-lucrative
+          visa both allow longer stays, but Spain's renewal effectively requires 183 days a year in the country, which makes
+          you Spanish tax resident by design. Italy's is more forgiving if you genuinely stay under 183 days &mdash; though
+          registering as resident makes you tax resident regardless of the count.</li>
+        <li><b>Move properly, and visit the UK instead.</b> Cleaner, and it is the only version where the tax saving in the
+          table above is actually yours.</li>
+      </ul>
+      <p class="caption"><b>The trap:</b> you can be tax resident in two countries at once, or in neither in a way that helps.
+        The UK's Statutory Residence Test counts ties &mdash; a home, family, work, and days in previous years &mdash; not
+        just days, so someone who keeps a house here and returns every summer usually stays UK resident whatever the other
+        country says. That is not a problem in itself; it does mean you should not count on the saving until an adviser has
+        confirmed it.</p>`;
+  }
+
+  // ---- country picker ----------------------------------------------------
+  const seg = els("relocCountrySeg");
+  if (seg) {
+    seg.innerHTML = Object.keys(RELOCATE).filter(c => !RELOCATE[c].home).map(code =>
+      `<button data-reloc="${code}" class="${code === relocCountry ? "active" : ""}">${RELOCATE[code].flag} ${RELOCATE[code].name}</button>`).join("");
+  }
+  const d = els("relocDetail");
+  const c = RELOCATE[relocCountry];
+  if (d && c) {
+    const row = rows.find(r => r.code === relocCountry);
+    d.innerHTML = `
+      <div class="person-title" style="margin-bottom:6px;">
+        <h3 style="margin:0; font-size:1.05rem;">${c.flag} ${c.name}</h3>
+        <span class="pill${row && row.vsHome > 500 ? " good" : row && row.vsHome < -500 ? " warn" : ""}">
+          ${row ? (row.vsHome >= 0 ? "+" : "&minus;") + gbp0(Math.abs(row.vsHome)) + " a year" : ""}</span>
+      </div>
+      <p>${c.summary}</p>
+      ${(c.regimes || []).map(rg => `
+        <div class="notice good" style="margin:10px 0;"><span class="icon" aria-hidden="true">&#11088;</span><span>
+          <b>${rg.name}.</b> ${rg.what}
+          <br><b>To qualify:</b><ul style="margin:6px 0 0;">${rg.conditions.map(x => `<li>${x}</li>`).join("")}</ul>
+          ${rg.note ? `<br>${rg.note}` : ""}</span></div>`).join("")}
+      <div class="stat-row" style="margin:10px 0;">
+        <div class="stat"><span class="label">Tax on ${gbp0(income)}</span>
+          <span class="value">${row ? gbp0(row.tax) : "&mdash;"}</span>
+          <span class="sub">${row ? (row.rate * 100).toFixed(1) + "% effective" : ""}${row && row.usesRegime
+            ? ` on the ${c.regimes[0].name.toLowerCase()}; ${gbp0(row.plain)} on ordinary rates` : ""}</span></div>
+        <div class="stat"><span class="label">Cost of living</span><span class="value">${c.costIndex}</span>
+          <span class="sub">against the UK at 100</span></div>
+        <div class="stat"><span class="label">Wealth tax</span><span class="value" style="font-size:0.95rem;">${
+          /none/i.test(c.wealthTax) ? "None" : "Yes"}</span><span class="sub">${c.wealthTax}</span></div>
+        <div class="stat"><span class="label">Healthcare</span><span class="value" style="font-size:0.95rem;">&nbsp;</span>
+          <span class="sub">${c.healthcare}</span></div>
+      </div>
+      <p class="caption"><b>How the tax works:</b> ${c.taxNote}</p>
+      <p class="caption"><b>Your 25% lump sum:</b> ${c.lumpSum}</p>
+      <p class="caption"><b>Inheritance:</b> ${c.iht}</p>
+      <p class="caption"><b>Becoming tax resident:</b> ${c.residency}</p>
+
+      <h4 style="margin:14px 0 6px;">Getting in</h4>
+      ${c.immigration.map(v => `
+        <div class="taxopt">
+          <div class="taxopt-head"><h4>${v.name}</h4></div>
+          <p style="margin:6px 0 0;">${v.who}</p>
+          ${v.needs && v.needs !== "&mdash;" ? `<p class="caption" style="margin:4px 0 0;"><b>Needs:</b> ${v.needs}</p>` : ""}
+          <p class="caption" style="margin:4px 0 0;"><b>Then:</b> ${v.then}</p>
+        </div>`).join("")}
+
+      <h4 style="margin:14px 0 6px;">What to do with the money</h4>
+      <ul>${c.money.map(m => `<li>${m}</li>`).join("")}</ul>
+      <h4 style="margin:14px 0 6px;">What could go wrong</h4>
+      <ul>${c.risks.map(m => `<li>${m}</li>`).join("")}</ul>`;
+  }
+
+  // ---- moving the money, generally ---------------------------------------
+  const mv = els("relocMoney");
+  if (mv) {
+    mv.innerHTML = `
+      <p>The order matters more than the destination. Almost everything expensive about moving abroad with a pension comes
+        from doing things in the wrong sequence, and nearly all of it is fixable by doing them before you go.</p>
+      <ol>
+        <li><b>Take the 25% tax-free lump sum before you leave, if you are going to take it at all.</b> It is a UK concept.
+          Spain, Italy, Canada, Australia and the US all tax it once you are resident there &mdash; the US despite a
+          widespread belief that the treaty protects it. France is the one country where waiting can pay, because of a
+          7.5% levy with strict conditions. On a ${gbp0(Math.min(268275, 200000))}-plus lump sum this single decision is
+          usually worth more than every other item on this page combined.</li>
+        <li><b>Deal with the ISA before you go.</b> No country outside the UK recognises it. In the US the funds inside are
+          usually PFICs, which is punitive; in Spain it becomes reportable on the Modelo 720; in Canada it is often treated
+          as a plain taxable account. Realising gains while still UK resident costs nothing and resets the base cost.</li>
+        <li><b>Leave the pension where it is, until someone shows you why not.</b> A UK SIPP is usually respected abroad and
+          keeps growing tax-free. A QROPS transfer carries a 25% overseas transfer charge unless you are resident in the same
+          country as the scheme, plus fees &mdash; and the sales pressure to do it is considerable.</li>
+        <li><b>Get the UK to stop taxing the income.</b> Under most treaties private pension income becomes taxable only in
+          your new country. That does not happen automatically: you file a form with HMRC, certified by the new country's tax
+          authority, to have the pension paid gross. Until you do you will be taxed twice and have to reclaim.</li>
+        <li><b>Check whether any of it is a government service pension.</b> Civil service, armed forces, police, and most
+          NHS and teachers' pensions stay taxable in the UK under nearly every treaty, whatever your residence. This
+          catches people out because it is the one exception to everything above.</li>
+        <li><b>Time the move across both tax years.</b> The UK year ends on 5 April; Spain, Italy and France use the calendar
+          year. There is usually a window that avoids being resident in both places for the same income.</li>
+        <li><b>State Pension: check whether it will be frozen.</b> It rises each year in the EEA, Switzerland, the US and
+          any country with a reciprocal agreement &mdash; but not in Canada or Australia, where it is frozen at the rate on
+          the day you leave and never rises again. Over a thirty-year retirement that is a very large number.</li>
+      </ol>`;
+  }
+
+  const src = els("relocSources");
+  if (src) {
+    src.innerHTML = `Checked September 2026 against public sources including HM Revenue &amp; Customs guidance, the House of
+      Commons Library, NS&amp;I, and published guides from cross-border tax and immigration practices. Figures for Italy
+      reflect Law 34/2026, which raised the 7% regime's town-population ceiling to 30,000 in April 2026; Spain's income
+      requirement is the 2026 IPREM figure. Exchange rates are indicative. Verify anything you intend to act on &mdash;
+      these rules change frequently, and the penalty for getting residence wrong falls on you.`;
+  }
+}
+
+function renderShelters(model) {
+  const box = els("shelterList");
+  if (!box) return;
+  if (currentCountry !== "UK") {
+    box.innerHTML = `<div class="notice empty"><span class="icon">&#8505;</span>
+      These are UK products and UK rules. The plan's country is ${COUNTRIES[currentCountry].name}, so they aren't shown.</div>`;
+    return;
+  }
+  box.innerHTML = TAX_SHELTERS.map(s => `
+    <div class="taxopt">
+      <div class="taxopt-head">
+        <h4>${s.name}</h4>
+        <span class="pill${s.tone === "good" ? " good" : s.tone === "warn" ? " warn" : ""}">${s.verdict}</span>
+      </div>
+      <p style="margin:6px 0 0;">${s.what}</p>
+      <p class="caption" style="margin:6px 0 0;"><b>Free of:</b> ${s.free}</p>
+      <p class="caption" style="margin:4px 0 0;"><b>Limit:</b> ${s.limit}</p>
+      <p class="caption" style="margin:4px 0 0;"><b>The catch:</b> ${s.catch}</p>
+      <p class="caption" style="margin:4px 0 0;"><b>Worth it when:</b> ${s.whenGood}</p>
+    </div>`).join("");
+}
 
 function renderTaxOptimiser(model, you, spouse) {
   const list = els("taxOptimiseList");
@@ -10371,6 +11368,8 @@ function renderTax(model) {
   const tsf = els("taxSpouseSalaryField"); if (tsf) tsf.style.display = model.spouse ? "" : "none";
 
   renderTaxOptimiser(model, you, spouse);
+  renderWrapperChoice(model, you, spouse);
+  renderShelters(model);
 }
 
 function renderAll() {
@@ -10392,6 +11391,7 @@ function renderAll() {
   renderGifting(model);
   updateAgeHeading(model);
   renderTax(model);
+  renderRelocate(model);
   renderPhaseTax(model);
   renderBudget(model);
   /* Slider read-outs are NOT chart furniture: they sit beside their inputs on
@@ -12768,6 +13768,28 @@ document.addEventListener("click", e => {
     });
     if (lastModel) renderTax(lastModel);
   }
+});
+
+/* The Where to live page: pick a country, or change the income and household
+   the comparison is run on. Everything on the page derives from those, so each
+   one re-runs the whole ranking rather than editing a label. */
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-reloc]");
+  if (!b) return;
+  relocCountry = b.dataset.reloc;
+  if (lastModel) renderRelocate(lastModel);
+});
+document.addEventListener("change", e => {
+  if (!e.target.closest("#relocPeople, #relocCompare")) return;
+  // Once the household is set by hand, stop overwriting it from the plan.
+  if (e.target.id === "relocPeople") e.target.dataset.touched = "1";
+  if (lastModel) renderRelocate(lastModel);
+});
+document.addEventListener("input", e => {
+  if (e.target.id !== "relocIncome") return;
+  const v = parseMoney(e.target.value);
+  relocIncomeOverride = isNaN(v) || v < 0 ? null : v;
+  if (lastModel) renderRelocate(lastModel);
 });
 
 document.addEventListener("click", e => {
