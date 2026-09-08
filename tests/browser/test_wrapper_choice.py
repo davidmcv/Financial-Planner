@@ -84,7 +84,7 @@ def main():
             set_salaries(salary, 25000)
             got = pg.evaluate("""() => {
               const t = document.getElementById('wrapperChoice').innerText;
-              const m = t.match(/RELIEF ON THE NEXT £1,000\\s*\\n\\s*(\\d+)%/);
+              const m = t.match(/RELIEF ON THE NEXT £1,000\\s*\\n\\s*([\\d.]+)%/);
               return m ? +m[1] / 100 : null; }""")
             if not check(got is not None, f"£{salary:,}: no relief figure on the page"):
                 continue
@@ -95,7 +95,7 @@ def main():
         # ---- 2. the two people are measured separately ----------------------
         set_salaries(30000, 110000)
         rates = pg.evaluate("""() => [...document.getElementById('wrapperChoice')
-          .innerText.matchAll(/RELIEF ON THE NEXT £1,000\\s*\\n\\s*(\\d+)%/g)].map(m => +m[1] / 100)""")
+          .innerText.matchAll(/RELIEF ON THE NEXT £1,000\\s*\\n\\s*([\\d.]+)%/g)].map(m => +m[1] / 100)""")
         check(len(rates) == 2, f"expected two people's relief rates, got {rates}")
         if len(rates) == 2:
             check(abs(rates[0] - 0.20) < 0.005 and abs(rates[1] - 0.60) < 0.005,
@@ -152,6 +152,54 @@ def main():
         check("2027" in text,
               "the page states the pension/IHT position without the April 2027 change")
         print("7. the inheritance tax position is dated, not stated as permanent")
+
+        # ---- 8. additional rate, and Scotland -------------------------------
+        # The top of the scale, where the largest sums are contributed and the
+        # answer matters most. Scotland is here because it was silently wrong:
+        # readInputs() never set `scotland`, so every site asking
+        # `inp.scotland === "scot"` got false rather than undefined, the
+        # fallback that reads the control never fired, and a Scottish reader
+        # was quoted English rates while their SPOUSE got Scottish ones.
+        def relief_at(salary, region):
+            pg.evaluate("""(r) => { const e = document.getElementById('scotland');
+              e.value = r; e.dispatchEvent(new Event('change', {bubbles:true})); }""", region)
+            set_salaries(salary, 25000)
+            shown = pg.evaluate("""() => { const t = document.getElementById('wrapperChoice').innerText;
+              const m = t.match(/RELIEF ON THE NEXT £1,000\\s*\\n\\s*([\\d.]+)%/);
+              return m ? +m[1] / 100 : None; }""".replace("None", "null"))
+            # what the country's own tax function says that slice really costs
+            raw = pg.evaluate("""(v) => { const scot = document.getElementById('scotland').value === 'scot';
+              return (ukIncomeTax(v, scot) - ukIncomeTax(v - 1000, scot)) / 1000; }""", salary)
+            return shown, raw
+
+        print("8. relief at the top of the scale, and north of the border")
+        for region, cases in (("ruk", {130000: 0.45, 200000: 0.45}),
+                              ("scot", {60000: 0.42, 110000: 0.675, 200000: 0.48})):
+            for salary, want in cases.items():
+                shown, raw = relief_at(salary, region)
+                check(shown is not None, f"{region} £{salary:,}: no relief figure shown")
+                check(abs(raw - want) < 0.005,
+                      f"{region} £{salary:,}: the tax tables give {raw:.2%}, expected {want:.2%}")
+                check(shown is not None and abs(shown - want) < 0.005,
+                      f"{region} £{salary:,}: the card shows {shown:.2%} but the true marginal "
+                      f"rate on that slice is {want:.2%}")
+                print(f"   ok  {region:4s} £{salary:>7,} -> {shown:.0%}")
+        pg.evaluate("""() => { const e = document.getElementById('scotland');
+          e.value = 'ruk'; e.dispatchEvent(new Event('change', {bubbles:true})); }""")
+
+        # ---- 9. the annual allowance caveat is stated ------------------------
+        # The taper is tested on ADJUSTED income, which includes employer
+        # contributions; quoting a ceiling from salary alone without saying so
+        # would understate the risk of an unexpected tax charge.
+        set_salaries(300000, 25000)
+        text9 = panel()
+        check("adjusted" in text9.lower(),
+              "the ceiling is computed from salary but the page does not say the real test "
+              "is adjusted income")
+        check("self-assessment" in text9.lower() or "tax return" in text9.lower(),
+              "at 45% relief the page does not say the part above basic rate is claimed back "
+              "rather than added by the provider")
+        print("9. the adjusted-income and self-assessment caveats are both stated")
 
         b.close()
 
