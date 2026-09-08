@@ -137,3 +137,15 @@ flags and icons are inline SVG now. This checks no emoji creep back into the
 source or the chrome, that every country and tab has artwork that actually
 reaches the page, that icons share one size, stroke and inherited colour, and
 that flags stay decorative so a screen reader doesn't read each country twice.
+
+## test_trips.py
+
+The "long trips, without moving" card on Where to live — the alternative to
+emigrating that most people actually take, costed against the same plan. Three
+things to guard: the reader's own word (a Briton takes a holiday, an American a
+vacation, and the French entry must stay in English rather than dropping French
+nouns into English sentences); the 90-days-in-180 limit, which a slider offering
+26 weeks has to acknowledge; and the arithmetic, which the first version got
+flattering in two ways — a campervan you own costs money in the ten months it
+sits on the drive, and going away is not all extra because the food and energy
+you'd have used at home stop.
