@@ -237,6 +237,23 @@
     letter-spacing: 0.04em;
     text-transform: uppercase;
   }
+  /* Flags sit on the text baseline beside a country name, and keep their
+     shape however the text is scaled. */
+  .flag { display: inline-block; vertical-align: -0.18em; width: 1.35em; height: auto;
+          flex: 0 0 auto; clip-path: inset(0 round 2px); }
+  /* One weight, one size, one colour - inherited, so icons follow the theme
+     and the text-size setting without a second set of rules. */
+  .ic {
+    width: 1.15em; height: 1.15em; display: block;
+    fill: none; stroke: currentColor; stroke-width: 1.75;
+    stroke-linecap: round; stroke-linejoin: round;
+  }
+  .tab-btn .icon { display: inline-flex; align-items: center; justify-content: center; }
+  .icon-btn .ic, .settings-btn .ic { width: 1.2em; height: 1.2em; }
+  /* Only the icon holder, NOT every span: a bare `.icon-btn > span` outranks
+     `.btn-label { display: none }` and put the words back beside the icons in
+     the narrow rail, where "Delete" then ran off the edge. */
+  .icon-btn > span[data-icon], .settings-btn > span[data-icon] { display: inline-flex; }
   .profile-box { display: flex; flex-direction: column; gap: 4px; padding: 0 8px; }
   /* Any rule that sets `display` outranks the browser's own [hidden] styling,
      so hiding an element by setting .hidden silently did nothing to blocks
@@ -1344,7 +1361,7 @@
   <aside class="rail" id="rail">
     <button type="button" class="rail-toggle" id="railToggle" aria-expanded="true" aria-controls="rail"
             title="Collapse the menu (Ctrl + \)">
-      <span class="chev" aria-hidden="true">&#11164;</span>
+      <span class="chev" data-icon="chevron" aria-hidden="true"></span>
     </button>
     <div class="brand">
       <span class="mark"><span class="brand-short" aria-hidden="true">Q</span><span class="fold">Quids In</span></span>
@@ -1376,10 +1393,10 @@
         <span class="profile-label" id="planLabel">Plan</span>
         <select id="profileSelect" aria-labelledby="planLabel"></select>
         <div class="profile-row" id="planButtons">
-          <button class="icon-btn" id="profileExportBtn" title="Save this plan to a file" aria-label="Save to file">&#128190;<span class="btn-label">Save</span></button>
-          <button class="icon-btn" id="profileImportBtn" title="Load a plan from a file" aria-label="Load from file">&#128193;<span class="btn-label">Load</span></button>
-          <button class="icon-btn" id="shareProfile" title="Share this plan with another account" aria-label="Share plan" style="display: none;">&#128101;<span class="btn-label">Share</span></button>
-          <button class="icon-btn" id="deleteProfile" title="Delete this plan" aria-label="Delete plan">&#128465;<span class="btn-label">Delete</span></button>
+          <button class="icon-btn" id="profileExportBtn" title="Save this plan to a file" aria-label="Save to file"><span data-icon="save"></span><span class="btn-label">Save</span></button>
+          <button class="icon-btn" id="profileImportBtn" title="Load a plan from a file" aria-label="Load from file"><span data-icon="load"></span><span class="btn-label">Load</span></button>
+          <button class="icon-btn" id="shareProfile" title="Share this plan with another account" aria-label="Share plan" style="display: none;"><span data-icon="share"></span><span class="btn-label">Share</span></button>
+          <button class="icon-btn" id="deleteProfile" title="Delete this plan" aria-label="Delete plan"><span data-icon="trash"></span><span class="btn-label">Delete</span></button>
           <input type="file" id="profileImportInput" accept=".json,application/json" style="display: none;" aria-label="Choose a saved plan file to load">
         </div>
         <span class="hint" id="profileFileMsg" style="display: none; font-weight: 600;"></span>
@@ -1417,7 +1434,7 @@
         </div>
         <span class="hint" id="chartModeHint" style="padding: 0 2px 4px;">Applies on phone-width screens (under 700px).</span>
       </div>
-      <button class="settings-btn" id="openSettings" title="Shared assumptions"><span aria-hidden="true">&#9881;</span><span class="fold">Assumptions</span></button>
+      <button class="settings-btn" id="openSettings" title="Shared assumptions"><span aria-hidden="true" data-icon="settings"></span><span class="fold">Assumptions</span></button>
     </div>
   </aside>
 
@@ -1429,8 +1446,8 @@
       <button data-level="simple" aria-pressed="false">Simple</button>
       <button data-level="advanced" aria-pressed="false">Advanced</button>
     </div>
-    <button class="icon-btn" id="openPlansMobile" aria-label="Saved plans" title="Saved plans">&#128190;</button>
-    <button class="icon-btn" id="openSettingsMobile" aria-label="Assumptions">&#9881;</button>
+    <button class="icon-btn" id="openPlansMobile" aria-label="Saved plans" title="Saved plans"><span data-icon="save"></span></button>
+    <button class="icon-btn" id="openSettingsMobile" aria-label="Assumptions"><span data-icon="settings"></span></button>
   </header>
 
   <!-- The plan block, on a phone. The rail is hidden below 860px, so the same
@@ -10759,6 +10776,144 @@ function renderWrapperChoice(model, you, spouse) {
     </div>`;
 }
 
+/* ---- Interface icons ----------------------------------------------------
+   The navigation used emoji, and on Windows that produced a jumble. Some of
+   those characters - the bank, the scales, the map, the up-arrow - are
+   "text presentation by default": without a variation selector the browser is
+   entitled to draw them from an ordinary text font, monochrome and at text
+   weight, while the ones beside them (person, money bag, gift, globe) come
+   from the colour emoji font at emoji size. So the rail showed four coloured
+   pictures and four small black symbols, at different sizes and different
+   optical weights. Nothing in CSS fixes that, because it is a font-selection
+   decision, and Segoe UI Emoji is what Windows has.
+
+   These are drawn instead: one line-icon set, stroked in currentColor, so
+   every icon is the same weight and size, matches the text beside it, follows
+   the theme, and looks identical on every machine.
+
+   24x24 grid, 1.75 stroke, round caps - the proportions most icon sets use,
+   so they read as a family rather than as nine separate drawings. */
+const ICONS = {
+  // a person
+  people: '<circle cx="12" cy="8" r="3.6"/><path d="M4.8 20c0-3.7 3.3-6.1 7.2-6.1s7.2 2.4 7.2 6.1"/>',
+  // a young leaf: the brief plan, the simple start
+  simple: '<path d="M5 19.5c-.6-7.5 4.3-13 14.5-14 1 10.2-4.5 15.1-12 14.5"/><path d="M7.5 19.5c1.4-4.3 4-7.3 7.5-9.2"/>',
+  // stacked coins
+  savings: '<ellipse cx="12" cy="6.6" rx="7.2" ry="3"/><path d="M4.8 6.6v4.7c0 1.7 3.2 3 7.2 3s7.2-1.3 7.2-3V6.6"/>' +
+           '<path d="M4.8 11.3V17c0 1.7 3.2 3 7.2 3s7.2-1.3 7.2-3v-5.7"/>',
+  // a bank, for pensions
+  salary: '<path d="M2.8 9.6 12 4.2l9.2 5.4"/><path d="M5.4 10.6v7.6M9.6 10.6v7.6M14.4 10.6v7.6M18.6 10.6v7.6"/>' +
+          '<path d="M3.4 20.4h17.2"/>',
+  // money leaving a tray: paying out
+  projection: '<path d="M12 14.4V3.6"/><path d="M8.2 7.4 12 3.6l3.8 3.8"/>' +
+              '<path d="M4.2 14.6v3.2a2.6 2.6 0 0 0 2.6 2.6h10.4a2.6 2.6 0 0 0 2.6-2.6v-3.2"/>',
+  // a folded map
+  planner: '<path d="M9 4.6 3.4 6.8v12.6L9 17.2l6 2.2 5.6-2.2V4.6L15 6.8 9 4.6z"/><path d="M9 4.6v12.6M15 6.8v12.6"/>',
+  // balance scales
+  tax: '<path d="M12 4.4v15.2"/><path d="M6.4 7.2h11.2"/><path d="M8.4 19.6h7.2"/>' +
+       '<path d="M6.4 7.2 3.4 13.4h6L6.4 7.2z"/><path d="M17.6 7.2l-3 6.2h6l-3-6.2z"/>',
+  // a wrapped gift
+  gifting: '<rect x="3.4" y="9.4" width="17.2" height="10.8" rx="1.6"/><path d="M3.4 13.4h17.2"/>' +
+           '<path d="M12 9.4v10.8"/><path d="M12 9.4C9.8 9.4 7.2 8.9 7.2 6.9S9.8 4.6 12 9.4z"/>' +
+           '<path d="M12 9.4c2.2 0 4.8-.5 4.8-2.5S14.2 4.6 12 9.4z"/>',
+  // a globe
+  relocate: '<circle cx="12" cy="12" r="8.4"/><path d="M3.6 12h16.8"/>' +
+            '<path d="M12 3.6c2.5 2.6 3.9 5.6 3.9 8.4S14.5 18.4 12 20.4C9.5 18.4 8.1 14.8 8.1 12S9.5 6.2 12 3.6z"/>',
+  // the rest of the interface
+  settings: '<circle cx="12" cy="12" r="3.1"/><path d="M12 2.6v2.5M12 18.9v2.5M21.4 12h-2.5M5.1 12H2.6' +
+            'M18.6 5.4l-1.8 1.8M7.2 16.8l-1.8 1.8M18.6 18.6l-1.8-1.8M7.2 7.2 5.4 5.4"/>',
+  save: '<path d="M12 3.4v11.2"/><path d="M7.8 10.4 12 14.6l4.2-4.2"/><path d="M4.4 16.4v2.2a2 2 0 0 0 2 2h11.2a2 2 0 0 0 2-2v-2.2"/>',
+  load: '<path d="M3.4 19V6.4a1.4 1.4 0 0 1 1.4-1.4h4l2 2.6h7.4a1.4 1.4 0 0 1 1.4 1.4V19a1.4 1.4 0 0 1-1.4 1.4H4.8A1.4 1.4 0 0 1 3.4 19z"/>',
+  trash: '<path d="M4.4 6.6h15.2"/><path d="M9.4 6.6V4.8a1.2 1.2 0 0 1 1.2-1.2h2.8a1.2 1.2 0 0 1 1.2 1.2v1.8"/>' +
+         '<path d="M6.4 6.6 7.3 19a1.6 1.6 0 0 0 1.6 1.5h6.2a1.6 1.6 0 0 0 1.6-1.5l.9-12.4"/><path d="M10.4 10.4v6M13.6 10.4v6"/>',
+  chevron: '<path d="M14.5 5.5 8 12l6.5 6.5"/>',
+  share: '<circle cx="8" cy="8.6" r="2.8"/><circle cx="16.6" cy="7.2" r="2.3"/>' +
+         '<path d="M2.8 19c0-2.9 2.3-4.8 5.2-4.8s5.2 1.9 5.2 4.8"/><path d="M15.2 13.6c3 0 6 1.6 6 4.6"/>',
+};
+function iconSvg(name) {
+  const art = ICONS[name];
+  if (!art) return "";
+  return `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${art}</svg>`;
+}
+/* Paint them wherever they belong. The navigation buttons already say which
+   page they are for, so the icon follows from that rather than being written
+   out twice - once in the rail and again in the bottom bar. */
+function paintIcons() {
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    const holder = btn.querySelector(".icon");
+    const art = iconSvg(btn.dataset.tab);
+    if (holder && art) holder.innerHTML = art;
+  });
+  document.querySelectorAll("[data-icon]").forEach(el => {
+    const art = iconSvg(el.dataset.icon);
+    if (art) el.innerHTML = art;
+  });
+}
+
+/* ---- Flags that work everywhere ----------------------------------------
+   These used to be flag emoji - a pair of regional indicator letters, which
+   the font is supposed to turn into a flag. On Windows there is no such font:
+   Microsoft has never shipped flag glyphs in Segoe UI Emoji, so the browser
+   falls back to drawing the two letters it was given and the table reads
+   "GB United Kingdom", "IT Italy". Not a bug in the page - the page asked for
+   something Windows does not have.
+
+   So the flags are drawn here instead, as inline SVG. No font, no network, no
+   platform to depend on, and they scale with the text around them.
+
+   They are simplified for the size they are used at - about 20px wide, where
+   the United States' fifty stars and Australia's seven-pointed Commonwealth
+   Star are each smaller than one pixel. Stars are drawn as dots and the
+   proportions are approximate. The shapes, colours and layout are right; this
+   is a legible mark at a glance, not an heraldic reproduction. */
+const FLAG_SVG = {
+  // Vertical tricolours: the easy ones, and exact.
+  IT: `<rect width="9" height="20" fill="#008C45"/><rect x="9" width="9" height="20" fill="#F4F5F0"/><rect x="18" width="9" height="20" fill="#CD212A"/>`,
+  FR: `<rect width="9" height="20" fill="#002654"/><rect x="9" width="9" height="20" fill="#fff"/><rect x="18" width="9" height="20" fill="#ED2939"/>`,
+  // Spain: the yellow band is half the height, the red quarters above and below.
+  ES: `<rect width="27" height="20" fill="#AA151B"/><rect y="5" width="27" height="10" fill="#F1BF00"/>`,
+  // Canada: the leaf is a simplified eleven-point maple, not the exact one.
+  CA: `<rect width="27" height="20" fill="#fff"/><rect width="6.75" height="20" fill="#D80621"/>` +
+      `<rect x="20.25" width="6.75" height="20" fill="#D80621"/>` +
+      `<path fill="#D80621" d="M13.5 4.2l1 2.1 2.1-.7-.7 2.2 2 .5-1.6 1.4.5 1.1-2.1-.3.2 2.4h-1.8l.2-2.4-2.1.3.5-1.1-1.6-1.4 2-.5-.7-2.2 2.1.7z"/>`,
+  // United States: thirteen stripes and a canton; the stars are dots.
+  US: `<rect width="27" height="20" fill="#fff"/>` +
+      [0, 2, 4, 6, 8, 10, 12].map(i => `<rect y="${i * 1.538}" width="27" height="1.538" fill="#B31942"/>`).join("") +
+      `<rect width="11" height="10.77" fill="#0A3161"/>` +
+      [1.4, 4.1, 6.8, 9.5].map(x => [1.6, 4.2, 6.8, 9.4].map(y =>
+        `<circle cx="${x}" cy="${y}" r="0.62" fill="#fff"/>`).join("")).join(""),
+  // The Union Flag, in the standard compact construction. Keyed "UK"
+  // to match the rest of the app, which does not use the ISO "GB".
+  UK: `<rect width="27" height="20" fill="#012169"/>` +
+      `<path d="M0,0L27,20M27,0L0,20" stroke="#fff" stroke-width="4"/>` +
+      `<path d="M0,0L27,20M27,0L0,20" stroke="#C8102E" stroke-width="2"/>` +
+      `<path d="M13.5,0V20M0,10H27" stroke="#fff" stroke-width="6.6"/>` +
+      `<path d="M13.5,0V20M0,10H27" stroke="#C8102E" stroke-width="4"/>`,
+  // Australia: Union Flag canton, Commonwealth Star, Southern Cross as dots.
+  AU: `<rect width="27" height="20" fill="#012169"/>` +
+      `<g transform="scale(0.5)">` +
+      `<path d="M0,0L27,20M27,0L0,20" stroke="#fff" stroke-width="4"/>` +
+      `<path d="M0,0L27,20M27,0L0,20" stroke="#C8102E" stroke-width="2"/>` +
+      `<path d="M13.5,0V20M0,10H27" stroke="#fff" stroke-width="6.6"/>` +
+      `<path d="M13.5,0V20M0,10H27" stroke="#C8102E" stroke-width="4"/></g>` +
+      `<circle cx="6.75" cy="15" r="1.5" fill="#fff"/>` +
+      `<circle cx="20" cy="4" r="0.8" fill="#fff"/><circle cx="22.5" cy="8.5" r="1" fill="#fff"/>` +
+      `<circle cx="18.5" cy="11" r="0.8" fill="#fff"/><circle cx="22.5" cy="14.5" r="0.9" fill="#fff"/>` +
+      `<circle cx="21" cy="11" r="0.5" fill="#fff"/>`,
+};
+/* The flag, plus the country's two-letter code for anyone who cannot see it.
+   Marked aria-hidden and paired with the name it always appears beside, so a
+   screen reader reads "Italy" once rather than "image Italy". */
+function flagSvg(code) {
+  const art = FLAG_SVG[code];
+  if (!art) return "";
+  /* No <clipPath>: it would need an id, and the same id would then appear
+     once per flag on the page. The corners are rounded in CSS instead, which
+     needs no id and cannot collide. */
+  return `<svg class="flag" viewBox="0 0 27 20" width="21" height="15.5" aria-hidden="true" focusable="false">` +
+         `${art}<rect width="27" height="20" fill="none" stroke="rgba(128,128,128,0.45)"/></svg>`;
+}
+
 /* =========================================================================
    LIVING SOMEWHERE ELSE
 
@@ -10795,7 +10950,7 @@ const bandTax = (income, bands, allowance) =>
 
 const RELOCATE = {
   UK: {
-    name: "United Kingdom", flag: "&#127468;&#127463;", currency: "£", home: true,
+    name: "United Kingdom", currency: "£", home: true,
     costIndex: 100, healthcare: "NHS, free at the point of use",
     summary: "The baseline. Nothing to arrange, no visa, and the ISA keeps working.",
     tax: (inc, o) => {
@@ -10814,7 +10969,7 @@ const RELOCATE = {
   },
 
   IT: {
-    name: "Italy", flag: "&#127470;&#127481;", currency: "€",
+    name: "Italy", currency: "€",
     costIndex: 78, healthcare: "SSN public system; residents register and pay a modest annual contribution",
     summary: "The most generous headline deal in Europe for a foreign pensioner - if you will live in a small town in the south.",
     tax: (inc, o) => {
@@ -10862,7 +11017,7 @@ const RELOCATE = {
   },
 
   ES: {
-    name: "Spain", flag: "&#127466;&#127480;", currency: "€",
+    name: "Spain", currency: "€",
     costIndex: 76, healthcare: "Public system via the convenio especial or S1 for UK state pensioners",
     summary: "Easy to get into, comfortable to live in, and one of the heavier tax regimes for someone with a large pension pot.",
     tax: (inc, o) => {
@@ -10903,7 +11058,7 @@ const RELOCATE = {
   },
 
   CA: {
-    name: "Canada", flag: "&#127464;&#127462;", currency: "C$",
+    name: "Canada", currency: "C$",
     costIndex: 92, healthcare: "Provincial coverage after a waiting period of up to three months",
     summary: "Straightforward tax treatment of UK pensions. The problem is getting in: there is no retirement visa.",
     tax: (inc, o) => {
@@ -10942,7 +11097,7 @@ const RELOCATE = {
   },
 
   US: {
-    name: "United States", flag: "&#127482;&#127480;", currency: "$",
+    name: "United States", currency: "$",
     costIndex: 104, healthcare: "Private until Medicare at 65, and Medicare needs a work-record qualification",
     summary: "Federal tax is moderate, but healthcare, state taxes and the near-total absence of a retirement visa dominate.",
     tax: (inc, o) => (o.people || 1) * usIncomeTax((inc / (o.people || 1)) * USD) / USD,
@@ -10977,7 +11132,7 @@ const RELOCATE = {
   },
 
   FR: {
-    name: "France", flag: "&#127467;&#127479;", currency: "€",
+    name: "France", currency: "€",
     costIndex: 85, healthcare: "PUMa after three months' residence; UK state pensioners can use an S1",
     summary: "High headline rates, but a 10% pension deduction and household quotient make a couple's position better than it looks.",
     tax: (inc, o) => {
@@ -11004,7 +11159,7 @@ const RELOCATE = {
   },
 
   AU: {
-    name: "Australia", flag: "&#127462;&#127482;", currency: "A$",
+    name: "Australia", currency: "A$",
     costIndex: 95, healthcare: "Medicare, with a reciprocal agreement for UK visitors",
     summary: "Superannuation is tax-free after 60 - but that applies to Australian super, not to your UK pension.",
     tax: (inc, o) => {
@@ -11231,7 +11386,7 @@ function renderRelocate(model) {
       <tbody>
         ${rows.map(r => `
           <tr${r.code === (homeRow && homeRow.code) ? ' style="font-weight:600;"' : ""}>
-            <td>${r.c.flag} ${r.c.name}${r.c.home ? " <span class='hint-inline'>(now)</span>" : ""}
+            <td>${flagSvg(r.code)} ${r.c.name}${r.c.home ? " <span class='hint-inline'>(now)</span>" : ""}
               ${r.usesRegime ? `<br><span class="hint-inline">on the ${r.c.regimes[0].name.toLowerCase()}</span>` : ""}</td>
             <td class="num">${gbp0(r.tax)}</td>
             <td class="num">${pc(r.rate)}</td>
@@ -11293,7 +11448,7 @@ function renderRelocate(model) {
   const seg = els("relocCountrySeg");
   if (seg) {
     seg.innerHTML = Object.keys(RELOCATE).filter(c => !RELOCATE[c].home).map(code =>
-      `<button data-reloc="${code}" class="${code === relocCountry ? "active" : ""}">${RELOCATE[code].flag} ${RELOCATE[code].name}</button>`).join("");
+      `<button data-reloc="${code}" class="${code === relocCountry ? "active" : ""}">${flagSvg(code)} ${RELOCATE[code].name}</button>`).join("");
   }
   const d = els("relocDetail");
   const c = RELOCATE[relocCountry];
@@ -11301,7 +11456,7 @@ function renderRelocate(model) {
     const row = rows.find(r => r.code === relocCountry);
     d.innerHTML = `
       <div class="person-title" style="margin-bottom:6px;">
-        <h3 style="margin:0; font-size:1.05rem;">${c.flag} ${c.name}</h3>
+        <h3 style="margin:0; font-size:1.05rem;">${flagSvg(relocCountry)} ${c.name}</h3>
         <span class="pill${row && row.vsHome > 500 ? " good" : row && row.vsHome < -500 ? " warn" : ""}">
           ${row ? (row.vsHome >= 0 ? "+" : "&minus;") + gbp0(Math.abs(row.vsHome)) + " a year" : ""}</span>
       </div>
@@ -14676,6 +14831,7 @@ applyTextScale();
 applyRail();
 normaliseCheckLabels();
 syncTableScrollbars();
+paintIcons();            // draw the interface icons before anything is shown
 applyChartMode(false);   // renderAll() hasn't run yet, so no redraw to ask for
 syncPressedState();
 nameOrphanControls();

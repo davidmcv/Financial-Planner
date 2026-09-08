@@ -124,3 +124,16 @@ every dialog.
 axe-core is vendored in `vendor/` so the suite runs offline against a known
 version. Automated checks find roughly a third of WCAG failures — this is the
 floor, not a certificate.
+
+## test_platform_glyphs.py
+
+Nothing in the interface may depend on which glyphs a platform happens to
+have. Both faults here came from a Windows PC: flag emoji rendered as
+two-letter codes (Windows has never shipped flag glyphs), and the navigation
+icons came out as four colour pictures beside four small monochrome symbols,
+because characters like the bank, scales and map are text-presentation by
+default. Neither is fixable in CSS — both are font-selection decisions — so
+flags and icons are inline SVG now. This checks no emoji creep back into the
+source or the chrome, that every country and tab has artwork that actually
+reaches the page, that icons share one size, stroke and inherited colour, and
+that flags stay decorative so a screen reader doesn't read each country twice.
