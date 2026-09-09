@@ -241,6 +241,11 @@
      shape however the text is scaled. */
   .flag { display: inline-block; vertical-align: -0.18em; width: 1.35em; height: auto;
           flex: 0 0 auto; clip-path: inset(0 round 2px); }
+  .flag-code {
+    display: inline-block; width: 1.35em; text-align: center; font-size: 0.62rem;
+    font-weight: 700; letter-spacing: 0.02em; padding: 1px 0; border-radius: 2px;
+    border: 1px solid var(--border); color: var(--ink-faint); vertical-align: 0.05em;
+  }
   /* One weight, one size, one colour - inherited, so icons follow the theme
      and the text-size setting without a second set of rules. */
   .ic {
@@ -2906,7 +2911,22 @@
       </div>
 
       <div class="card">
-        <h2>The comparison</h2>
+        <div class="person-title">
+          <h2>The comparison</h2>
+          <span class="pill" id="relocCount">&mdash;</span>
+        </div>
+        <div class="field-row" style="margin:-2px 0 10px;">
+          <div class="field">
+            <label for="relocScope">Show</label>
+            <select id="relocScope">
+              <option value="best">The best ten, and where you are now</option>
+              <option value="europe">Europe</option>
+              <option value="all">Everywhere</option>
+            </select>
+            <span class="hint">Thirty-odd countries is a lot to read. The ranking is over all of
+              them whichever you pick &mdash; this only decides how many rows are printed.</span>
+          </div>
+        </div>
         <div id="relocTable"></div>
       </div>
 
@@ -2963,7 +2983,10 @@
         <h2>Country by country</h2>
         <p class="caption" style="margin:-4px 0 10px;">Pick one to see how you would get in, what happens to the pension and
           the ISA, and what to do before you go.</p>
-        <div class="wording-seg" role="group" aria-label="Country" id="relocCountrySeg" style="margin-bottom:12px;"></div>
+        <div class="field" style="max-width:420px; margin-bottom:12px;">
+          <label for="relocCountryPick">Country</label>
+          <select id="relocCountryPick"></select>
+        </div>
         <div id="relocDetail"></div>
       </div>
 
@@ -10981,9 +11004,73 @@ const FLAG_SVG = {
 /* The flag, plus the country's two-letter code for anyone who cannot see it.
    Marked aria-hidden and paired with the name it always appears beside, so a
    screen reader reads "Italy" once rather than "image Italy". */
+/* Thirty more flags, and almost all of them are one of three patterns. Drawing
+   each by hand would be thirty chances to get one wrong; generating them from
+   the pattern is one chance, checked once.
+
+   Where a flag carries a coat of arms - Croatia, Slovakia, Slovenia, Portugal,
+   Spain - the arms are omitted at 20px, where they would be a smudge. The
+   field is right, which is what the eye uses to tell them apart at this size.
+   Anything that is not one of these patterns and not worth approximating is
+   left without a flag rather than drawn wrongly, and shows its country code. */
+const vert = (a, b, c) =>
+  `<rect width="9" height="20" fill="${a}"/><rect x="9" width="9" height="20" fill="${b}"/>` +
+  `<rect x="18" width="9" height="20" fill="${c}"/>`;
+const horiz = (a, b, c) =>
+  `<rect width="27" height="6.67" fill="${a}"/><rect y="6.67" width="27" height="6.67" fill="${b}"/>` +
+  `<rect y="13.33" width="27" height="6.67" fill="${c}"/>`;
+const bi = (a, b) => `<rect width="27" height="10" fill="${a}"/><rect y="10" width="27" height="10" fill="${b}"/>`;
+// The Nordic cross: offset left, as they all are.
+const nordic = (bg, cross, inner) =>
+  `<rect width="27" height="20" fill="${bg}"/>` +
+  `<path d="M0 8.5h27M10 0v20" stroke="${cross}" stroke-width="4.5" fill="none"/>` +
+  (inner ? `<path d="M0 8.5h27M10 0v20" stroke="${inner}" stroke-width="1.8" fill="none"/>` : "");
+
+Object.assign(FLAG_SVG, {
+  IE: vert("#169B62", "#ffffff", "#FF883E"),
+  BE: vert("#000000", "#FDDA24", "#EF3340"),
+  RO: vert("#002B7F", "#FCD116", "#CE1126"),
+  DE: horiz("#000000", "#DD0000", "#FFCE00"),
+  NL: horiz("#AE1C28", "#ffffff", "#21468B"),
+  HU: horiz("#CD2A3E", "#ffffff", "#436F4D"),
+  BG: horiz("#ffffff", "#00966E", "#D62612"),
+  LT: horiz("#FDB913", "#006A44", "#C1272D"),
+  EE: horiz("#0072CE", "#000000", "#ffffff"),
+  LU: horiz("#ED2939", "#ffffff", "#00A1DE"),
+  AT: horiz("#ED2939", "#ffffff", "#ED2939"),
+  HR: horiz("#FF0000", "#ffffff", "#171796"),
+  SI: horiz("#ffffff", "#0000FF", "#FF0000"),
+  SK: horiz("#ffffff", "#0B4EA2", "#EE1C25"),
+  LV: `<rect width="27" height="20" fill="#9E3039"/><rect y="8" width="27" height="4" fill="#ffffff"/>`,
+  PL: bi("#ffffff", "#DC143C"),
+  MT: `<rect width="27" height="20" fill="#ffffff"/><rect x="13.5" width="13.5" height="20" fill="#CF142B"/>`,
+  FI: nordic("#ffffff", "#003580"),
+  SE: nordic("#006AA7", "#FECC00"),
+  DK: nordic("#C8102E", "#ffffff"),
+  NO: nordic("#BA0C2F", "#ffffff", "#00205B"),
+  IS: nordic("#02529C", "#ffffff", "#DC1E35"),
+  CH: `<rect width="27" height="20" fill="#DA291C"/>` +
+      `<rect x="11.4" y="4.6" width="4.2" height="10.8" fill="#ffffff"/>` +
+      `<rect x="8.1" y="7.9" width="10.8" height="4.2" fill="#ffffff"/>`,
+  CZ: `<rect width="27" height="20" fill="#ffffff"/><rect y="10" width="27" height="10" fill="#D7141A"/>` +
+      `<path d="M0 0 13.5 10 0 20z" fill="#11457E"/>`,
+  PT: `<rect width="27" height="20" fill="#DA291C"/><rect width="10.8" height="20" fill="#046A38"/>` +
+      `<circle cx="10.8" cy="10" r="3.4" fill="none" stroke="#FFE900" stroke-width="1.2"/>`,
+  GR: `<rect width="27" height="20" fill="#ffffff"/>` +
+      [0, 2, 4, 6, 8].map(i => `<rect y="${i * 2.22}" width="27" height="2.22" fill="#0D5EAF"/>`).join("") +
+      `<rect width="11.1" height="11.1" fill="#0D5EAF"/>` +
+      `<path d="M0 5.55h11.1M5.55 0v11.1" stroke="#ffffff" stroke-width="2.2"/>`,
+  CY: `<rect width="27" height="20" fill="#ffffff"/>` +
+      `<ellipse cx="13.5" cy="8.6" rx="5.4" ry="3" fill="#D57800"/>` +
+      `<path d="M11 13.4q2.5 2 5 0" stroke="#4E5B31" stroke-width="1" fill="none"/>`,
+});
+
 function flagSvg(code) {
   const art = FLAG_SVG[code];
-  if (!art) return "";
+  if (!art) {
+    // No artwork: say which country it is rather than showing nothing.
+    return `<span class="flag-code" aria-hidden="true">${code}</span>`;
+  }
   /* No <clipPath>: it would need an id, and the same id would then appear
      once per flag on the page. The corners are rounded in CSS instead, which
      needs no id and cannot collide. */
@@ -11398,6 +11485,168 @@ const RELOCATE = {
   },
 };
 
+/* ---- The rest of Europe -------------------------------------------------
+   Seven countries written out in full is a shortlist. The question people
+   actually arrive with is "where in Europe?", and answering it needs the
+   whole continent in the ranking, not a hand-picked seven - the interesting
+   answers are usually the ones nobody thought to look at.
+
+   So every EU member, plus Norway, Iceland and Switzerland, is costed here.
+   That boundary is drawn on purpose rather than by taste: those are the
+   countries where an EU citizen has freedom of movement and where a British
+   or American one faces the same 90-day rule and broadly comparable
+   long-stay routes.
+
+   What each one carries is deliberately less than the seven above: headline
+   national income tax on pension income, the cost of living, and the one or
+   two facts that decide it. These are for SCREENING - to find the three
+   worth reading properly - and the page says so rather than dressing a
+   two-line summary up as a country profile.
+
+   The bands are simplified and in local currency. They exclude regional and
+   municipal surcharges EXCEPT in the Nordics, where municipal tax is the
+   main tax and leaving it out would understate by twenty points or more, and
+   they exclude social contributions, which for a foreign pensioner covered
+   by an S1 are usually nil. Checked September 2026. */
+const FX = { EUR: 1.17, CHF: 1.08, NOK: 13.5, SEK: 13.2, DKK: 8.72, PLN: 4.90,
+             CZK: 28.5, HUF: 460, RON: 5.82, BGN: 2.29, ISK: 170 };
+
+/* [name, currency, fx, cost index vs UK=100, allowance, bands, the deal] */
+const EUROPE_DATA = [
+  ["IE", "Ireland", "€", "EUR", 118, 0, [[0, 0.20], [44000, 0.40]],
+   "Close, English-speaking and expensive. A €44,000 standard-rate band each means a couple splits well.", false],
+  ["PT", "Portugal", "€", "EUR", 72, 0, [[0, 0.145], [8059, 0.21], [12160, 0.245], [17233, 0.315], [22306, 0.345], [28400, 0.435], [41629, 0.45], [44987, 0.48]],
+   "The famous NHR deal is closed to new arrivals: foreign pensions now meet the ordinary 14.5-48% scale. Still cheap to live in.", false],
+  ["GR", "Greece", "€", "EUR", 70, 0, [[0, 0.09], [10000, 0.22], [20000, 0.28], [30000, 0.36], [40000, 0.44]],
+   "A 7% flat tax on ALL foreign income for 15 years if you move your tax residence here and were not resident for 5 of the last 6 years.", true],
+  ["CY", "Cyprus", "€", "EUR", 78, 19500, [[0, 0.20], [8500, 0.25], [16500, 0.30], [40500, 0.35]],
+   "Foreign pension income can instead be taxed at a flat 5% above a €5,000 exemption - among the lowest in Europe, and simple.", true],
+  ["MT", "Malta", "€", "EUR", 82, 9100, [[0, 0.15], [5900, 0.25], [51100, 0.35]],
+   "The Retirement Programme taxes foreign pension income at a flat 15%, with a minimum bill of €7,500 and a property requirement.", true],
+  ["ES2", "", "", "", 0, 0, [], "", false],   // placeholder removed below
+  ["FR2", "", "", "", 0, 0, [], "", false],
+  ["DE", "Germany", "€", "EUR", 92, 12096, [[0, 0.14], [5500, 0.24], [50000, 0.42], [265000, 0.45]],
+   "Only part of a pension is taxable, set by the year you start drawing - but the rate on the taxable part is high.", false],
+  ["NL", "Netherlands", "€", "EUR", 100, 0, [[0, 0.1707], [38441, 0.3748], [76817, 0.4950]],
+   "State pension age is reached later here, and the first band is low - but housing is scarce and dear.", false],
+  ["BE", "Belgium", "€", "EUR", 96, 10910, [[0, 0.25], [16320, 0.40], [28800, 0.45], [49840, 0.50]],
+   "Among the heaviest income taxes in Europe, and municipal surcharges sit on top of the figures here.", false],
+  ["AT", "Austria", "€", "EUR", 94, 13308, [[0, 0.20], [8000, 0.30], [22000, 0.40], [40000, 0.48], [80000, 0.50], [987000, 0.55]],
+   "Expensive and highly organised. No wealth tax and no inheritance tax, which surprises people.", false],
+  ["LU", "Luxembourg", "€", "EUR", 110, 12438, [[0, 0.08], [10000, 0.20], [25000, 0.38], [220000, 0.42]],
+   "Rich, tiny and costly to live in. Worth it mainly if you have a reason to be there.", false],
+  ["IT2", "", "", "", 0, 0, [], "", false],
+  ["HR", "Croatia", "€", "EUR", 62, 0, [[0, 0.20], [50400, 0.30]],
+   "In the euro and in Schengen since 2023. Cheap coast, and increasingly discovered.", false],
+  ["SI", "Slovenia", "€", "EUR", 72, 5000, [[0, 0.16], [9210, 0.26], [27089, 0.33], [54178, 0.39], [78016, 0.50]],
+   "Alpine, orderly and central. Small enough that everything is two hours away.", false],
+  ["SK", "Slovakia", "€", "EUR", 58, 5646, [[0, 0.19], [47537, 0.25]],
+   "Cheap, central and flat-ish on tax. Little English outside Bratislava.", false],
+  ["CZ", "Czechia", "Kč", "CZK", 65, 30840, [[0, 0.15], [1582812, 0.23]],
+   "A 15% headline rate, low costs and a very high standard of public transport.", false],
+  ["PL", "Poland", "zł", "PLN", 55, 30000, [[0, 0.12], [120000, 0.32]],
+   "The cheapest large country in the EU, with a 30,000 zł tax-free amount and fast-improving everything.", false],
+  ["HU", "Hungary", "Ft", "HUF", 54, 0, [[0, 0.15]],
+   "A flat 15%, and pensions are exempt from Hungarian personal income tax entirely - but the treaty decides who taxes yours.", false],
+  ["RO", "Romania", "lei", "RON", 50, 0, [[0, 0.10]],
+   "A flat 10% and the lowest costs in the EU. Pension income above a monthly threshold is taxable.", false],
+  ["BG", "Bulgaria", "лв", "BGN", 48, 0, [[0, 0.10]],
+   "A flat 10% on everything and the cheapest living in the EU. Adopted the euro in 2026.", false],
+  ["EE", "Estonia", "€", "EUR", 68, 8400, [[0, 0.22]],
+   "A flat 22% with a large allowance for pensioners, and the most digital state in Europe.", false],
+  ["LV", "Latvia", "€", "EUR", 62, 6000, [[0, 0.256], [105300, 0.33]],
+   "Cheap, coastal and quiet, with a pensioner's allowance worth having.", false],
+  ["LT", "Lithuania", "€", "EUR", 62, 8400, [[0, 0.20], [126532, 0.32]],
+   "Similar to Latvia and slightly cheaper again. Long winters.", false],
+  /* Finland and Sweden both give pensioners a deduction far larger than the
+     ordinary one, and leaving it out made them look punitive on a modest
+     income - Sweden came out at 27% on a £25,000 household, which is not what
+     a Swedish pensioner on that income pays. The figures here are the
+     pensioner's deduction at a modest income, not the standard one. */
+  ["FI", "Finland", "€", "EUR", 98, 12000, [[0, 0.2325], [21200, 0.30], [31500, 0.34], [52100, 0.42], [88200, 0.44], [150000, 0.4425]],
+   "Municipal tax is included in these rates because it is the bigger half, and a pension income deduction lifts modest pensions clear of it. Long dark winters.", false],
+  ["SE", "Sweden", "kr", "SEK", 96, 70000, [[0, 0.32], [643100, 0.52]],
+   "The 32% first band is mostly municipal tax, but the enhanced deduction from 66 is large enough that a modest pension pays little of it.", false],
+  ["DK", "Denmark", "kr", "DKK", 105, 51600, [[0, 0.374], [640100, 0.524]],
+   "The highest effective income tax in Europe, and the highest satisfaction with what it buys.", false],
+  ["NO", "Norway", "kr", "NOK", 118, 108550, [[0, 0.22], [217400, 0.239], [306050, 0.256], [697150, 0.336], [942400, 0.376], [1410750, 0.396]],
+   "Outside the EU but inside the EEA. Beautiful, and the most expensive country on this list.", false],
+  ["IS", "Iceland", "kr", "ISK", 125, 800000, [[0, 0.3149], [1350000, 0.3798], [1250000, 0.4628]],
+   "EEA, tiny, remote and dear. Municipal tax is inside these rates.", false],
+  ["CH", "Switzerland", "CHF", "CHF", 135, 14500, [[0, 0.08], [31600, 0.15], [103600, 0.22], [137700, 0.26]],
+   "Federal, cantonal and communal tax combined vary hugely by canton - Zug is a different country from Geneva for this purpose. Lump-sum taxation is available to wealthy non-workers in some cantons.", true],
+];
+
+/* Special regimes worth knowing about, keyed to the country. Each replaces
+   the ordinary bands entirely for foreign income. */
+const EUROPE_REGIMES = {
+  GR: { name: "7% flat tax for foreign pensioners", years: 15, rate: 0.07, base: "all foreign income",
+        conditions: "Not a Greek tax resident for 5 of the previous 6 years, and you move your tax residence to Greece." },
+  CY: { name: "5% flat rate on foreign pension income", years: null, rate: 0.05, exempt: 5000, base: "foreign pension income",
+        conditions: "An annual election - you can compare it with the ordinary bands each year and pick whichever is lower." },
+  MT: { name: "The Retirement Programme: 15% flat", years: null, rate: 0.15, min: 7500, base: "foreign pension income remitted to Malta",
+        conditions: "Buy or rent qualifying property, hold health insurance, and spend at least 90 days a year in Malta averaged over five years." },
+  CH: { name: "Lump-sum taxation (forfait fiscal)", years: null, rate: null, base: "your living expenses, not your income",
+        conditions: "Available in some cantons to foreign nationals who do not work in Switzerland. Negotiated with the canton, with a substantial floor." },
+};
+
+/* Turn that table into entries the comparison can rank alongside the seven
+   detailed ones. */
+(function buildEurope() {
+  EUROPE_DATA.forEach(([code, name, cur, fxKey, cost, allowance, bands, deal, hasRegime]) => {
+    if (!name) return;                        // placeholders for the seven already written
+    const fx = FX[fxKey];
+    const rg = EUROPE_REGIMES[code];
+    RELOCATE[code] = {
+      name, currency: cur, costIndex: cost, brief: true, eu: code !== "NO" && code !== "IS" && code !== "CH",
+      summary: deal,
+      healthcare: code === "CH" ? "Compulsory private insurance, and expensive"
+        : "Public system; a UK State Pensioner can register an S1 and be covered as a local",
+      tax: (inc, o) => {
+        const per = inc / (o.people || 1);
+        if (o.regime && rg) {
+          if (rg.rate == null) return inc * 0.15;          // Swiss forfait: indicative only
+          const taxable = Math.max(0, per - (rg.exempt || 0));
+          const t = (o.people || 1) * taxable * rg.rate;
+          return rg.min ? Math.max(rg.min / fx, t) : t;
+        }
+        return (o.people || 1) * bandTax(per * fx, bands, allowance) / fx;
+      },
+      regimes: rg ? [{ id: "flat", name: rg.name,
+        what: `Foreign income is taxed at <b>${rg.rate != null ? Math.round(rg.rate * 100) + "%" : "a negotiated flat sum"}</b>` +
+              `${rg.exempt ? ` above a ${cur}${rg.exempt.toLocaleString("en-GB")} exemption` : ""}` +
+              `${rg.min ? `, with a minimum bill of ${cur}${rg.min.toLocaleString("en-GB")}` : ""}` +
+              `${rg.years ? `, for ${rg.years} years` : ""}. It applies to ${rg.base}.`,
+        conditions: [rg.conditions],
+        note: "Special regimes are the first thing a government changes: Portugal's closed to new arrivals in 2024, and Spain's golden visa went in 2025. Check it still exists before you count on it." }] : [],
+      taxNote: `Headline national rates${["FI", "SE", "DK", "IS", "NO"].includes(code) ? ", municipal tax included because it is the larger part" : ""}` +
+               `${allowance ? `, after an allowance of about ${cur}${allowance.toLocaleString("en-GB")}` : ""}. ` +
+               `Simplified, and excluding regional and municipal surcharges${["FI", "SE", "DK", "IS", "NO"].includes(code) ? " beyond those already included" : ""}, ` +
+               `and social contributions, which an S1 usually removes for a foreign pensioner.`,
+      lumpSum: "Assume the UK's 25% tax-free lump sum is not recognised here and take it before you become tax resident. Almost nowhere outside the UK treats it as tax-free.",
+      wealthTax: ["ES", "CH", "NO"].includes(code) ? "Yes - see the country's own rules." : "None on general wealth.",
+      iht: "Varies. Most of Europe taxes inheritances between spouses lightly or not at all, and children more.",
+      residency: "Tax resident after 183 days in most of these, or sooner if your home and family are here.",
+      immigration: [{
+        name: code === "CH" ? "Bilateral agreements (EU/EFTA)" : (code !== "NO" && code !== "IS" && code !== "CH") ? "EU freedom of movement" : "EEA freedom of movement",
+        who: "An EU or EEA citizen can simply move here and register.",
+        needs: "Proof of sufficient resources and health cover after three months, in most cases.",
+        then: "A non-EU citizen - including a British one since Brexit - needs a national long-stay visa instead. Most of these countries have a retirement or 'passive income' route with an income threshold and private health insurance; the thresholds run from roughly €800 a month in the cheaper countries to €2,500 in the dearer ones.",
+      }],
+      money: [
+        "Take the UK's 25% lump sum before you become tax resident here.",
+        "Under most treaties your private pension becomes taxable only where you live; UK government service pensions stay taxable in the UK whatever you do.",
+        "ISAs are not recognised anywhere on this list. Consider realising gains before you leave.",
+        "The State Pension keeps rising each year everywhere in the EEA and Switzerland - unlike Canada and Australia, where it is frozen.",
+      ],
+      risks: [
+        "This is a screening entry, not a country profile: the seven above are researched properly, these are here so you can find which three are worth that effort.",
+        "Special regimes change with each government, and the good ones attract attention.",
+      ],
+    };
+  });
+})();
+
 /* =========================================================================
    THINGS THAT ARE TAX-FREE WITHOUT A WRAPPER
 
@@ -11538,6 +11787,27 @@ function relocRank(model) {
   return { rows, income, people, mode, home, homeRow };
 }
 
+/* How the READER gets in, which is not a property of the destination alone.
+   The table used to print the destination's own headline route, so a British
+   reader was told "EU freedom of movement" into Germany - which Brexit
+   removed. Freedom of movement applies only when the reader holds a passport
+   that carries it INTO that country. */
+const EEA_PLUS = new Set(["IE", "PT", "GR", "CY", "MT", "DE", "NL", "BE", "AT", "LU", "HR", "SI",
+                          "SK", "CZ", "PL", "HU", "RO", "BG", "EE", "LV", "LT", "FI", "SE", "DK",
+                          "NO", "IS", "CH", "IT", "ES", "FR"]);
+function entryRoute(code) {
+  const c = RELOCATE[code];
+  if (!c || c.home) return "&mdash;";
+  const readerFree = EEA_PLUS.has(currentCountry);
+  if (readerFree && EEA_PLUS.has(code)) {
+    return currentCountry === "CH" || code === "CH" ? "Bilateral agreements (EU/EFTA)" : "Freedom of movement";
+  }
+  const first = c.immigration && c.immigration[0];
+  if (first && /no retirement visa/i.test(first.name)) return "<b>No retirement visa</b>";
+  if (!c.brief && first) return first.name;
+  return "Long-stay / retirement visa";
+}
+
 function renderRelocate(model) {
   const table = els("relocTable");
   if (!table) return;
@@ -11579,6 +11849,20 @@ function renderRelocate(model) {
   }
 
   // ---- table -------------------------------------------------------------
+  /* The ranking always runs over every country; this only decides how many
+     rows get printed. Ranking a filtered list would change the answer
+     depending on what you were looking at, which is the opposite of useful. */
+  const scope = els("relocScope") ? els("relocScope").value : "best";
+  const EUROPEAN = new Set(Object.keys(RELOCATE).filter(c =>
+    RELOCATE[c].brief || ["UK", "IT", "ES", "FR"].includes(c)));
+  let shown = rows;
+  if (scope === "europe") shown = rows.filter(r => EUROPEAN.has(r.code));
+  else if (scope === "best") {
+    const top = rows.slice(0, 10);
+    shown = top.concat(homeRow && !top.includes(homeRow) ? [homeRow] : []);
+  }
+  const cnt = els("relocCount");
+  if (cnt) cnt.textContent = `${shown.length} of ${rows.length} countries`;
   table.innerHTML = `
     <div style="overflow-x:auto;">
     <table class="data">
@@ -11586,10 +11870,10 @@ function renderRelocate(model) {
         <th>Country</th><th class="num">Tax a year</th><th class="num">Effective rate</th>
         <th class="num">Left after tax</th>
         ${mode === "both" ? `<th class="num">Cost of living</th><th class="num">In UK spending power</th>` : ""}
-        <th class="num">vs staying put</th><th>Getting in</th>
+        <th class="num">vs staying put<br><span class="hint-inline">${mode === "both" ? "spending power" : "after tax"}</span></th><th>Getting in</th>
       </tr></thead>
       <tbody>
-        ${rows.map(r => `
+        ${shown.map(r => `
           <tr${r.code === (homeRow && homeRow.code) ? ' style="font-weight:600;"' : ""}>
             <td>${flagSvg(r.code)} ${r.c.name}${r.c.home ? " <span class='hint-inline'>(now)</span>" : ""}
               ${r.usesRegime ? `<br><span class="hint-inline">on the ${r.c.regimes[0].name.toLowerCase()}</span>` : ""}</td>
@@ -11600,9 +11884,7 @@ function renderRelocate(model) {
             <td class="num" style="color:${r.vsHome > 500 ? "var(--good)" : r.vsHome < -500 ? "var(--critical)" : "inherit"}">
               ${r.code === (homeRow && homeRow.code) ? "&mdash;"
                 : (r.vsHome >= 0 ? "+" : "&minus;") + gbp0(Math.abs(r.vsHome))}</td>
-            <td>${r.c.home ? "&mdash;"
-              : r.c.immigration.length && /no retirement visa/i.test(r.c.immigration[0].name)
-                ? "<b>No retirement visa</b>" : r.c.immigration[0] ? r.c.immigration[0].name : "&mdash;"}</td>
+            <td>${entryRoute(r.code)}</td>
           </tr>`).join("")}
       </tbody>
     </table></div>
@@ -11650,10 +11932,37 @@ function renderRelocate(model) {
   }
 
   // ---- country picker ----------------------------------------------------
-  const seg = els("relocCountrySeg");
-  if (seg) {
-    seg.innerHTML = Object.keys(RELOCATE).filter(c => !RELOCATE[c].home).map(code =>
-      `<button data-reloc="${code}" class="${code === relocCountry ? "active" : ""}">${flagSvg(code)} ${RELOCATE[code].name}</button>`).join("");
+  const pick = els("relocCountryPick");
+  if (pick) {
+    /* Bound here, on the element, rather than delegated from the document.
+       Two reasons. A generic change handler elsewhere re-renders the page on
+       any control change, and document-level listeners run AFTER the target's
+       own - so a delegated handler read the select only once the re-render had
+       already reset it, and picking Greece kept showing Italy. And binding
+       from inside the renderer means it is attached by code that demonstrably
+       runs, rather than by a top-level line whose script block may not. */
+    if (!pick.dataset.bound) {
+      pick.dataset.bound = "1";
+      pick.addEventListener("change", ev => {
+        relocCountry = ev.target.value;
+        if (lastModel) renderRelocate(lastModel);
+      });
+    }
+    /* The SELECT is the source of truth, not the variable. Another handler
+       re-renders this page on any change, and that re-render used to write the
+       old country back into the select before this one had read the new one -
+       so picking Greece kept showing Italy, no matter which phase the listener
+       was bound in. Reading the element first makes the order stop mattering. */
+    if (pick.value && RELOCATE[pick.value]) relocCountry = pick.value;
+    // In ranked order, with the researched ones marked: the reader should be
+    // able to see at a glance which entries are a profile and which are a
+    // screening line.
+    const opts = rows.filter(r => !r.c.home).map(r =>
+      `<option value="${r.code}"${r.code === relocCountry ? " selected" : ""}>` +
+      `${r.c.name}${r.c.brief ? "" : " \u2014 full profile"} · ${gbp0(r.tax)} tax` +
+      `${r.usesRegime ? " (on its special regime)" : ""}</option>`).join("");
+    if (pick.innerHTML !== opts) pick.innerHTML = opts;
+    pick.value = relocCountry;
   }
   const d = els("relocDetail");
   const c = RELOCATE[relocCountry];
@@ -11663,7 +11972,8 @@ function renderRelocate(model) {
       <div class="person-title" style="margin-bottom:6px;">
         <h3 style="margin:0; font-size:1.05rem;">${flagSvg(relocCountry)} ${c.name}</h3>
         <span class="pill${row && row.vsHome > 500 ? " good" : row && row.vsHome < -500 ? " warn" : ""}">
-          ${row ? (row.vsHome >= 0 ? "+" : "&minus;") + gbp0(Math.abs(row.vsHome)) + " a year" : ""}</span>
+          ${row ? (row.vsHome >= 0 ? "+" : "&minus;") + gbp0(Math.abs(row.vsHome)) + " a year" +
+            (mode === "both" ? " in UK spending power" : " after tax") : ""}</span>
       </div>
       <p>${c.summary}</p>
       ${(c.regimes || []).map(rg => `
@@ -11688,7 +11998,9 @@ function renderRelocate(model) {
       <p class="caption"><b>Inheritance:</b> ${c.iht}</p>
       <p class="caption"><b>Becoming tax resident:</b> ${c.residency}</p>
 
-      <h4 style="margin:14px 0 6px;">Getting in</h4>
+      <h4 style="margin:14px 0 6px;">Getting in ${EEA_PLUS.has(currentCountry) && EEA_PLUS.has(relocCountry)
+        ? `<span class="hint-inline">&mdash; on a ${COUNTRIES[currentCountry] ? COUNTRIES[currentCountry].name : ""} passport you have freedom of movement here</span>`
+        : `<span class="hint-inline">&mdash; you need a visa; freedom of movement does not apply to you</span>`}</h4>
       ${c.immigration.map(v => `
         <div class="taxopt">
           <div class="taxopt-head"><h4>${v.name}</h4></div>
@@ -14562,14 +14874,8 @@ document.addEventListener("click", e => {
 /* The Where to live page: pick a country, or change the income and household
    the comparison is run on. Everything on the page derives from those, so each
    one re-runs the whole ranking rather than editing a label. */
-document.addEventListener("click", e => {
-  const b = e.target.closest("[data-reloc]");
-  if (!b) return;
-  relocCountry = b.dataset.reloc;
-  if (lastModel) renderRelocate(lastModel);
-});
 document.addEventListener("change", e => {
-  if (!e.target.closest("#relocPeople, #relocCompare, #tripStyle, #tripTransport, #tripVanMode")) return;
+  if (!e.target.closest("#relocPeople, #relocCompare, #relocScope, #tripStyle, #tripTransport, #tripVanMode")) return;
   // Once the household is set by hand, stop overwriting it from the plan.
   if (e.target.id === "relocPeople") e.target.dataset.touched = "1";
   if (lastModel) renderRelocate(lastModel);

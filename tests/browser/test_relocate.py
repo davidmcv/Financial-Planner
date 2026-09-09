@@ -29,7 +29,10 @@ from playwright.sync_api import sync_playwright
 FILE = (pathlib.Path(__file__).resolve().parents[2] / "pension-planner.html").as_uri()
 CHROME = os.environ.get("CHROME_PATH", "/opt/pw-browsers/chromium-1194/chrome-linux/chrome")
 
-WANT = ["United Kingdom", "Italy", "Spain", "Canada", "United States", "France", "Australia"]
+WANT = ["United Kingdom", "Italy", "Spain", "Canada", "United States", "France", "Australia",
+        "Ireland", "Portugal", "Greece", "Germany", "Netherlands", "Poland", "Sweden", "Switzerland"]
+RELOCATE_NAMES = {"IT": "Italy", "ES": "Spain", "CA": "Canada", "US": "United States",
+                  "GR": "Greece", "DK": "Denmark"}
 NO_VISA = ["Canada", "United States", "Australia"]
 
 
@@ -123,11 +126,31 @@ def main():
         check(it["regime"], "Italy is not being shown on its 7% regime")
         check(it["tax"] < it["plain"] - 1,
               f"Italy's 7% regime ({it['tax']:,.0f}) is not cheaper than ordinary rates ({it['plain']:,.0f})")
-        summary = pg.evaluate("() => document.getElementById('relocSummary').innerText")
-        table = pg.evaluate("() => document.getElementById('relocTable').innerText")
-        check("conditions" in summary or "conditions" in table or "flat tax" in table,
-              "the 7% regime is presented without saying it is conditional")
-        print(f"6. Italy shown at {it['tax']:,.0f} on the 7% regime vs {it['plain']:,.0f} ordinary, flagged as conditional")
+        # Every country shown on a special regime must say so in its row, and
+        # its panel must list what qualifying takes. A flat rate quoted without
+        # its conditions is the single most misleading thing this page could do.
+        pg.evaluate("""() => { const e = document.getElementById('relocScope');
+          e.value = 'all'; e.dispatchEvent(new Event('change', {bubbles:true})); }""")
+        pg.wait_for_timeout(700)
+        onRegime = [r for r in rank() if r["regime"]]
+        check(onRegime, "no country is shown on a special regime, yet several have one")
+        rowText = pg.evaluate("""() => Object.fromEntries(
+          [...document.querySelectorAll('#relocTable tbody tr')].map(tr =>
+            [tr.querySelector('td').innerText.split(String.fromCharCode(10))[0].trim(), tr.innerText]))""")
+        for r in onRegime:
+            row = next((v for k, v in rowText.items() if r["name"] in k), "")
+            check("regime" in row.lower() or "flat" in row.lower() or "programme" in row.lower(),
+                  f"{r['name']} is costed on a special regime but its row does not say so: {row[:90]!r}")
+        # ...and the conditions are on the panel
+        for code in [r["code"] for r in onRegime][:3]:
+            pg.evaluate("""(c) => { const e = document.getElementById('relocCountryPick');
+              e.value = c; e.dispatchEvent(new Event('change', {bubbles:true})); }""", code)
+            pg.wait_for_timeout(600)
+            panel = pg.evaluate("() => document.getElementById('relocDetail').innerText")
+            check("To qualify" in panel,
+                  f"{code}: the special regime is described without saying what qualifying takes")
+        print(f"6. {len(onRegime)} countries costed on a special regime, each flagged with its conditions "
+              f"({', '.join(r['name'] for r in onRegime)})")
 
         # ---- 7. the awkward facts are still on the page ---------------------
         page = pg.evaluate("() => document.getElementById('tab-relocate').innerText")
@@ -143,10 +166,14 @@ def main():
 
         # ---- 8. picking a country changes the detail ------------------------
         seen = {}
-        for code in ("IT", "ES", "CA", "US"):
-            pg.evaluate("""(c) => { const b = document.querySelector(`[data-reloc="${c}"]`); if (b) b.click(); }""", code)
-            pg.wait_for_timeout(500)
-            seen[code] = pg.evaluate("() => document.getElementById('relocDetail').innerText")[:400]
+        for code in ("IT", "ES", "CA", "US", "GR", "DK"):
+            pg.evaluate("""(c) => { const e = document.getElementById('relocCountryPick');
+              e.value = c; e.dispatchEvent(new Event('change', {bubbles:true})); }""", code)
+            pg.wait_for_timeout(600)
+            shown = pg.evaluate("() => document.getElementById('relocDetail').innerText")
+            check(RELOCATE_NAMES[code] in shown.split("\n")[0] or RELOCATE_NAMES[code] in shown[:120],
+                  f"picking {code} showed a panel headed {shown.splitlines()[0]!r}")
+            seen[code] = shown[:400]
         check(len(set(seen.values())) == len(seen), "the country detail does not change when you pick a different one")
         for code, txt in seen.items():
             check(len(txt) > 200, f"{code}: the detail panel is nearly empty")
