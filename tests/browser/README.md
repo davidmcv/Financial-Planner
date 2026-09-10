@@ -149,3 +149,16 @@ nouns into English sentences); the 90-days-in-180 limit, which a slider offering
 flattering in two ways — a campervan you own costs money in the ten months it
 sits on the drive, and going away is not all extra because the food and energy
 you'd have used at home stop.
+
+## test_privacy_claim.py
+
+The front page says nothing you type leaves your device and the app runs with
+Wi-Fi off. That is the one kind of copy that can become a lie without anyone
+touching it — a web font, a CDN library, an analytics snippet are each one
+line and none looks like a privacy change. So this watches the network rather
+than reading the claim: opened from a file the page makes exactly one request
+(itself); served over http it makes one more, to its own address, probing for
+the optional account server, and the note discloses that rather than glossing
+it. Anything to a third-party host fails. Then it loads the page, cuts the
+browser off entirely, and drives every tab and a full market simulation to
+prove the offline claim is true rather than aspirational.
