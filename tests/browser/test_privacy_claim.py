@@ -39,7 +39,7 @@ PAGE = ROOT / "pension-planner.html"
 CHROME = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"
 PORT = 8897
 
-TABS = ["people", "savings", "salary", "projection", "planner", "tax", "gifting", "relocate"]
+TABS = ["people", "savings", "salary", "projection", "planner", "tax", "gifting", "property", "relocate"]
 
 
 def drive(pg):

@@ -83,7 +83,7 @@ def main():
         print(f"1. plan block lives in the rail ({where['parent']}), one copy only")
 
         # reachable from every tab, which is the point of moving it
-        for tab in ("people", "savings", "salary", "projection", "planner", "tax", "gifting", "relocate"):
+        for tab in ("people", "savings", "salary", "projection", "planner", "tax", "gifting", "property", "relocate"):
             pg.evaluate("(t) => activateTab(t)", tab)
             pg.wait_for_timeout(120)
             ok = pg.evaluate("""() => { const s = document.getElementById('profileSelect');
