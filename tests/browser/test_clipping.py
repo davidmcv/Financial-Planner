@@ -53,7 +53,7 @@ DETECT = """
 }
 """
 
-TABS = ["people", "savings", "salary", "projection", "planner", "tax", "gifting", "relocate"]
+TABS = ["people", "savings", "salary", "projection", "planner", "tax", "gifting", "property", "relocate"]
 failures = []
 checked = 0
 

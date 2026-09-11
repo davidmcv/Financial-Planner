@@ -43,7 +43,7 @@ FILE = (ROOT / "pension-planner.html").as_uri()
 AXE = pathlib.Path(__file__).resolve().parent / "vendor" / "axe.min.js"
 CHROME = os.environ.get("CHROME_PATH", "/opt/pw-browsers/chromium-1194/chrome-linux/chrome")
 
-TABS = ["people", "savings", "salary", "projection", "planner", "tax", "gifting", "relocate"]
+TABS = ["people", "savings", "salary", "projection", "planner", "tax", "gifting", "property", "relocate"]
 
 # WCAG 2.2 AA and everything it builds on.
 RUN = """async () => await axe.run(document, {
