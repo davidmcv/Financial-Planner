@@ -1669,17 +1669,60 @@
            anywhere else, in either case - there are no fonts, scripts,
            images or analytics loaded from another host, because there is
            nothing in the file but the file. -->
-      <div class="notice info" id="privacyNote" style="margin-top:22px;">
+      <!-- Two things that are both true and pull in opposite directions, so
+           they are given in the order that matters. USE THE WEB VERSION: what
+           this app is mostly made of is tax rules, thresholds and rates, and
+           those change every year - a saved copy keeps the ones it was saved
+           with, for ever, without saying so. Privacy second: it is just as
+           true online, because the page fetches nothing either way. -->
+      <!-- The same two facts, told twice. Someone who has just chosen "keep it
+           simple" is not helped by a paragraph about origins and analytics -
+           they want to know whether to trust the numbers and whether anyone is
+           watching. Someone in the full version usually wants to know exactly
+           what the page does, because they are the one who asks. Both are
+           here; the mode decides which is shown. -->
+      <div class="notice warn" id="freshNote" style="margin-top:22px;">
+        <span class="icon" data-icon="refresh" aria-hidden="true"></span>
+        <span>
+          <span class="simple-only">
+            <b>Always use the website if you can.</b> Tax rules change every year, and the website is kept up to
+            date. A copy saved on your computer will keep using the old rules without telling you.
+            <br><a href="https://davidmcv.github.io/Financial-Planner/" class="liveLink" rel="noopener">Open the up-to-date version</a>
+            <span id="freshAgeSimple"></span>
+          </span>
+          <span class="advanced-only">
+            <b>Use the online version whenever you can.</b> Most of what this app knows is tax law &mdash;
+            allowances, bands, thresholds, the rules on pensions and inheritance &mdash; and that changes every
+            year, sometimes mid-year. The copy at
+            <a href="https://davidmcv.github.io/Financial-Planner/" class="liveLink" rel="noopener">davidmcv.github.io/Financial-Planner</a>
+            carries the current figures, the latest guidance and every fix; anything else is frozen on the day
+            it was saved and will quietly go on giving you last year's answers.
+            <span id="freshAgeAdv"></span>
+          </span>
+        </span>
+      </div>
+
+      <div class="notice info" id="privacyNote" style="margin-top:12px;">
         <span class="icon" data-icon="lock" aria-hidden="true"></span>
-        <span><b>Nothing you type here leaves your device.</b> This is a single page that does all its own
-          arithmetic in your browser. There is no account, no analytics, no tracking, and nothing loaded from
-          anywhere else &mdash; no fonts, no scripts, no images from other websites.
-          <b>It works with Wi-Fi turned off.</b> Save the page to your computer or phone
-          (<b>File &rarr; Save</b>, or add it to your home screen) and it runs the same with no connection at all
-          &mdash; on a plane, or with the router unplugged, which is a fair way to prove the point.
-          <span id="privacyServed"></span>
-          Your plan is kept in this browser's own storage until you save it to a file, and a file goes only where
-          you put it.</span>
+        <span>
+          <span class="simple-only">
+            <b>Your details stay on your own device.</b> Nothing you type is sent anywhere, and nobody else can
+            see it &mdash; not even online. There is no sign-up and no tracking. Your plan is saved in this
+            browser until you choose to save it to a file.
+            It also works with Wi-Fi turned off, if you ever need it to.
+          </span>
+          <span class="advanced-only">
+            <b>Using it online costs you nothing in privacy.</b> Nothing you type here leaves your device, on
+            the web or off it. This is a single page that does all its own arithmetic in your browser: no
+            account, no analytics, no tracking, and nothing loaded from anywhere else &mdash; no fonts, no
+            scripts, no images from other websites. <span id="privacyServed"></span>
+            Your plan is kept in this browser's own storage until you save it to a file, and a file goes only
+            where you put it.
+            <b>It also works with Wi-Fi turned off</b> &mdash; save the page (<b>File &rarr; Save</b>, or add
+            it to your home screen) and it runs with no connection at all. Worth having for a plane or a patchy
+            signal; just come back to the live version afterwards, because a saved copy stops learning.
+          </span>
+        </span>
       </div>
     </section>
 
@@ -10941,6 +10984,7 @@ const ICONS = {
   trash: '<path d="M4.4 6.6h15.2"/><path d="M9.4 6.6V4.8a1.2 1.2 0 0 1 1.2-1.2h2.8a1.2 1.2 0 0 1 1.2 1.2v1.8"/>' +
          '<path d="M6.4 6.6 7.3 19a1.6 1.6 0 0 0 1.6 1.5h6.2a1.6 1.6 0 0 0 1.6-1.5l.9-12.4"/><path d="M10.4 10.4v6M13.6 10.4v6"/>',
   chevron: '<path d="M14.5 5.5 8 12l6.5 6.5"/>',
+  refresh: '<path d="M20.4 12a8.4 8.4 0 1 1-2.5-6"/><path d="M20.4 3.6V9h-5.4"/>',
   lock: '<rect x="4.6" y="10.2" width="14.8" height="9.8" rx="2"/>' +
         '<path d="M8 10.2V7.4a4 4 0 0 1 8 0v2.8"/><circle cx="12" cy="15" r="1.3"/>',
   // travel: plane, train, campervan - drawn, for the same reason as the rest
@@ -15506,19 +15550,63 @@ normaliseCheckLabels();
 syncTableScrollbars();
 paintIcons();            // draw the interface icons before anything is shown
 
-/* The privacy note has to be accurate about the one case where the page does
-   speak: served from a web address, it asks that same address once whether an
+/* When this copy of the page was built. A saved file cannot tell you it has
+   gone stale unless it knows its own age, and the whole app is made of tax
+   rules that expire. Bump it with any release that changes a rate, a
+   threshold or a rule. */
+const BUILD_DATE = "2026-09-11";
+const LIVE_URL = "https://davidmcv.github.io/Financial-Planner/";
+
+/* Two notes on the front page, both written from what the page actually does
+   rather than from what would be nice to say.
+
+   The freshness note has to be blunt with a saved copy, because a stale file
+   fails silently: it does not break, it just keeps applying the allowances it
+   was born with. So it states its own age, and past six months it stops being
+   a note and becomes a warning.
+
+   The privacy note has to be accurate about the one case where the page does
+   speak: served from a web address, it asks that address once whether an
    optional account server exists. Opened from a file it does not even ask.
    Saying "nothing leaves your device" without that footnote would be a claim
    the network tab could contradict. */
-(function statePrivacy() {
-  const el = els("privacyServed");
-  if (!el) return;
-  el.innerHTML = location.protocol.startsWith("http")
-    ? `Opened from a web address as it is now, it asks that address once whether an optional account server is
-       running there, so that signing in can be offered where one exists. On this site there is none, the answer
-       is no, and nothing further is sent. `
-    : `You are running it from a file right now, so it has made exactly one request: itself. `;
+(function stateFrontPageNotes() {
+  const online = location.protocol.startsWith("http");
+
+  const priv = els("privacyServed");
+  if (priv) {
+    priv.innerHTML = online
+      ? `The one thing it does ask is this same address, once, whether an optional account server is running
+         there, so signing in can be offered where one exists; on this site there is none and nothing further
+         is sent. `
+      : `Running from a file as you are now, it has made exactly one request: itself. `;
+  }
+
+  const note = els("freshNote");
+  const days = Math.floor((Date.now() - Date.parse(BUILD_DATE)) / 86400000);
+  const built = new Date(BUILD_DATE).toLocaleDateString("en-GB",
+    { day: "numeric", month: "long", year: "numeric" });
+  const stale = days > 180;
+  const simple = els("freshAgeSimple"), adv = els("freshAgeAdv");
+  if (online) {
+    if (simple) simple.innerHTML = `<br>You are on the website now, so you have the latest version.
+      It was last updated on <b>${built}</b>.`;
+    if (adv) adv.innerHTML = `You are on the online version now, which is the current one &mdash; last updated
+      <b>${built}</b>. Nothing to do.`;
+    if (note) note.className = "notice info";
+  } else {
+    if (simple) simple.innerHTML = `<br>This copy was saved on <b>${built}</b>` +
+      (days > 0 ? `, ${days.toLocaleString("en-GB")} day${days === 1 ? "" : "s"} ago` : "") + `. ` +
+      (stale ? `<b>That is old enough for the tax rules to have changed. Please check the website before you
+                rely on anything here.</b>` : `Have a look at the website now and then to pick up any changes.`);
+    if (adv) adv.innerHTML = `<b>This copy is a saved file, built ${built}</b>` +
+      (days > 0 ? ` &mdash; ${days.toLocaleString("en-GB")} day${days === 1 ? "" : "s"} ago` : "") + `. ` +
+      (stale
+        ? `That is long enough for a Budget to have been and gone. <b>Check the online version before you rely
+           on any figure here.</b>`
+        : `Come back to the online version from time to time, and before you act on anything.`);
+    if (note) note.className = "notice warn";
+  }
 })();
 applyChartMode(false);   // renderAll() hasn't run yet, so no redraw to ask for
 syncPressedState();
