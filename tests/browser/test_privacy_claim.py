@@ -141,10 +141,64 @@ def main():
             if vis:
                 check(vis["onStart"], "the app did not open on the front page, so this proves nothing")
                 check(vis["visible"], "the privacy note is on the front page but not visible")
-                for phrase in ("leaves your device", "Wi-Fi turned off", "no analytics"):
-                    check(phrase.lower() in vis["text"].lower(),
-                          f"the note no longer says {phrase!r}")
             print("4. the note is on the front page and visible without doing anything")
+
+            # ---- 4b. two registers, and each says the necessary things -------
+            # Someone who has just chosen "keep it simple" is not served by a
+            # paragraph about origins and analytics, and someone in the full
+            # version wants exactly that. Both have to carry the two claims
+            # that matter, in their own words.
+            def visible_text(nid):
+                return pg.evaluate("""(nid) => {
+                  const n = document.getElementById(nid);
+                  const vis = el => { const b = el.getBoundingClientRect(); return b.width > 0 && b.height > 0; };
+                  return [...n.querySelectorAll(':scope > span > span')]
+                    .filter(vis).map(x => x.innerText).join(' '); }""", nid)
+
+            seen = {}
+            for level in ("simple", "advanced"):
+                pg.evaluate("(l) => { experienceLevel = l; applyLevel(); }", level)
+                pg.wait_for_timeout(400)
+                fresh, priv = visible_text("freshNote"), visible_text("privacyNote")
+                seen[level] = (fresh, priv)
+                check(fresh.strip(), f"{level}: the freshness note shows nothing")
+                check(priv.strip(), f"{level}: the privacy note shows nothing")
+                # both registers must make both points
+                check("website" in fresh.lower() or "online version" in fresh.lower(),
+                      f"{level}: the note does not point at the live version: {fresh[:90]!r}")
+                check("change" in fresh.lower(),
+                      f"{level}: the note does not say the rules change: {fresh[:90]!r}")
+                for phrase in ("wi-fi turned off",):
+                    check(phrase in priv.lower(), f"{level}: the note no longer mentions {phrase!r}")
+                check("device" in priv.lower() or "sent anywhere" in priv.lower(),
+                      f"{level}: the note no longer says the data stays with you: {priv[:90]!r}")
+            check(seen["simple"] != seen["advanced"],
+                  "the simple and advanced notes are identical - one register is not being shown")
+            # the plain one has to actually be plainer
+            simpleWords = len(seen["simple"][0].split()) + len(seen["simple"][1].split())
+            advWords = len(seen["advanced"][0].split()) + len(seen["advanced"][1].split())
+            check(simpleWords < advWords * 0.8,
+                  f"the 'simple' wording is {simpleWords} words against {advWords} - not noticeably plainer")
+            for jargon in ("analytics", "arithmetic in your browser", "origin"):
+                check(jargon not in (seen["simple"][0] + seen["simple"][1]).lower(),
+                      f"the plain-English version still uses {jargon!r}")
+            print(f"4b. two registers: {simpleWords} words plain vs {advWords} advanced, "
+                  f"both making both points")
+            pg.evaluate("() => { experienceLevel = 'simple'; applyLevel(); }")
+
+            # ---- 4c. a saved copy declares its own age -----------------------
+            # A stale file fails silently: it keeps applying the allowances it
+            # was born with. It has to say how old it is.
+            age = pg.evaluate("""() => ({
+              built: typeof BUILD_DATE === 'string' ? BUILD_DATE : null,
+              simple: (document.getElementById('freshAgeSimple') || {}).innerText || '',
+              adv: (document.getElementById('freshAgeAdv') || {}).innerText || '' })""")
+            check(age["built"], "the page does not record when it was built, so a saved copy cannot age")
+            check("saved on" in age["simple"].lower(),
+                  f"opened from a file, the plain note does not give the build date: {age['simple'][:80]!r}")
+            check("saved file" in age["adv"].lower(),
+                  f"opened from a file, the detailed note does not say it is a saved copy: {age['adv'][:80]!r}")
+            print(f"4c. a saved copy states its build date ({age['built']}) in both registers")
             ctx.close()
 
             # ---- 5. it genuinely works with the network gone ------------------
