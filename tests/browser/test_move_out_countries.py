@@ -35,6 +35,12 @@ EXPECTED = {
     "US": {"wrapper": "Roth IRA", "taxable": 1.0, "annual": None, "lifetime": None},
     "FR": {"wrapper": "PEA", "taxable": 1.0, "annual": None, "lifetime": 150000},
     "AU": {"wrapper": "outside super", "taxable": 0.0, "annual": None, "lifetime": None},
+    # Hong Kong and Singapore have no shelter to move INTO - neither taxes
+    # investment returns outside the pension either - so both are marked as
+    # pointless rather than offered. Singapore still charges half an SRS
+    # withdrawal on the way out, which makes it actively worse than staying.
+    "HK": {"wrapper": "an ordinary investment account", "taxable": 0.0, "annual": None, "lifetime": None},
+    "SG": {"wrapper": "an ordinary investment account", "taxable": 0.5, "annual": None, "lifetime": None},
 }
 
 # What the model moved and what it cost, straight from the funding model.
@@ -178,14 +184,17 @@ def main():
             else:
                 print(f"fixed mode:      moved {t['gross']:,.0f} for {taken:,.0f} of tax")
 
-        # The panel must say the AU case is not worth doing rather than sell it.
-        set_country("AU")
-        pg.wait_for_timeout(500)
-        au_text = pg.evaluate("() => document.getElementById('moveOutTradeoff').textContent")
-        if "Nothing to gain" not in au_text:
-            failures.append("AU: the panel does not say there is nothing to gain")
-        else:
-            print("\nAU panel says plainly there is nothing to gain ✓")
+        # Where there is nothing to gain the panel must say so rather than sell
+        # it. Three countries are in that position now, for three different
+        # reasons, and all three have to be honest about it.
+        for code in ("AU", "HK", "SG"):
+            set_country(code)
+            pg.wait_for_timeout(500)
+            txt = pg.evaluate("() => document.getElementById('moveOutTradeoff').textContent")
+            if "Nothing to gain" not in txt:
+                failures.append(f"{code}: the panel does not say there is nothing to gain")
+            else:
+                print(f"\n{code} panel says plainly there is nothing to gain ✓")
 
         b.close()
 

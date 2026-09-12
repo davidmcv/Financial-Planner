@@ -33,7 +33,10 @@ from playwright.sync_api import sync_playwright
 FILE = (pathlib.Path(__file__).resolve().parents[2] / "pension-planner.html").as_uri()
 CHROME = os.environ.get("CHROME_PATH", "/opt/pw-browsers/chromium-1194/chrome-linux/chrome")
 
-TERMS = {"UK": "holiday", "US": "vacation", "AU": "holiday", "FR": "stay"}
+# Hong Kong and Singapore are both tropical, so the season people leave is
+# the hot one. "Winter sun" is meaningless in one and backwards in the other.
+TERMS = {"UK": "holiday", "US": "vacation", "AU": "holiday", "FR": "stay",
+         "HK": "holiday", "SG": "holiday"}
 
 
 def main():

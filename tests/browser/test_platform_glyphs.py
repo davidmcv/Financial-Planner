@@ -74,8 +74,18 @@ def main():
         pg.wait_for_timeout(1300)
 
         # ---- 2. every country in the comparison has artwork ----------------
-        missing = pg.evaluate("""() => Object.keys(RELOCATE).filter(c => !flagSvg(c))""")
-        check(not missing, f"these countries have no flag drawn: {missing}")
+        # flagSvg() never returns nothing - it falls back to printing the
+        # two-letter code, which is exactly the failure this whole suite
+        # exists to prevent. So the check has to be on the artwork itself,
+        # not on whether the function returned a string. A country added
+        # without a flag used to pass this line silently.
+        missing = pg.evaluate("""() => Object.keys(RELOCATE)
+          .filter(c => !FLAG_SVG[c] || FLAG_SVG[c].length < 40)""")
+        check(not missing, f"these countries would render as a bare country code: {missing}")
+        fallback = pg.evaluate("""() => Object.keys(RELOCATE)
+          .filter(c => flagSvg(c).includes('flag-code'))""")
+        check(not fallback,
+              f"these countries fall back to the two-letter code on screen: {fallback}")
         codes = pg.evaluate("() => Object.keys(RELOCATE)")
         print(f"2. all {len(codes)} countries have artwork: {', '.join(codes)}")
 
