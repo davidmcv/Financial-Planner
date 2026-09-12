@@ -51,10 +51,13 @@ however it is toggled, and that is not the same as being unwired.
 The pension-to-wrapper strategy under each country's rules: ISA in the UK
 (£20,000 each a year, 75% of the withdrawal taxed), a Roth conversion in the US
 (no cap, fully taxed), a PEA in France (€150,000 for life, fully taxed), and
-Australia, where super is already tax-free after 60 so there is nothing to
-escape. Checks the caps bind, the tax matches the country's taxable share, and
-that the Australian panel says there is nothing to gain rather than selling the
-strategy anyway.
+three countries where there is nothing to gain for three different reasons —
+Australia, where super is already tax-free after 60; Hong Kong, which taxes no
+gains, dividends or interest outside the pension either, so an ordinary account
+already is a shelter; and Singapore, which charges half of every SRS withdrawal
+on the way out and taxes nothing on the outside. Checks the caps bind, the tax
+matches each country's taxable share, and that all three panels say there is
+nothing to gain rather than selling the strategy anyway.
 
 ## test_strategy_verdicts.py
 
@@ -111,7 +114,7 @@ actual margin of error.
 
 ## test_accessibility.py
 
-WCAG 2.2 AA via axe-core, across 60 page states: every tab, both themes, both
+WCAG 2.2 AA via axe-core, across 64 page states: every tab, both themes, both
 detail levels, phone and desktop, the dialogs, and the largest text setting.
 The app is used in the UK, US, France and Australia, whose accessibility laws
 (Equality Act, ADA/Section 508, EAA via EN 301 549, DDA) all point at the same
@@ -162,3 +165,64 @@ the optional account server, and the note discloses that rather than glossing
 it. Anything to a third-party host fails. Then it loads the page, cuts the
 browser off entirely, and drives every tab and a full market simulation to
 prove the offline claim is true rather than aspirational.
+
+## test_property.py
+
+The property investment tab. Ten checks against hand-computed figures: stamp
+duty at five prices including below the nil-rate band (where the 5% surcharge
+still applies to the whole price), corporation tax across the marginal-relief
+range, Section 24 at three interest rates, the double taxation a company suffers
+on the way out, the company advantage widening with the owner's band, the
+lender's interest-cover test passing and failing, sale proceeds both ways, the
+inheritance position (Business Property Relief does not apply to a property
+investment company, whatever the seminar said), the ten-property cap, and the
+warnings.
+
+## test_hk_sg.py
+
+Hong Kong and Singapore, checked against the statutes rather than against the
+app. Two things here are not verifiable by "it renders":
+
+Hong Kong charges the **lower** of a progressive calculation after a HK$145,000
+allowance and a flat standard rate with no allowance at all, so modelling one of
+them is wrong in both directions. The crossover is a real number — HK$2,132,500,
+where 17% of the top slice overtakes 15% of the lot — and the test finds it.
+
+And the fact that makes Hong Kong worth getting right: Article 17 of the 2010
+UK–Hong Kong treaty assigns pensions to the country they **arise** in, the
+reverse of almost every other UK treaty. Everyone knows Hong Kong has low taxes,
+so everyone assumes a UK pension lands there untaxed; the UK carries on taxing
+it. A 0% row on Where to live would be the most expensive thing this app could
+print, so the test asserts the Hong Kong figure equals the UK figure and that
+the page says why.
+
+Singapore's version is subtler: the treaty moves the taxing right only where the
+pension is actually *subject to tax* there, and Singapore taxes foreign income
+received by an individual at nil — so the condition may fail and the UK keeps
+the right by default. The test requires the page to say so rather than promise a
+saving.
+
+Also pins: CPF falling in steps with age (20% to 55, then 18 / 12.5 / 7.5 / 5%)
+and capped at the S$8,000-a-month ceiling; earned income relief stepping up at
+55 and 60; that both countries are wired through all thirteen country-keyed
+structures rather than just the comparison table; that the gifting card gives
+each no-transfer-tax country its own history instead of telling everyone about
+Queensland death duties; and that the property tab admits it is UK law and names
+what is different locally.
+
+## test_tax_year_current.py
+
+The suite the app most needed and did not have. Every other suite checks the
+arithmetic is consistent with the tables; none checked the tables are **this
+year's**. So the app sat on 2025/26 UK rates, 2025 US brackets, a 2025 French
+barème, 2024–25 Australian rates and a £230.25 State Pension while presenting
+itself as current — none of which breaks anything, it just quietly gives
+everybody the wrong answer.
+
+Every figure is written out longhand here from the primary announcements, so a
+rate change fails this file and has to be updated deliberately. It also checks
+no label on the page still says a superseded tax year, that the 60% band and
+Scotland's 67.5% allowance-withdrawal band both emerge from the engine rather
+than being rounded away, and that the per-country tax chain exists **once** —
+it used to be copy-pasted at six call sites, and the copy you miss is where a
+new country silently gets Australian tax.

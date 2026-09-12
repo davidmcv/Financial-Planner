@@ -1497,6 +1497,8 @@
               <option value="US">United States</option>
               <option value="FR">France</option>
               <option value="AU">Australia</option>
+              <option value="HK">Hong Kong</option>
+              <option value="SG">Singapore</option>
             </select>
           </div>
           <div class="field" id="scotlandField">
@@ -1606,6 +1608,8 @@
                 <option value="US">United States</option>
                 <option value="FR">France</option>
                 <option value="AU">Australia</option>
+                <option value="HK">Hong Kong</option>
+                <option value="SG">Singapore</option>
               </select>
               <span class="hint">Each of you can be in a different country; amounts display in your currency</span>
             </div>
@@ -1940,7 +1944,7 @@
             <div class="field adv">
               <label for="annualAllowance" data-glossary="annualAllowance">Annual allowance cap (<span class="cur">&pound;</span>)</label>
               <input type="text" inputmode="decimal" data-money="0" id="annualAllowance" value="60,000">
-              <span class="hint">Most that can go in with tax relief each year (UK 2025/26: <span class="cur">&pound;</span>60,000)</span>
+              <span class="hint">Most that can go in with tax relief each year (UK 2026/27: <span class="cur">&pound;</span>60,000)</span>
             </div>
           </div>
           <p class="caption" id="contribNote" style="margin: 6px 0 0;"></p>
@@ -2947,6 +2951,11 @@
           see your whole position.</span>
       </div>
 
+      <div class="notice" id="propCountryNote" hidden>
+        <span class="icon" data-icon="globe" aria-hidden="true"></span>
+        <span id="propCountryNoteText"></span>
+      </div>
+
       <div class="card">
         <h2>The property</h2>
         <div class="field-row">
@@ -3034,6 +3043,16 @@
         <p class="caption" style="margin:-4px 0 10px;">Three things that actually happen, one at a time, against
           this property's own numbers.</p>
         <div id="propShocks"></div>
+      </div>
+
+      <div class="card">
+        <div class="person-title">
+          <h2>April 2027: property income gets its own tax rates</h2>
+          <span class="pill" id="prop27Pill">&mdash;</span>
+        </div>
+        <p class="caption" style="margin:-4px 0 10px;">A dated, legislated change, so it is shown rather than
+          waited for &mdash; anyone buying now is buying across it.</p>
+        <div id="prop27"></div>
       </div>
 
       <div class="card">
@@ -3135,6 +3154,7 @@
             <select id="relocScope">
               <option value="best">The best ten, and where you are now</option>
               <option value="europe">Europe</option>
+              <option value="asia">Asia</option>
               <option value="all">Everywhere</option>
             </select>
             <span class="hint">Thirty-odd countries is a lot to read. The ranking is over all of
@@ -3261,8 +3281,8 @@
     </div>
     <div class="field">
       <label for="statePensionWeekly">Full new State Pension (<span class="cur">&pound;</span>/week)</label>
-      <input type="text" inputmode="decimal" data-money="2" id="statePensionWeekly" value="230.25">
-      <span class="hint">2025/26 rate &mdash; override if a newer rate applies</span>
+      <input type="text" inputmode="decimal" data-money="2" id="statePensionWeekly" value="241.30">
+      <span class="hint">2026/27 rate &mdash; override if a newer rate applies</span>
     </div>
     <div class="field">
       <label for="statePensionGrowth">State Pension growth (%/yr)</label>
@@ -3732,19 +3752,38 @@ function buildPersonSummary(dob, sex, country) {
    the Net column. UK keeps the full SPA legislation; others use their
    flat statutory ages.
    ========================================================================= */
+/* `social` names the mandatory deduction that comes off pay alongside income
+   tax, because it is not called the same thing anywhere and calling it all
+   "NI" was wrong for five of the seven. It is a real reduction in take-home
+   in every case; in Hong Kong and Singapore it is also a contribution into
+   the reader's own retirement pot, which the note says. */
 const COUNTRIES = {
   UK: { currency: "£", name: "United Kingdom", spaFlat: null, accessAge: null, // uses full UK rules
-        spWeeklyDefault: 230.25, spName: "State Pension",
-        note: "UK 2025/26: income tax (England/Wales/NI or Scottish bands), National Insurance on salary, personal allowance £12,570 tapering above £100,000. Pension drawdown: 25% tax-free, 75% taxed as income (UFPLS basis); no NI on pension income." },
+        spWeeklyDefault: 241.30, spName: "State Pension", social: "NI",
+        note: "UK 2026/27: income tax (England/Wales/NI or Scottish bands), National Insurance on salary, personal allowance £12,570 tapering above £100,000 and frozen to April 2031. Pension drawdown: 25% tax-free, 75% taxed as income (UFPLS basis); no NI on pension income." },
   US: { currency: "$", name: "United States", spaFlat: 67, accessAge: 59.5,
-        spWeeklyDefault: 460, spName: "Social Security",
-        note: "US 2025 federal rates only (single filer per person, standard deduction $15,000); state income tax not modelled. 401(k)/IRA access from 59½; Social Security full retirement age 67." },
+        spWeeklyDefault: 460, spName: "Social Security", social: null,
+        note: "US 2026 federal rates only (single filer per person, standard deduction $16,100, plus $2,050 from age 65 and the $6,000 senior deduction the OBBBA added for 2025–2028); state income tax not modelled. 401(k)/IRA access from 59½; Social Security full retirement age 67." },
   FR: { currency: "€", name: "France", spaFlat: 64, accessAge: 64,
-        spWeeklyDefault: 330, spName: "Pension de retraite",
-        note: "France 2025 barème (per person, 1 part; quotient familial and social charges CSG/CRDS not modelled). Âge légal de départ 64 (post-2023 reform)." },
+        spWeeklyDefault: 330, spName: "Pension de retraite", social: null,
+        note: "France 2026 barème on 2025 income (per person, 1 part; quotient familial and social charges CSG/CRDS not modelled), with the 10% pension deduction capped at €4,399. Âge légal de départ 64 (post-2023 reform)." },
   AU: { currency: "A$", name: "Australia", spaFlat: 67, accessAge: 60,
-        spWeeklyDefault: 575, spName: "Age Pension",
-        note: "Australia 2024–25 resident rates + 2% Medicare levy. Superannuation income is tax-free from age 60, so private drawdown after 60 is untaxed; Age Pension from 67 (means testing not modelled)." },
+        spWeeklyDefault: 575, spName: "Age Pension", social: null,
+        note: "Australia 2026–27 resident rates + 2% Medicare levy — the second band fell from 16% to 15% on 1 July 2026 and drops again to 14% in 2027. Superannuation income is tax-free from age 60, so private drawdown after 60 is untaxed; Age Pension from 67 (means testing not modelled)." },
+  /* Hong Kong and Singapore are the two low-tax places a British or Australian
+     reader actually ends up in, and both break an assumption this app used to
+     make everywhere else: that the country you live in is the country that
+     taxes your pension. Neither of them taxes a foreign pension at all. What
+     that saves you is a separate question, answered on the Where to live tab,
+     because the UK treaty with Hong Kong hands the taxing right back to the
+     UK and the one with Singapore hands it back unless the money is actually
+     remitted and taxed there. */
+  HK: { currency: "HK$", name: "Hong Kong", spaFlat: 70, accessAge: 65,
+        spWeeklyDefault: 386.54, spName: "Old Age Allowance", social: "MPF",
+        note: "Hong Kong 2026/27 salaries tax: the LOWER of progressive rates (2/6/10/14/17% on HK$50,000 slices) after a HK$145,000 basic allowance, and the standard rate of 15% on the first HK$5m of income with no allowance. Employee MPF is 5% of pay capped at HK$18,000 a year and is deductible. Territorial: only income arising in Hong Kong is taxed, so a foreign pension is outside the charge entirely — as are capital gains, dividends and interest. No GST, no wealth tax, no estate duty. <b>This setting models Hong Kong tax only.</b> If your pension arises in the UK, the UK–Hong Kong treaty keeps the taxing right in the UK: set the country to United Kingdom to see that bill, and read the Hong Kong entry on the Where to live tab." },
+  SG: { currency: "S$", name: "Singapore", spaFlat: 65, accessAge: 55,
+        spWeeklyDefault: 410.77, spName: "CPF LIFE", social: "CPF",
+        note: "Singapore YA2026 resident rates (0% to S$20,000, rising to 24% above S$1m) after earned income relief of S$1,000, or S$6,000 from 55 and S$8,000 from 60. Employee CPF comes off pay and out of taxable income: 20% to age 55, then 18%, 12.5%, 7.5% and 5% as you age, on wages up to the S$8,000 a month ceiling. CPF LIFE payouts are tax-free; half of an SRS withdrawal is taxable. Foreign-sourced income received by an individual is exempt, and there is no capital gains tax and no estate duty. <b>This setting models Singapore tax only.</b> A UK pension moves out of UK tax under the treaty only where it is actually subject to tax here — which at nil it may not be — so compare against the United Kingdom setting and read the Singapore entry on the Where to live tab." },
 };
 let currentCountry = "UK";
 const CUR = () => COUNTRIES[currentCountry].currency;
@@ -3824,8 +3863,23 @@ const GIFT_TAX = {
         // Direct-line barème (droits de donation), tax on the slice within each band.
         scale: [[8072, 0.05], [12109, 0.10], [15932, 0.15], [552324, 0.20], [902838, 0.30], [1805677, 0.40], [Infinity, 0.45]],
         sourceName: "Droits de donation (service-public.fr)", sourceUrl: "https://www.service-public.gouv.fr/particuliers/vosdroits/F14205" },
+  /* Three countries with no transfer tax at all, and the card for them used
+     to tell all three that "Australia abolished death duties in 1979" and
+     warn them about Age Pension means-testing. The fact that there is no tax
+     is shared; nothing else is, so each carries its own history and its own
+     watch-outs. */
   AU: { hasTax: false, mechanism: "none",
+        abolished: "Australia abolished death duties in 1979, starting with Queensland and ending with the Commonwealth.",
+        watchOuts: "Gifting an <b>asset</b> rather than cash can trigger <b>capital gains tax</b> for you at the time of the gift, inherited assets keep their cost base for the beneficiary, and large gifts can affect <b>Age Pension</b> means-testing under the gifting and deprivation rules. Cash gifts themselves are tax-free.",
         sourceName: "Australia has no inheritance/gift tax (ATO)", sourceUrl: "https://www.ato.gov.au/individuals-and-families/deceased-estates" },
+  HK: { hasTax: false, mechanism: "none",
+        abolished: "Hong Kong abolished estate duty on 11 February 2006, and never had a gift tax.",
+        watchOuts: "There is no capital gains tax here, so giving an asset away costs nothing in tax at the time. Two things still bite: <b>stamp duty</b> is payable on transfers of Hong Kong property and shares even between family, and gifting assets away can affect eligibility for the means-tested <b>Old Age Living Allowance</b>. The larger risk for most readers is elsewhere: UK inheritance tax now follows long-term residence, so a British estate can remain in charge for up to ten years after leaving.",
+        sourceName: "Hong Kong abolished estate duty in 2006 (IRD)", sourceUrl: "https://www.ird.gov.hk/eng/tax/est.htm" },
+  SG: { hasTax: false, mechanism: "none",
+        abolished: "Singapore abolished estate duty on 15 February 2008, and has never taxed gifts.",
+        watchOuts: "There is no capital gains tax, so a gift of an asset is not a taxable event. <b>Stamp duty</b> still applies to transfers of Singapore property and shares, and Additional Buyer's Stamp Duty can be triggered by putting a property into someone else's name. CPF is distributed by nomination rather than by will, and a will does not override a CPF nomination - a common and expensive surprise. As above, UK inheritance tax can follow a British estate here for up to ten years after leaving.",
+        sourceName: "Singapore abolished estate duty in 2008 (IRAS)", sourceUrl: "https://www.iras.gov.sg/taxes/other-taxes/estate-duty" },
 };
 function giftConfig(country) { return GIFT_TAX[country || currentCountry]; }
 // Progressive tax on `amount` using [threshold, rate] bands (tax per slice).
@@ -3841,7 +3895,11 @@ function progressiveTax(amount, scale) {
 
 // Maximum modelled age per country (a low-probability upper bound the plan is
 // stress-tested against, not an expectation).
-const MAX_AGE = { UK: 105, US: 105, FR: 105, AU: 105 };
+/* Hong Kong and Singapore have the longest life expectancies in the world -
+   Hong Kong women are around 88 at birth - so the tail a plan there has to
+   survive is genuinely longer, and 105 would be an optimistic ceiling rather
+   than a pessimistic one. */
+const MAX_AGE = { UK: 105, US: 105, FR: 105, AU: 105, HK: 108, SG: 108 };
 const maxAgeFor = () => MAX_AGE[currentCountry] || 105;
 
 // Approximate probability of surviving from `fromAge` to `age`, given a median
@@ -3866,29 +3924,65 @@ const gbp0 = n => CUR() + Math.round(n).toLocaleString("en-GB");
 const gbp2 = n => CUR() + n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /* =========================================================================
-   TAX ENGINES (2025/26-era headline rules, simplified; per person)
+   TAX ENGINES (2026/27-era headline rules, simplified; per person)
    The tables live in TAXDATA using statutory GROSS thresholds - the same
    shape the backend serves at /api/reference - so the server's maintained
    copy can replace these built-ins wholesale when the page is served by it.
    ========================================================================= */
 let TAXDATA = {
-  UK: {
+  UK: { // 2026/27. Thresholds frozen to April 2031 (Autumn Budget 2025).
     pa: 12570, paTaperFrom: 100000,
     bands: [[12570, 0.20], [50270, 0.40], [125140, 0.45]],
-    scotBands: [[12570, 0.19], [15397, 0.20], [27491, 0.21], [43662, 0.42], [75000, 0.45], [125140, 0.48]],
+    // Scotland 2026/27: starter and basic band limits rose 7.4%, the rest frozen.
+    scotBands: [[12570, 0.19], [16537, 0.20], [29526, 0.21], [43662, 0.42], [75000, 0.45], [125140, 0.48]],
     niBands: [[12570, 0.08], [50270, 0.02]], // employee Class 1
     ufplsTaxFree: 0.25,
   },
-  US: { // 2025 federal, single filer
-    stdDeduction: 15000,
-    bands: [[0, 0.10], [11925, 0.12], [48475, 0.22], [103350, 0.24], [197300, 0.32], [250525, 0.35], [626350, 0.37]],
+  US: { // 2026 federal, single filer (Rev. Proc. 2025-32)
+    stdDeduction: 16100,
+    /* Age 65 adds $2,050 to the standard deduction, and the OBBBA added a
+       further $6,000 "senior deduction" for 2025-2028 which phases out above
+       $75,000 of modified AGI at 6%. Both are worth thousands to exactly the
+       reader this app is for, and leaving them out overstated US tax on a
+       modest retirement income by around $1,500 a year. */
+    age65Extra: 2050, seniorDeduction: 6000, seniorPhaseFrom: 75000, seniorPhaseRate: 0.06,
+    bands: [[0, 0.10], [12400, 0.12], [50400, 0.22], [105700, 0.24], [201775, 0.32], [256225, 0.35], [640600, 0.37]],
   },
-  FR: { // 2025 barème, 1 part per person
-    bands: [[11497, 0.11], [29315, 0.30], [83823, 0.41], [180294, 0.45]],
+  FR: { // 2026 barème on 2025 income (thresholds indexed +0.9%)
+    bands: [[11600, 0.11], [29579, 0.30], [84577, 0.41], [181917, 0.45]],
+    /* The 10% deduction on pension income is capped per household, not
+       unlimited: above roughly €44,000 of pension the deduction stops growing,
+       so a large pot gets proportionally less relief than a small one. */
+    pensionDeduction: 0.10, pensionDeductionCap: 4399, pensionDeductionMin: 450,
   },
-  AU: { // 2024-25 resident + Medicare levy
-    bands: [[18200, 0.16], [45000, 0.30], [135000, 0.37], [190000, 0.45]],
-    medicareRate: 0.02, medicareFrom: 26000, superTaxFreeAge: 60,
+  AU: { // 2026-27 resident + Medicare levy
+    bands: [[18200, 0.15], [45000, 0.30], [135000, 0.37], [190000, 0.45]],
+    medicareRate: 0.02, medicareFrom: 28011, superTaxFreeAge: 60,
+  },
+  /* Hong Kong charges the LOWER of two calculations, which is unusual enough
+     that modelling only one of them is wrong in both directions: progressive
+     rates with generous allowances suit a modest income, and the flat standard
+     rate with NO allowances caps the bill on a large one. The crossover is
+     around HK$2.2m of income. */
+  HK: { // 2026/27 year of assessment
+    basicAllowance: 145000, marriedAllowance: 290000,
+    bands: [[0, 0.02], [50000, 0.06], [100000, 0.10], [150000, 0.14], [200000, 0.17]],
+    stdBands: [[0, 0.15], [5000000, 0.16]],
+    mpfRate: 0.05, mpfCap: 18000,      // mandatory employee contribution, deductible
+    potTaxableFraction: 0,             // MPF benefits on retirement are exempt
+  },
+  SG: { // YA2026 resident rates (unchanged since YA2024)
+    bands: [[0, 0], [20000, 0.02], [30000, 0.035], [40000, 0.07], [80000, 0.115],
+            [120000, 0.15], [160000, 0.18], [200000, 0.19], [240000, 0.195],
+            [280000, 0.20], [320000, 0.22], [500000, 0.23], [1000000, 0.24]],
+    earnedRelief: 1000, earnedRelief55: 6000, earnedRelief60: 8000,
+    /* Employee CPF, from 1 January 2026. It falls in steps as you age, which
+       matters here because the reader is usually in one of the steps. Wages
+       above the S$8,000 a month Ordinary Wage ceiling attract none of it, and
+       the employee share is exempt from income tax. */
+    cpfBands: [[0, 0.20], [55, 0.18], [60, 0.125], [65, 0.075], [70, 0.05]],
+    cpfWageCeiling: 96000,             // S$8,000 a month
+    potTaxableFraction: 0.5,           // half of an SRS withdrawal is taxable
   },
 };
 
@@ -3921,12 +4015,33 @@ function ukNI(gross) {
   return taxBands(gross, TAXDATA.UK.niBands);
 }
 
-function usIncomeTax(gross) {
-  const taxable = Math.max(0, gross - TAXDATA.US.stdDeduction);
+/* The US standard deduction is not one number for this audience: age 65 adds
+   to it, and the OBBBA senior deduction adds again and then tapers away. `age`
+   is optional - passed where the model knows it, omitted where the figure is a
+   working-age salary. */
+function usDeduction(gross, age) {
+  const us = TAXDATA.US;
+  let d = us.stdDeduction;
+  if (age != null && age >= 65) {
+    d += us.age65Extra;
+    const over = Math.max(0, gross - us.seniorPhaseFrom);
+    d += Math.max(0, us.seniorDeduction - over * us.seniorPhaseRate);
+  }
+  return d;
+}
+function usIncomeTax(gross, age) {
+  const taxable = Math.max(0, gross - usDeduction(gross, age));
   return taxBands(taxable, TAXDATA.US.bands);
 }
 function frIncomeTax(gross) {
   return taxBands(gross, TAXDATA.FR.bands);
+}
+// The 10% deduction French pension income gets, with its floor and its ceiling.
+function frPensionDeduction(pension) {
+  const fr = TAXDATA.FR;
+  if (pension <= 0) return 0;
+  return Math.min(fr.pensionDeductionCap, Math.max(Math.min(pension, fr.pensionDeductionMin),
+                                                   pension * fr.pensionDeduction));
 }
 function auIncomeTax(gross) {
   const au = TAXDATA.AU;
@@ -3934,51 +4049,133 @@ function auIncomeTax(gross) {
   const medicare = gross > au.medicareFrom ? gross * au.medicareRate : 0; // levy threshold approximated
   return base + medicare;
 }
+/* Hong Kong: the lower of the progressive calculation (after allowances) and
+   the standard rate (on income with no allowances at all). Both are computed
+   and the smaller wins, which is what the Ordinance actually says.
+   `married` doubles the allowance where a couple elects joint assessment. */
+function hkIncomeTax(gross, married) {
+  const hk = TAXDATA.HK;
+  const allowance = married ? hk.marriedAllowance : hk.basicAllowance;
+  const progressive = taxBands(Math.max(0, gross - allowance), hk.bands);
+  const standard = taxBands(Math.max(0, gross), hk.stdBands);
+  return Math.min(progressive, standard);
+}
+// Mandatory employee MPF: 5% of pay, capped, and deductible from salaries tax.
+function hkMPF(gross) {
+  const hk = TAXDATA.HK;
+  return Math.min(gross * hk.mpfRate, hk.mpfCap);
+}
+/* Singapore: earned income relief steps up at 55 and again at 60, and it is
+   the only allowance most retired people have. */
+function sgEarnedRelief(age, earned) {
+  const sg = TAXDATA.SG;
+  const cap = age == null ? sg.earnedRelief
+    : age >= 60 ? sg.earnedRelief60 : age >= 55 ? sg.earnedRelief55 : sg.earnedRelief;
+  return Math.min(cap, Math.max(0, earned));
+}
+function sgIncomeTax(gross, age) {
+  return taxBands(Math.max(0, gross - sgEarnedRelief(age, gross)), TAXDATA.SG.bands);
+}
+// Employee CPF: age-banded, and only on wages up to the Ordinary Wage ceiling.
+function sgCPF(gross, age) {
+  const sg = TAXDATA.SG;
+  let rate = sg.cpfBands[0][1];
+  for (const [from, r] of sg.cpfBands) if ((age || 0) > from) rate = r;
+  return Math.min(gross, sg.cpfWageCeiling) * rate;
+}
 
-// Salary today: returns {tax, ni, net, effective}
-function taxOnSalary(gross, country, scottish) {
+/* One dispatch, not six.
+   This chain used to be written out at every call site - six copies of
+   `country === "UK" ? ... : auIncomeTax(g)` - so adding a country meant
+   finding all six, and the copy that got missed would silently charge a Hong
+   Kong reader Australian tax. Now there is one. */
+function incomeTaxFor(country, gross, opt) {
+  const o = opt || {};
+  switch (country || currentCountry) {
+    case "UK": return ukIncomeTax(gross, o.scottish);
+    case "US": return usIncomeTax(gross, o.age);
+    case "FR": return frIncomeTax(gross);
+    case "AU": return auIncomeTax(gross);
+    case "HK": return hkIncomeTax(gross, o.married);
+    case "SG": return sgIncomeTax(gross, o.age);
+    default:   return ukIncomeTax(gross, o.scottish);
+  }
+}
+// What that contribution is called where the reader lives, or "" if there
+// isn't one. Used anywhere a label would otherwise say "NI" to everybody.
+function socialLabel(country) {
+  const c = COUNTRIES[country || currentCountry];
+  return (c && c.social) || "";
+}
+// The mandatory contribution that comes off pay beside income tax, if any.
+function socialOnSalary(country, gross, age) {
+  switch (country || currentCountry) {
+    case "UK": return ukNI(gross);
+    case "HK": return hkMPF(gross);
+    case "SG": return sgCPF(gross, age);
+    default:   return 0;
+  }
+}
+
+/* Salary today: returns {tax, ni, net, effective}.
+   `ni` keeps its name because five screens read it, but it now holds whatever
+   the country's mandatory deduction is - NI, MPF or CPF - and COUNTRIES[].social
+   names it on screen. In Hong Kong and Singapore that money is going into the
+   reader's own retirement account rather than to the government, which the
+   Salary tab says; it still leaves take-home, which is what this figure is for. */
+function taxOnSalary(gross, country, scottish, age) {
   country = country || currentCountry;
   if (scottish === undefined) scottish = els("scotland") && els("scotland").value === "scot";
-  let tax = 0, ni = 0;
-  if (country === "UK") { tax = ukIncomeTax(gross, scottish); ni = ukNI(gross); }
-  else if (country === "US") tax = usIncomeTax(gross);
-  else if (country === "FR") tax = frIncomeTax(gross);
-  else if (country === "AU") tax = auIncomeTax(gross);
+  /* Singapore exempts the employee's CPF share from income tax and Hong Kong
+     allows the mandatory MPF contribution as a deduction, so the contribution
+     comes off before the bands in both - which is the opposite of UK NI, where
+     it does not. */
+  const ni = socialOnSalary(country, gross, age);
+  const deductible = (country === "HK" || country === "SG") ? ni : 0;
+  const tax = incomeTaxFor(country, Math.max(0, gross - deductible), { scottish, age });
   const net = gross - tax - ni;
   return { tax, ni, net, effective: gross > 0 ? (tax + ni) / gross * 100 : 0 };
 }
 
-// Retirement income for one projection year. privateAmt = drawdown/flat
-// income; otherAmt = state pension + DB (taxable where taxed). Returns net.
+/* Retirement income for one projection year. privateAmt = drawdown/flat
+   income; otherAmt = state pension + DB (taxable where taxed). Returns net.
+
+   How much of the private pot is taxable is a per-country fact, not a UK one:
+   a quarter of a UK withdrawal is tax-free, Australian super after 60 is
+   entirely tax-free, Hong Kong does not tax retirement benefits at all, and
+   Singapore taxes half of an SRS withdrawal and none of CPF LIFE. */
+function retirementTaxableFraction(country, age) {
+  switch (country || currentCountry) {
+    case "UK": return 1 - TAXDATA.UK.ufplsTaxFree;
+    case "AU": return age >= TAXDATA.AU.superTaxFreeAge ? 0 : 1;
+    case "HK": return TAXDATA.HK.potTaxableFraction;
+    case "SG": return TAXDATA.SG.potTaxableFraction;
+    default:   return 1;
+  }
+}
 function taxOnRetirement(privateAmt, otherAmt, age, country, scottish) {
   country = country || currentCountry;
   if (scottish === undefined) scottish = els("scotland") && els("scotland").value === "scot";
-  if (country === "UK") {
-    // UFPLS basis: 25% of each private withdrawal tax-free, 75% taxable. No NI.
-    const taxable = privateAmt * (1 - TAXDATA.UK.ufplsTaxFree) + otherAmt;
-    return privateAmt + otherAmt - ukIncomeTax(taxable, scottish);
-  }
-  if (country === "AU") {
-    // Super withdrawals tax-free from 60; Age Pension taxable (SAPTO ignored).
-    const taxable = (age >= TAXDATA.AU.superTaxFreeAge ? 0 : privateAmt) + otherAmt;
-    return privateAmt + otherAmt - auIncomeTax(taxable);
-  }
   const gross = privateAmt + otherAmt;
-  if (country === "US") return gross - usIncomeTax(gross);
-  return gross - frIncomeTax(gross);
+  /* Hong Kong's Old Age Allowance and Singapore's CPF LIFE payouts are both
+     outside the charge, so only the private slice can be taxed. Everywhere
+     else the state pension is taxable income like any other. */
+  const stateTaxable = (country === "HK" || country === "SG") ? 0 : otherAmt;
+  let taxable = privateAmt * retirementTaxableFraction(country, age) + stateTaxable;
+  // France's 10% pension deduction, with its cap - not a flat 10% off.
+  if (country === "FR") taxable = Math.max(0, taxable - frPensionDeduction(taxable));
+  return gross - incomeTaxFor(country, taxable, { scottish, age });
 }
 
 // Fraction of an extra slice of income kept after tax at the margin (income
-// tax, plus employee NI in the UK) - used to net down bonus and RSU income
-// that stacks on top of salary. A planning approximation.
-function marginalNetRate(baseGross, extra) {
+// tax, plus the mandatory contribution where there is one) - used to net down
+// bonus and RSU income that stacks on top of salary. A planning approximation.
+function marginalNetRate(baseGross, extra, age) {
   if (extra <= 0) return 1;
   const scottish = els("scotland") && els("scotland").value === "scot";
   const taxAt = g => {
-    if (currentCountry === "UK") return ukIncomeTax(g, scottish) + ukNI(g);
-    if (currentCountry === "US") return usIncomeTax(g);
-    if (currentCountry === "FR") return frIncomeTax(g);
-    return auIncomeTax(g);
+    const t = taxOnSalary(g, currentCountry, scottish, age);
+    return t.tax + t.ni;
   };
   const extraTax = taxAt(baseGross + extra) - taxAt(baseGross);
   return Math.max(0, 1 - extraTax / extra);
@@ -4156,8 +4353,16 @@ const LIVING_STANDARDS = {
       comf: { single: 54840, couple: 77375, label: "Comfortable" },
     },
   },
+  /* No entry means no OFFICIAL national standard, and the page then says so
+     and points at the Budget planner rather than borrowing someone else's
+     figures. All four of these have well-known unofficial benchmarks - the
+     EPI family budget calculator, the Lee Kuan Yew School's Minimum Income
+     Standard - but presenting a research paper as a national standard is how
+     a planning tool starts quietly misleading people. */
   US: null,
   FR: null,
+  HK: null,
+  SG: null,
 };
 function standardsFor(country) { return LIVING_STANDARDS[country || currentCountry]; }
 function rlsAmount(choice, couple, region) {
@@ -4417,6 +4622,8 @@ const GLOSSARY = {
   rothIra:       { url: "https://www.irs.gov/retirement-plans/roth-iras", label: "Roth IRAs (IRS)" },
   pea:           { url: "https://www.service-public.fr/particuliers/vosdroits/F22449", label: "Plan d'épargne en actions (service-public.fr)" },
   super:         { url: "https://moneysmart.gov.au/how-super-works/superannuation", label: "Superannuation (ASIC Moneysmart)" },
+  mpf:           { url: "https://www.mpfa.org.hk/en/mpf-system/system-features/mpf-schemes", label: "Mandatory Provident Fund (MPFA)" },
+  srs:           { url: "https://www.iras.gov.sg/taxes/individual-income-tax/basics-of-individual-income-tax/special-tax-schemes/srs-contributions", label: "Supplementary Retirement Scheme (IRAS)" },
   ni:            { url: "https://www.gov.uk/national-insurance", label: "National Insurance (gov.uk)" },
   taper:         { url: "https://www.gov.uk/guidance/pension-schemes-work-out-your-tapered-annual-allowance", label: "Tapered annual allowance (gov.uk)" },
   rls:           { url: "https://www.retirementlivingstandards.org.uk/", label: "PLSA Retirement Living Standards" },
@@ -4439,6 +4646,10 @@ const GLOSSARY = {
             label: "Plan d'épargne retraite (service-public.fr)" },
       AU: { url: "https://moneysmart.gov.au/how-super-works/superannuation",
             label: "Superannuation (ASIC Moneysmart)" },
+      HK: { url: "https://www.mpfa.org.hk/en/mpf-system/system-features/mpf-schemes",
+            label: "Mandatory Provident Fund (MPFA)" },
+      SG: { url: "https://www.cpf.gov.sg/member/retirement-income",
+            label: "CPF retirement income (CPF Board)" },
     },
   },
 };
@@ -4544,7 +4755,7 @@ const DEFINITIONS = {
   statePension: {
     phrases: ["State Pension"],
     plain: "The pension the government pays you for life once you reach State Pension age. How much you get depends on how many years you paid National Insurance.",
-    expert: "The new State Pension (post-2016 single tier). £230.25/week at the 2025/26 rate, uprated by the triple lock - the highest of earnings growth, CPI, or 2.5%. Taxable, paid gross, and not subject to NI.",
+    expert: "The new State Pension (post-2016 single tier). £241.30/week at the 2026/27 rate, uprated by the triple lock - the highest of earnings growth, CPI, or 2.5%. Taxable, paid gross, and not subject to NI. Frozen at the rate you first claimed it if you move somewhere without an uprating agreement - Canada, Australia, Hong Kong, Singapore and most of the rest of the world outside the EEA.",
     src: "spaShort",
   },
   nmpa: {
@@ -4574,7 +4785,7 @@ const DEFINITIONS = {
   annualAllowance: {
     phrases: ["annual allowance", "Annual allowance cap"],
     plain: "The most you can put into pensions in a year and still get tax relief on it - £60,000 for most people.",
-    expert: "£60,000 gross for 2025/26, covering employer and member contributions plus DB pension input amounts. Tapers by £1 for every £2 of adjusted income above £260,000, to a £10,000 floor. Unused allowance carries forward three years.",
+    expert: "£60,000 gross for 2026/27, covering employer and member contributions plus DB pension input amounts. Tapers by £1 for every £2 of adjusted income above £260,000, to a £10,000 floor. Unused allowance carries forward three years. From April 2029 salary-sacrificed contributions above £2,000 a year lose their National Insurance advantage for both you and your employer.",
     src: "annualAllowance",
   },
   mpaa: {
@@ -4602,13 +4813,13 @@ const DEFINITIONS = {
   isa: {
     phrases: ["Stocks & Shares ISA", "Cash ISA", "ISA"],
     plain: "A savings or investment account where you pay no tax on the interest, dividends or growth - and nothing to declare when you take it out.",
-    expert: "Individual Savings Account: £20,000 subscription limit per person per tax year, no CGT or income tax on returns, no tax on withdrawal, and no reporting requirement. Unused allowance cannot be carried forward.",
+    expert: "Individual Savings Account: £20,000 subscription limit per person per tax year, no CGT or income tax on returns, no tax on withdrawal, and no reporting requirement. Unused allowance cannot be carried forward. From April 2027 the cash component is capped at £12,000 a year for anyone under 65, with the balance of the £20,000 available for investments only.",
     src: "isa",
   },
   gia: {
     phrases: ["GIA", "general investment account", "Other investments"],
     plain: "An ordinary investment account with no tax shelter, so you may owe tax on the income and on any growth when you sell.",
-    expert: "General Investment Account: unwrapped holdings. Dividends taxed above the £500 allowance, gains above the £3,000 annual exempt amount at 18%/24%. Useful once ISA and pension allowances are exhausted.",
+    expert: "General Investment Account: unwrapped holdings. Dividends taxed above the £500 allowance at 10.75%/35.75%/39.35% since April 2026, gains above the £3,000 annual exempt amount at 18%/24%. Savings interest moves to 22%/42%/47% in April 2027. Useful once ISA and pension allowances are exhausted.",
   },
   ni: {
     phrases: ["National Insurance", "NI"],
@@ -5378,8 +5589,12 @@ function fmtNum(n) { return (Number(n) || 0).toLocaleString("en-GB"); }
    driving the State Pension and the spending target), so the three don't drift
    apart, and let each pension override it or switch the rise off entirely. */
 const DB_GROWTH_DEFAULT = 2.5;
-// The ISA subscription limit, per person per tax year (UK, 2025/26).
+/* The ISA subscription limit, per person per tax year (UK, 2026/27). Still
+   £20,000 overall. From April 2027 only £12,000 of it may go into a CASH ISA
+   if you are under 65 - the rest has to be invested - which changes where the
+   allowance is used, not how much of it there is. */
 const ISA_ANNUAL_LIMIT = 20000;
+const ISA_CASH_LIMIT_FROM_2027 = 12000, ISA_CASH_LIMIT_AGE_EXEMPT = 65;
 
 /* =========================================================================
    MOVING PENSION MONEY INTO A TAX-FREE WRAPPER, PER COUNTRY
@@ -5427,6 +5642,31 @@ const MOVE_OUT = {
        than the loss it really is - said plainly in the panel. */
     worseByDesign: true,
     note: "Super income is already tax-free from 60, so there is no tax to escape and nothing to gain by moving money out.",
+  },
+  /* Hong Kong and Singapore both make this strategy pointless, for opposite
+     reasons worth stating rather than hiding behind a greyed-out toggle.
+     Hong Kong taxes neither the pot nor the account you would move it to -
+     no capital gains tax, no tax on dividends or interest - so there is no
+     shelter to move into because you are already in one. Singapore charges
+     you half an SRS withdrawal as income on the way out and then taxes
+     nothing on the outside either, so moving is a pure cost. */
+  HK: {
+    wrapper: "an ordinary investment account", verb: "Move out of MPF",
+    annualLimit: Infinity, lifetimeCap: null,
+    taxableFraction: 0,
+    dest: "gia",
+    src: "mpf",
+    worseByDesign: true,
+    note: "Hong Kong taxes no capital gains, no dividends and no interest, and MPF benefits are tax-free on retirement anyway. There is no shelter to move into, because an ordinary account here already is one.",
+  },
+  SG: {
+    wrapper: "an ordinary investment account", verb: "Move out of SRS",
+    annualLimit: Infinity, lifetimeCap: null,
+    taxableFraction: 0.5,             // half of each SRS withdrawal is taxable
+    dest: "gia",
+    src: "srs",
+    worseByDesign: true,
+    note: "Half of every SRS withdrawal is taxable income, and Singapore taxes no capital gains or dividends outside it either. Moving money out costs tax and buys no shelter you did not already have.",
   },
 };
 const moveOutRules = () => MOVE_OUT[currentCountry] || MOVE_OUT.UK;
@@ -5497,7 +5737,7 @@ function taxEfficientMoveOut(row, mode, rules) {
      what it is aimed at. The app warns when a plan gets close.
 
    Sources: FA 2004 s188-190 (relief), s279(1) (age 75), s227G (MPAA),
-   Sch 29 para 3A (recycling). Rates as at 2025/26. */
+   Sch 29 para 3A (recycling). Rates as at 2026/27. */
 const UK_PENSION_RULES = {
   nonEarnerGross: 3600,        // max gross with no relevant earnings
   reliefAtSource: 0.20,        // added by the provider, whatever your tax rate
@@ -6401,9 +6641,7 @@ function targetForYear(model, base, year) {
 // current country's engine - for comparing whose hands income is taxed in.
 function marginalRate(gross) {
   const scottish = els("scotland") && els("scotland").value === "scot";
-  const at = g => currentCountry === "UK" ? ukIncomeTax(g, scottish)
-    : currentCountry === "US" ? usIncomeTax(g)
-    : currentCountry === "FR" ? frIncomeTax(g) : auIncomeTax(g);
+  const at = g => incomeTaxFor(currentCountry, g, { scottish });
   return (at(gross + 1000) - at(gross)) / 1000;
 }
 
@@ -6412,7 +6650,7 @@ function marginalRate(gross) {
    the honest Inheritance Tax trade-off. Simplified planning estimates using
    current tax bands; not advice.
    ========================================================================= */
-const LUMP_SUM_ALLOWANCE = 268275;   // UK 2025/26 tax-free lump sum allowance
+const LUMP_SUM_ALLOWANCE = 268275;   // UK 2026/27 tax-free lump sum allowance
 /* The tapered annual allowance. Above £260,000 of adjusted income the £60,000
    allowance falls by £1 for every £2, to a £10,000 floor - so a high earner
    can be paying in far more than they get relief on, and the excess is charged
@@ -7403,6 +7641,9 @@ function computeAll(overrides = {}) {
   //          comes off your taxable income, saving tax at your marginal rate.
   //   AU   - salary sacrifice (concessional): taxed 15% on the way in, so 85%
   //          lands in super.
+  //   HK/SG- deductible (MPF tax-deductible voluntary contributions, SRS): like
+  //          US/FR, the whole amount lands in the pot and comes off taxable
+  //          income. Both have their own annual cap, stated on the field.
   const personalElected = inp.yourMode !== "pot" ? 0
     : (inp.yourPersonalMode === "fixed" ? inp.yourPersonalMonthly * 12
                                         : inp.yourSalary * inp.yourPersonalRate / 100);
@@ -7417,7 +7658,7 @@ function computeAll(overrides = {}) {
     } else if (currentCountry === "AU") {
       personalContribTax = personalElected * 0.15;           // concessional contributions tax
       personalGross = personalElected - personalContribTax;  // 85% into super
-    } else {                                                 // US / FR pre-tax
+    } else {                                    // US / FR / HK / SG: pre-tax
       const t0 = taxOnSalary(inp.yourSalary, currentCountry);
       const t1 = taxOnSalary(Math.max(0, inp.yourSalary - personalElected), currentCountry);
       personalTaxSaving = Math.max(0, (t0.tax + t0.ni) - (t1.tax + t1.ni));
@@ -7857,7 +8098,7 @@ function renderSalary(model) {
       msg = `You salary-sacrifice <b>${gbp0(model.personalNet)}/yr</b> (${gbp0(model.personalNet / 12)}/mo) pre-tax; 15% contributions tax ` +
         `(<b>${gbp0(model.personalContribTax)}</b>) applies, so <b>${gbp0(model.personalGross)}/yr</b> lands in your super`;
     } else {
-      const plan = cc === "US" ? "401(k) / IRA" : "PER";
+      const plan = cc === "US" ? "401(k) / IRA" : cc === "HK" ? "MPF (as a TVC)" : cc === "SG" ? "SRS" : "PER";
       msg = `You contribute <b>${gbp0(model.personalNet)}/yr</b> (${gbp0(model.personalNet / 12)}/mo) pre-tax; the full <b>${gbp0(model.personalGross)}/yr</b> ` +
         `goes into your ${plan} and comes off your taxable income, saving about <b>${gbp0(model.personalTaxSaving)}/yr</b> in tax`;
     }
@@ -8046,12 +8287,16 @@ function renderHousehold(model) {
 function renderGifting(model) {
   const g = model.gifting;
 
-  // Australia (and any country with no transfer tax): nothing to plan around.
+  /* Australia, Hong Kong and Singapore: nothing to plan around. The history
+     and the watch-outs come from the country's own entry rather than being
+     written once and applied to all three, which is how every reader here
+     used to be told about Queensland death duties. */
   if (!g.hasTax) {
+    const cfg = giftConfig() || {};
     els("giftingCards").innerHTML = `<div class="card">
       <h2>No gift or inheritance tax</h2>
-      <p><b>${COUNTRIES[currentCountry].name}</b> has no inheritance, estate or gift tax &mdash; you can give as much as you like, whenever you like, with no transfer-tax ceiling to plan around. Australia abolished death duties in 1979.</p>
-      <p class="caption" style="margin-top:8px;">Watch-outs that still apply: gifting an <b>asset</b> (not cash) can trigger <b>capital gains tax</b> for you at the time of the gift, inherited assets keep their cost base for the beneficiary, and large gifts can affect <b>Age Pension</b> means-testing (gifting/deprivation rules). Cash gifts themselves are tax-free.</p>
+      <p><b>${COUNTRIES[currentCountry].name}</b> has no inheritance, estate or gift tax &mdash; you can give as much as you like, whenever you like, with no transfer-tax ceiling to plan around. ${cfg.abolished || ""}</p>
+      <p class="caption" style="margin-top:8px;"><b>Watch-outs that still apply:</b> ${cfg.watchOuts || ""}</p>
     </div>`;
     return;
   }
@@ -8537,15 +8782,13 @@ function householdFunding(model, targetOverride) {
      tax-free" managed to look £320k behind while costing £0 in tax.
 
      How much of a withdrawal is taxable follows the country: three quarters
-     in the UK on the UFPLS basis, all of it in the US and France, none of it
-     from Australian super after 60. That is the same fraction the transfer
+     in the UK on the UFPLS basis, all of it in the US and France, half of an
+     SRS withdrawal in Singapore, and none of it from Australian super after 60
+     or from a Hong Kong MPF at all. That is the same fraction the transfer
      rules use, so it is read from there rather than written down twice. */
   const drawTaxable = moRules.taxableFraction;
   const scottishTax = els("scotland") && els("scotland").value === "scot";
-  const taxOn = g => !(g > 0) ? 0
-    : currentCountry === "UK" ? ukIncomeTax(g, scottishTax)
-    : currentCountry === "US" ? usIncomeTax(g)
-    : currentCountry === "FR" ? frIncomeTax(g) : auIncomeTax(g);
+  const taxOn = g => !(g > 0) ? 0 : incomeTaxFor(currentCountry, g, { scottish: scottishTax });
   /* Pooled pension money - the flexible draw in level mode, and anything drawn
      from a pension paid into after retiring - is not attributed to one person
      by the model, so it is split evenly across the couple. That is the right
@@ -8569,9 +8812,7 @@ function householdFunding(model, targetOverride) {
         const other = who === "spouse" ? (model.spouseMoveOtherIncome || 0) : (model.yourMoveOtherIncome || 0);
         const taxable = gross * moRules.taxableFraction;
         const scottish = els("scotland") && els("scotland").value === "scot";
-        const at = g => currentCountry === "UK" ? ukIncomeTax(g, scottish)
-          : currentCountry === "US" ? usIncomeTax(g)
-          : currentCountry === "FR" ? frIncomeTax(g) : auIncomeTax(g);
+        const at = g => incomeTaxFor(currentCountry, g, { scottish });
         const charge = Math.max(0, at(other + taxable) - at(other));
         return gross - charge;
       }
@@ -9724,7 +9965,7 @@ function drawPlannerChart(model) {
     `<span class="key"><span class="swatch-line" style="background:${themeColor("--ink", "#222")}"></span>` +
       `Total income, including one-off events</span>`,
     `<span class="key"><span class="swatch-line" style="background:${CHART_NET_WORK}"></span>` +
-      `Take-home while working (after tax${model.inp.country === "UK" ? " &amp; NI" : ""})</span>`,
+      `Take-home while working (after tax${socialLabel(model.inp.country) ? " &amp; " + socialLabel(model.inp.country) : ""})</span>`,
     `<span class="key"><span class="swatch-line" style="background:${CHART_NET_RET}"></span>` +
       `Take-home once retired (after tax)</span>`,
     baseTarget > 0
@@ -10064,7 +10305,7 @@ function drawBreakdownChart(model) {
     baseTarget > 0
       ? `<span class="key"><span class="swatch-line dashed" style="color:${CHART.crit}"></span>Spending target</span>` : "",
     `<span class="key"><span class="swatch-line" style="background:${CHART_NET_WORK}"></span>` +
-      `Take-home while working (after tax${model.inp.country === "UK" ? " &amp; NI" : ""})</span>`,
+      `Take-home while working (after tax${socialLabel(model.inp.country) ? " &amp; " + socialLabel(model.inp.country) : ""})</span>`,
     `<span class="key"><span class="swatch-line" style="background:${CHART_NET_RET}"></span>` +
       `Take-home once retired (after tax)</span>`,
     model.inp.showSurvival
@@ -10677,7 +10918,7 @@ function renderStrategies(model) {
 const UK_THRESHOLDS = {
   marriageAllowance: 1260,       // transferable slice of the personal allowance
   taperFrom: 100000,             // personal allowance taper start
-  cgtAllowance: 3000,            // annual exempt amount, 2025/26
+  cgtAllowance: 3000,            // annual exempt amount, 2026/27
 };
 
 function taxOptimisations(model, you, spouse) {
@@ -11220,6 +11461,20 @@ const FLAG_SVG = {
       `<circle cx="20" cy="4" r="0.8" fill="#fff"/><circle cx="22.5" cy="8.5" r="1" fill="#fff"/>` +
       `<circle cx="18.5" cy="11" r="0.8" fill="#fff"/><circle cx="22.5" cy="14.5" r="0.9" fill="#fff"/>` +
       `<circle cx="21" cy="11" r="0.5" fill="#fff"/>`,
+  /* Hong Kong: the bauhinia is five curved petals pinwheeled around the
+     centre, each with a star on it. At 20px the stars would be noise, so the
+     petals carry the shape and the field carries the recognition. Drawn from
+     five rotations of one petal rather than five hand-placed paths, so there
+     is one shape to get right instead of five. */
+  HK: `<rect width="27" height="20" fill="#DE2910"/><g transform="translate(13.5 10)">` +
+      [0, 72, 144, 216, 288].map(a =>
+        `<path transform="rotate(${a})" fill="#fff" d="M0 -6.4q2.1 1.1 2.4 3.4Q1.3 -1 0 -0.9Q-1.3 -1 -2.4 -3Q-2.1 -5.3 0 -6.4z"/>`
+      ).join("") + `<circle r="1" fill="#DE2910"/></g>`,
+  // Singapore: red over white, a waxing crescent and five stars in a ring.
+  SG: `<rect width="27" height="20" fill="#ffffff"/><rect width="27" height="10" fill="#EF3340"/>` +
+      `<circle cx="6.6" cy="5" r="3.4" fill="#ffffff"/><circle cx="8.3" cy="5" r="3.2" fill="#EF3340"/>` +
+      [[11.4, 2.2], [9.2, 4], [13.6, 4], [10.1, 6.8], [12.7, 6.8]].map(([x, y]) =>
+        `<circle cx="${x}" cy="${y}" r="0.72" fill="#ffffff"/>`).join(""),
 };
 /* The flag, plus the country's two-letter code for anyone who cannot see it.
    Marked aria-hidden and paired with the name it always appears beside, so a
@@ -11328,6 +11583,16 @@ const TRIP_TERMS = {
   AU: { noun: "holiday", nounPl: "holidays", long: "extended holiday", verb: "go away",
         winterer: "chasing the sun", touring: "grey nomadding",
         note: "An Australian passport gets 90 days in any rolling 180 across the Schengen area; touring at home has no limit at all, which is why so much of it happens there." },
+  /* Both of these are tropical, so the season people leave is the hot wet one,
+     not the cold one - "winter sun" is meaningless in Hong Kong and actively
+     backwards in Singapore. The escape is from heat and humidity, and the
+     months are the ones a British reader would call summer. */
+  HK: { noun: "holiday", nounPl: "holidays", long: "extended holiday", verb: "go away",
+        winterer: "escaping the summer", touring: "touring",
+        note: "A Hong Kong SAR passport gets 90 days in any rolling 180 across the Schengen area, and ETIAS pre-authorisation applies to visa-free visitors. There is no exit requirement at this end, so the length of the trip is entirely your own affair." },
+  SG: { noun: "holiday", nounPl: "holidays", long: "extended holiday", verb: "go away",
+        winterer: "escaping the humidity", touring: "touring",
+        note: "A Singapore passport is among the strongest in the world and gets 90 days in any rolling 180 across the Schengen area. Note that Interrail is sold to European residents only - the same pass is Eurail here, at a different price." },
 };
 const tripTerms = () => TRIP_TERMS[currentCountry] || TRIP_TERMS.UK;
 
@@ -11448,6 +11713,9 @@ function tripEstimate(model) {
    point for a conversation with a professional, not an answer.
    ===================================================================== */
 const EUR = 1.17, CAD = 1.71, USD = 1.27, AUD = 1.92;   // per £1, indicative
+// The Hong Kong dollar is pegged to the US dollar at 7.75-7.85, so HKD moves
+// with USD rather than independently; SGD is managed against a basket.
+const HKD = 9.90, SGD = 1.63;
 
 /* Banding a pension straight from the first pound is how comparisons of this
    kind end up wrong by thousands. Every one of these countries has a personal
@@ -11477,7 +11745,7 @@ const RELOCATE = {
     residency: "You already live here.",
     immigration: [],
     money: ["Nothing to move.", "ISAs keep their tax-free status only while you are UK resident."],
-    risks: ["Frozen income tax thresholds to at least April 2028 mean fiscal drag pulls more of your income into higher bands each year."],
+    risks: ["Frozen income tax thresholds to April 2031 - extended by three more years at the Autumn 2025 Budget - mean fiscal drag pulls more of your income into higher bands every year you stay."],
   },
 
   IT: {
@@ -11604,6 +11872,7 @@ const RELOCATE = {
       "ISAs are not recognised and, worse, are often treated as ordinary taxable accounts with onerous reporting. Many advisers suggest closing them before arrival.",
       "A UK SIPP is generally respected as a pension; growth inside it is not taxed annually. Get this confirmed before moving anything.",
       "The deemed disposition at death makes holding large unrealised gains more expensive than it looks.",
+      "The UK State Pension is <b>frozen</b> at the rate you first claimed it - there is no uprating agreement with Canada, which is the long-running grievance of British pensioners there.",
     ],
     risks: ["Immigration, not tax, is the obstacle.", "Healthcare waiting period of up to three months on arrival in most provinces."],
   },
@@ -11688,7 +11957,7 @@ const RELOCATE = {
     lumpSum: "Not recognised. Worse, transferring a UK pension to an Australian super fund brings the growth since you became Australian resident into tax.",
     wealthTax: "None.",
     iht: "None - no inheritance or estate tax at all.",
-    residency: "Resident on the basis of domicile and the 183-day test.",
+    residency: "Resident on the basis of the domicile and 183-day tests (the Australian ones - the UK abolished domicile for inheritance tax in April 2025).",
     immigration: [
       { name: "There is no retirement visa", who: "The investor retirement visa closed to new applicants. Parent visas are the main route.",
         needs: "&mdash;", then: "Everything below is a workaround." },
@@ -11700,8 +11969,133 @@ const RELOCATE = {
       "No inheritance tax is the standout feature.",
       "Transferring a UK pension into Australian super is heavily restricted - most Australian funds are not QROPS, and transfers before 55 are effectively impossible.",
       "ISAs are not recognised.",
+      "The UK State Pension is <b>frozen</b> at the rate you first claimed it. Over a long retirement that is the single biggest number on this page.",
     ],
     risks: ["Immigration is the obstacle.", "Distance and the cost of returning."],
+  },
+
+  /* Hong Kong is the most misunderstood entry in this table, and the
+     misunderstanding is expensive rather than academic.
+
+     Everybody knows Hong Kong has low taxes, so everybody assumes a UK
+     pension arrives there untaxed. Hong Kong's half of that is true: it taxes
+     only income arising in Hong Kong, so a UK pension is outside the charge
+     completely, and so are capital gains, dividends and interest. The UK's
+     half is not. Article 17 of the 2010 UK-Hong Kong treaty gives the taxing
+     right on a pension to the country where it ARISES - the opposite of
+     almost every other treaty the UK has signed, and the opposite of what
+     people expect. Move to Hong Kong and HMRC carries on taxing your pension
+     exactly as before.
+
+     So the tax function here returns the UK bill, not nil, and the panel says
+     why. Showing a 0% effective rate would be the single most misleading
+     number this app could print. */
+  HK: {
+    name: "Hong Kong", currency: "HK$",
+    costIndex: 122,
+    healthcare: "Public system, heavily subsidised once you hold a Hong Kong ID card",
+    summary: "No tax on a foreign pension - and the UK treaty means the UK keeps taxing it anyway. Read the note before you count the saving.",
+    tax: (inc, o) => {
+      /* Hong Kong takes nothing. The UK does not stop, because the treaty
+         assigns pensions to the source country. This is a UK bill computed
+         on UK rules, sitting in a Hong Kong row, which is exactly the point
+         being made. */
+      const per = inc / (o.people || 1);
+      return (o.people || 1) * ukIncomeTax(per * 0.75, o.scot);
+    },
+    taxNote: "<b>Hong Kong charges nothing on this income</b> - salaries tax is territorial and a foreign pension does not arise here. But Article 17 of the UK&ndash;Hong Kong treaty gives the taxing right to the country the pension arises in, so the figure shown is the UK tax you carry on paying. Hong Kong's own rates, if you earn here, are the lower of 2&ndash;17% progressive after a HK$145,000 allowance or a flat 15%.",
+    lumpSum: "The 25% tax-free lump sum stays tax-free: the UK is still the taxing country, so UK rules still apply to it. The £268,275 cap applies as normal. This is the one destination where the lump sum needs no special timing.",
+    wealthTax: "None. No capital gains tax, no tax on dividends or interest, and no GST or VAT of any kind.",
+    iht: "No estate duty - abolished in February 2006. But UK inheritance tax does not stop when you do: since 6 April 2025 it follows <b>long-term residence</b> rather than domicile, so if you were UK resident for 10 of the previous 20 tax years your worldwide estate stays in charge for a tail of 3 to 10 years after you leave, depending on how long you were here. Unused pension funds join that estate from 6 April 2027.",
+    residency: "Tax resident is barely the right question here: what matters is whether income arises in Hong Kong, not where you sleep. For the visa, 180 days of presence a year is the usual expectation.",
+    immigration: [
+      { name: "There is no retirement visa", who: "Hong Kong has no route for a retiree of means, and this is the binding constraint.",
+        needs: "&mdash;", then: "Everything below is a workaround. Seven years of continuous ordinary residence on any of them gives right of abode." },
+      { name: "New Capital Investment Entrant Scheme (CIES)", who: "Relaunched in March 2024 after nine years closed. The closest thing to a retirement route, if you have the money.",
+        needs: "HK$30 million into permissible assets - equities, bonds, funds, certain insurance - of which HK$3 million must go to the CIES Investment Portfolio. Net assets of HK$30 million for the two years before applying.",
+        then: "Two years initially, renewable. Permanent residence after seven years of ordinary residence. Residential property does not count towards the HK$30 million, and enhancements from 1 March 2026 relaxed the private-holding-company conditions." },
+      { name: "Top Talent Pass Scheme (TTPS)", who: "High earners and graduates of about 200 named universities. Not a retirement route, but the easiest pass to get if you still work.",
+        needs: "Either HK$2.5 million of income in the past year, or a degree from a qualifying university.",
+        then: "Two years, no job offer needed to apply. Counts towards the seven years." },
+      { name: "Dependant visa", who: "Spouse or unmarried child under 18 of a Hong Kong permanent resident or most visa holders.",
+        needs: "The sponsor must show they can support you and have suitable accommodation.",
+        then: "In practice the most common route for a retired parent's spouse, and it allows work, unlike most dependant visas." },
+      { name: "Visitor", who: "Anyone with a British, Australian, US, EU or most other passports.", needs: "&mdash;",
+        then: "90 days visa-free for most - 180 for British passport holders, which is unusually generous and makes a long winter stay possible with no paperwork at all." },
+    ],
+    money: [
+      "<b>Do not assume a tax saving.</b> Under the treaty your UK pension stays UK-taxable. Hong Kong adding nothing on top is not the same as paying nothing.",
+      "Because the UK remains the taxing country, the 25% tax-free lump sum keeps working and needs no timing. That is the reverse of every European destination on this list.",
+      "An ISA is not tax-free under UK rules once you are non-resident for contributions, but Hong Kong will not tax it either - so an ISA is one of the few UK wrappers that survives this move substantially intact.",
+      "What Hong Kong does save you is tax on everything that is not a pension: no capital gains tax, no tax on dividends or interest, no GST. If a meaningful part of your income comes from investments rather than a pension, that is where the gain is.",
+      "The UK State Pension is <b>frozen</b> here at the rate you first claimed it. There is no uprating agreement.",
+      "The HK dollar is pegged to the US dollar, so your income in HK dollars moves with GBP/USD. That is a real risk over a thirty-year retirement, and it is not diversified away by living there.",
+    ],
+    risks: [
+      "The treaty. Everything else on this page is secondary to it.",
+      "A 122 cost-of-living index is almost entirely housing: rent is brutal, while food, transport and eating out are cheaper than the UK. If you own outright the picture changes completely.",
+      "Public healthcare is excellent value with a Hong Kong ID - HK$400 for A&E, HK$150 to see a GP, HK$200-300 a day as an inpatient after the January 2026 fee reform, with an annual HK$10,000 cap on charges. Without an ID you are a 'non-eligible person' and pay HK$1,230 just to walk into A&E.",
+      "Air quality, summer humidity, and 1,100 square miles with nowhere to go that is not also Hong Kong.",
+    ],
+  },
+
+  /* Singapore looks like Hong Kong and is not. The treaty is different in a
+     way that actually matters: Article 18 of the UK-Singapore treaty gives
+     the taxing right to the country of residence, but only where the pension
+     is "subject to tax" there. Singapore taxes foreign-sourced income
+     received by an individual at nil. So the condition may fail, and the UK
+     keeps the right by default.
+
+     Which means: Singapore is capable of being genuinely tax-free on a
+     pension, unlike Hong Kong, but only if it is structured so the income is
+     actually received and taxed there - and that is a question for an adviser
+     in both countries, not something an app should promise. So the tax
+     function shows the UK bill (the default position) and the panel explains
+     what would have to be true for it to be less. */
+  SG: {
+    name: "Singapore", currency: "S$",
+    costIndex: 128,
+    healthcare: "World-class, and MediShield Life covers citizens and permanent residents only",
+    summary: "The cleanest low-tax jurisdiction on this list, and the hardest to get into. The treaty's 'subject to tax' condition decides whether you save anything.",
+    tax: (inc, o) => {
+      const per = inc / (o.people || 1);
+      return (o.people || 1) * ukIncomeTax(per * 0.75, o.scot);
+    },
+    taxNote: "<b>Singapore charges nothing on foreign income an individual receives here</b> (section 13(7A)), and there is no capital gains tax. The figure shown is the UK tax, because Article 18 of the UK&ndash;Singapore treaty only moves the taxing right to Singapore where the pension is actually <i>subject to tax</i> there - and at nil it may not be. Get this decided before you move, not after. Singapore's own resident rates, if you earn here, run 0% to 24% after earned income relief of S$8,000 from age 60.",
+    lumpSum: "Take it while still UK resident and UK rules apply, so it is tax-free up to £268,275. Singapore would not tax it either way, which makes this the rare case where the lump sum is safe on both sides.",
+    wealthTax: "None on financial wealth. But property is where Singapore taxes wealth hard: annual property tax is progressive to 36% of annual value on a non-owner-occupied home, and a foreigner buying any residential property pays <b>60% Additional Buyer's Stamp Duty</b> on top of the ordinary duty.",
+    iht: "No estate duty - abolished in February 2008. As in Hong Kong, leaving does not end UK inheritance tax: since 6 April 2025 the test is <b>long-term residence</b> - 10 of the previous 20 tax years - and the charge on your worldwide estate then follows you for 3 to 10 years after departure. Leaving early enough to escape it is a ten-year project, not a one-year one.",
+    residency: "Tax resident after 183 days in a calendar year, or if you work here for a continuous period spanning two years.",
+    immigration: [
+      { name: "There is no retirement visa", who: "Singapore has no route for retirees, and no intention of creating one. This is the binding constraint and it is a hard one.",
+        needs: "&mdash;", then: "Everything below is a workaround, and two of them need eight figures." },
+      { name: "Global Investor Programme (GIP)", who: "Direct permanent residence by investment. The only route that is not employment or family.",
+        needs: "S$10 million into a new or existing Singapore business creating 30+ jobs (half of them citizens); or S$25 million into a GIP-approved fund; or a single family office with S$200 million under management, S$50 million of it in an approved fund. A non-refundable S$20,000 application fee since May 2025.",
+        then: "Permanent residence, renewable. Roughly twelve months to process, and the business conditions are audited afterwards - this is not a passive investment." },
+      { name: "ONE Pass (Overseas Networks & Expertise)", who: "Very high earners still working. Not retirement, but it carries a family.",
+        needs: "A fixed salary of S$30,000 a month, or equivalent standing in arts, sport, science or academia.",
+        then: "Five years, renewable, and the holder's spouse may work. Parents qualify for a Long-Term Visit Pass where the holder earns at least S$12,000 a month." },
+      { name: "Long-Term Visit Pass (LTVP)", who: "Parents of a Singapore citizen or permanent resident, or of a qualifying pass holder. In practice the realistic route for a retired parent.",
+        needs: "A sponsor who meets an income threshold, and privately arranged health cover. No access to public healthcare subsidies.",
+        then: "One to two years at a time, renewable. Not residence, and no path to it." },
+      { name: "Visitor", who: "Anyone with a British, Australian, US, EU or most other passports.", needs: "&mdash;",
+        then: "Usually 90 days on arrival, and extensions are possible but discretionary. No healthcare and no residence." },
+    ],
+    money: [
+      "<b>The treaty's 'subject to tax' condition is the whole question.</b> If the pension is not taxed in Singapore, the UK keeps the right to tax it. Structure this with advisers in both countries first.",
+      "Singapore taxes no capital gains and no dividends, which is worth far more than it sounds over a long retirement - it is the compounding, not the income, that gets sheltered.",
+      "An ISA is not recognised, but there is nothing here for it to be taxed by either, so it survives the move in substance if not in name.",
+      "SRS is the local pension wrapper and is worth knowing about if you still have earned income here: deductible to S$15,300 for citizens and PRs, S$35,700 for foreigners, and only half of each withdrawal is taxable on the way out.",
+      "The UK State Pension is <b>frozen</b> here at the rate you first claimed it, as it is in Hong Kong, Canada and Australia.",
+      "GST is 9%, so the cost-of-living figure already includes a consumption tax the UK charges at 20% - part of why Singapore's index is not as far above the UK as its housing suggests.",
+    ],
+    risks: [
+      "Getting in. S$10 million, a S$30,000-a-month job, or a Singaporean child - there is no fourth option.",
+      "A 128 cost-of-living index driven by housing and cars. Private housing is among the most expensive in the world, and a car costs a multiple of what it does anywhere else because of the Certificate of Entitlement.",
+      "Healthcare is superb and rationed by status: MediShield Life covers citizens and permanent residents, PRs get half the citizen subsidy, and a foreigner on an LTVP gets none of it. Private cover for a 70-year-old is expensive where it is available at all.",
+      "60% Additional Buyer's Stamp Duty makes buying a home as a foreigner close to irrational. Most people rent, and rent is the largest line in the budget.",
+      "Two degrees north of the equator: 31&deg;C and humid every single day, with no season to escape to without leaving the country.",
+    ],
   },
 };
 
@@ -11857,7 +12251,7 @@ const EUROPE_REGIMES = {
         "Take the UK's 25% lump sum before you become tax resident here.",
         "Under most treaties your private pension becomes taxable only where you live; UK government service pensions stay taxable in the UK whatever you do.",
         "ISAs are not recognised anywhere on this list. Consider realising gains before you leave.",
-        "The State Pension keeps rising each year everywhere in the EEA and Switzerland - unlike Canada and Australia, where it is frozen.",
+        "The State Pension keeps rising each year everywhere in the EEA and Switzerland - unlike Canada, Australia, Hong Kong and Singapore, where it is frozen at the rate you first claimed it.",
       ],
       risks: [
         "This is a screening entry, not a country profile: the seven above are researched properly, these are here so you can find which three are worth that effort.",
@@ -11902,7 +12296,15 @@ const EUROPE_REGIMES = {
    flat charge where a company buys a dwelling over £500,000 without relief,
    corporation tax at 19% to £50,000 and 25% above £250,000 with marginal
    relief between, CGT on residential property at 18% and 24% with a £3,000
-   annual exempt amount, and dividend tax at 8.75/33.75/39.35%.
+   annual exempt amount, and dividend tax at 10.75/35.75/39.35% (the ordinary
+   and upper rates each rose 2 points on 6 April 2026).
+
+   One dated change is modelled explicitly rather than waited for: from
+   6 April 2027 property income leaves the ordinary income tax rates and gets
+   its own, two points higher at 22/42/47%. Anyone deciding today whether to
+   buy personally or through a company is deciding across that date, so both
+   answers are shown. It widens the company's advantage without changing the
+   Section 24 credit, which stays at 20%.
    ===================================================================== */
 const PROP = {
   // SDLT, England & NI. Scotland (LBTT) and Wales (LTT) differ and are noted.
@@ -11912,7 +12314,12 @@ const PROP = {
   coFlatOver: 500000, coFlatRate: 0.17,
   ctSmall: 0.19, ctSmallTo: 50000, ctMain: 0.25, ctMainFrom: 250000,
   cgtBasic: 0.18, cgtHigher: 0.24, cgtAEA: 3000,
-  divAllowance: 500, divBasic: 0.0875, divHigher: 0.3375, divAddl: 0.3935,
+  divAllowance: 500, divBasic: 0.1075, divHigher: 0.3575, divAddl: 0.3935,
+  /* Property income rates from 6 April 2027 - two points above the ordinary
+     rates, and a separate set from them. The Section 24 credit is NOT
+     increased to match, so the squeeze on a geared individual tightens. */
+  propBasic: 0.22, propHigher: 0.42, propAddl: 0.47, propRatesFrom: 2027,
+  s24Credit: 0.20,
   ihtRate: 0.40,
   // Typical transaction costs. Ranges are wide; these are the middle.
   legalBuy: 1500, legalBuyCo: 2200, survey: 700, valuation: 300, searches: 400,
@@ -12025,11 +12432,18 @@ function propertyModel(inp) {
      back - capped at the lower of the finance cost and the property profit. */
   const band = inp.band || "higher";
   const marginal = band === "additional" ? 0.45 : band === "higher" ? 0.40 : 0.20;
+  // From 6 April 2027 property income has its own rates, two points higher.
+  const marginal27 = band === "additional" ? PROP.propAddl
+    : band === "higher" ? PROP.propHigher : PROP.propBasic;
   const personalTaxable = Math.max(0, operating);
-  const personalGross = personalTaxable * marginal;
-  const s24Credit = Math.min(interestYear, personalTaxable) * 0.20;
-  const personalTax = Math.max(0, personalGross - s24Credit);
+  /* The credit is the lower of the finance cost and the property profit, at
+     20% - and it stays at 20% when the rates rise in 2027, which is why the
+     rise costs a geared landlord more than two points of the profit. */
+  const s24Credit = Math.min(interestYear, personalTaxable) * PROP.s24Credit;
+  const personalTax = Math.max(0, personalTaxable * marginal - s24Credit);
   const personalNet = cashflowYear - personalTax;
+  const personalTax27 = Math.max(0, personalTaxable * marginal27 - s24Credit);
+  const personalNet27 = cashflowYear - personalTax27;
 
   // --- tax, through a company ------------------------------------------
   const coProfit = Math.max(0, operating - interestYear);
@@ -12080,10 +12494,10 @@ function propertyModel(inp) {
   const netSaleCompany = endValue - sellTotal - loan - coGainTax - coGainOut;
 
   return {
-    price, deposit, loan, ltv, rentMonth, rentYear, band, marginal, years, growth,
+    price, deposit, loan, ltv, rentMonth, rentYear, band, marginal, marginal27, years, growth,
     sdlt, buyCosts, buyTotal, cashIn, interestYear, mortgageMonth,
     running, runningTotal, operating, cashflowYear,
-    personalTax, personalNet, s24Credit,
+    personalTax, personalNet, s24Credit, personalTax27, personalNet27,
     coProfit, coTax, coRetained, divTax, coNetIfDrawn, coNetIfKept,
     grossYield, netYield, roiPersonal, roiCompanyDrawn, roiCompanyKept,
     icr, stressRate, rentNeeded, passesStress, maxLoan,
@@ -12134,7 +12548,9 @@ const TAX_SHELTERS = [
             onshore funds, with income taxed as interest and gains chargeable. Buying a gilt fund to get the gilt
             treatment is the common and expensive mistake.`,
     whenGood: `Higher-rate and additional-rate taxpayers with money outside ISA and pension room, for a known date &mdash;
-               school fees, a house purchase, a bridge to pension age.`,
+               school fees, a house purchase, a bridge to pension age. This gets <b>more</b> attractive on
+               6 April 2027, when savings interest moves to its own higher rates of 22/42/47% while the CGT
+               exemption on the gilt's pull to par is untouched.`,
   },
   {
     id: "isaWrap", name: "ISAs", verdict: "the first thing to fill",
@@ -12158,7 +12574,10 @@ const TAX_SHELTERS = [
            taxpayer and nothing at all at the additional rate. On top of that there is the dividend allowance and the
            CGT annual exempt amount, both much reduced from where they were but not zero. A couple with unequal incomes
            can often double the useful ones simply by holding assets in the right name.`,
-    catch: `They cannot be carried forward, and the savings allowance disappears exactly when the tax rate rises.`,
+    catch: `They cannot be carried forward, and the savings allowance disappears exactly when the tax rate rises.
+            The allowances themselves are unchanged for 2026/27, but what they shelter you from is going up: dividend
+            rates rose two points in April 2026 and savings and property income rates rise two points in April 2027,
+            so the same £500 of allowance is worth more each year and everything above it costs more.`,
     whenGood: "Before buying any product at all. Transfers between spouses are free of CGT and IHT, so re-arranging costs nothing.",
   },
   {
@@ -12302,6 +12721,7 @@ function renderRelocate(model) {
     RELOCATE[c].brief || ["UK", "IT", "ES", "FR"].includes(c)));
   let shown = rows;
   if (scope === "europe") shown = rows.filter(r => EUROPEAN.has(r.code));
+  else if (scope === "asia") shown = rows.filter(r => ["HK", "SG"].includes(r.code));
   else if (scope === "best") {
     const top = rows.slice(0, 10);
     shown = top.concat(homeRow && !top.includes(homeRow) ? [homeRow] : []);
@@ -12701,10 +13121,51 @@ function propInputs() {
   };
 }
 
+/* What this whole tab does NOT apply to, named per country.
+   Everything on the property tab is UK law - SDLT, Section 24, corporation
+   tax, Business Property Relief - and none of it was gated, so a reader who
+   had set the country to Singapore was quietly shown English stamp duty on a
+   Singapore flat. Rather than hide the tab, which would be worse (the
+   structuring question is a real one everywhere), it says what is different
+   where they are. The two Asian entries earn a sentence each because both
+   have recently made very large changes in opposite directions. */
+const PROP_ELSEWHERE = {
+  US: `Property tax, depreciation and the treatment of rental losses are all state and federal matters with no
+       UK equivalent, and there is no Section 24 &mdash; US landlords deduct mortgage interest in full, which
+       removes the entire reason the company question exists here.`,
+  FR: `France taxes rental income through the micro-foncier or réel regimes and charges social contributions on
+       top, and an SCI is the usual holding vehicle rather than a limited company. Notaire's fees on a purchase
+       run 7&ndash;8%, far above English conveyancing.`,
+  AU: `Negative gearing lets Australian landlords deduct losses against other income, which is the opposite of
+       Section 24, and a 50% CGT discount applies after twelve months. Stamp duty is a state tax and varies
+       widely, with surcharges for foreign buyers.`,
+  HK: `Hong Kong went the other way from the UK: <b>all</b> the extra property duties &mdash; Special Stamp
+       Duty, Buyer's Stamp Duty and New Residential Stamp Duty &mdash; were abolished on 28 February 2024, so a
+       buyer now pays only ad valorem duty on Scale 2, from HK$100 below HK$3m to 4.25% at the top. Rental
+       income is charged to property tax at 15% of 80% of the rent (an effective 12%), and there is no capital
+       gains tax on a sale at all.`,
+  SG: `Singapore is the most punitive market on this list for a foreign buyer: <b>Additional Buyer's Stamp Duty
+       is 60%</b> for any non-resident buying any residential property, on top of ordinary duty of up to 6%, and
+       Seller's Stamp Duty applies on a sale within four years. Annual property tax on a home you do not live in
+       is progressive to 36% of annual value. There is no capital gains tax, which is the one thing in the
+       buyer's favour.`,
+};
+
 function renderProperty() {
   const box = els("propCompare");
   if (!box) return;
   bindPropertyControls();
+  // Say plainly whose law this is, when it is not the reader's.
+  const cn = els("propCountryNote"), cnt = els("propCountryNoteText");
+  if (cn && cnt) {
+    const other = PROP_ELSEWHERE[currentCountry];
+    cn.hidden = !other;
+    if (other) {
+      cnt.innerHTML = `<b>Your plan is set to ${COUNTRIES[currentCountry].name}, and none of this applies
+        there.</b> Everything below is UK law, kept because the personal-versus-company question is a real one
+        wherever you are and the shape of the answer travels. The figures do not. ${other}`;
+    }
+  }
   const inp = propInputs();
   const me = propertyModel(Object.assign({}, inp, { viaCompany: false }));
   const co = propertyModel(Object.assign({}, inp, { viaCompany: true }));
@@ -12905,6 +13366,50 @@ function renderProperty() {
       you can afford it on a bad day, because the mortgage does not care about the reason.</p>`;
   }
 
+  // ---- April 2027: property income leaves the ordinary rates -------------
+  /* Two points on the rate, and no matching rise in the Section 24 credit.
+     For a geared higher-rate landlord that is worse than it sounds, because
+     the two points fall on profit calculated BEFORE interest while the credit
+     that offsets the interest stands still. */
+  const r27 = els("prop27");
+  if (r27) {
+    const extra = me.personalTax27 - me.personalTax;
+    const pill = els("prop27Pill");
+    if (pill) {
+      pill.textContent = extra > 0.5 ? `${money(extra)}/yr more` : "no change for you";
+      pill.className = "pill " + (extra > 0.5 ? "warn" : "good");
+    }
+    const coAdvNow = co.coNetIfDrawn - me.personalNet;
+    const coAdv27 = co.coNetIfDrawn - me.personalNet27;
+    r27.innerHTML = `
+      <div class="table-scroll"><table class="data"><thead><tr>
+        <th>In your own name</th><th class="num">Now</th><th class="num">From 6 April 2027</th>
+      </tr></thead><tbody>
+        <tr><td>Rate on property income</td>
+            <td class="num">${pc(me.marginal)}</td><td class="num">${pc(me.marginal27)}</td></tr>
+        <tr><td>Section 24 credit <span class="hint-inline">stays at 20%</span></td>
+            <td class="num">&minus;${money(me.s24Credit)}</td>
+            <td class="num">&minus;${money(me.s24Credit)}</td></tr>
+        <tr><td>Income tax on the rent</td>
+            <td class="num">${money(me.personalTax)}</td>
+            <td class="num">${money(me.personalTax27)}</td></tr>
+        <tr><td><b>Left after tax</b></td>
+            <td class="num" style="color:${tone(me.personalNet)}"><b>${signed(me.personalNet)}</b></td>
+            <td class="num" style="color:${tone(me.personalNet27)}"><b>${signed(me.personalNet27)}</b></td></tr>
+        <tr><td>Company's advantage over you</td>
+            <td class="num">${signed(coAdvNow)}</td>
+            <td class="num">${signed(coAdv27)}</td></tr>
+      </tbody></table></div>
+      <p class="caption" style="margin:10px 0 0;">From 6 April 2027 rental profit is taxed at
+        <b>22% / 42% / 47%</b> instead of the ordinary 20 / 40 / 45, announced at the Autumn 2025 Budget along with
+        the same rise on savings income. Dividend rates already went up two points in April 2026, to
+        ${pc(PROP.divBasic)} and ${pc(PROP.divHigher)}, so the company side of this comparison has taken its rise
+        and the personal side has not yet.
+        ${extra > 0.5 ? `On these figures the change costs you <b>${money(extra)}</b> a year and moves the
+          company's advantage from ${signed(coAdvNow)} to ${signed(coAdv27)}.`
+        : `On these figures it changes nothing for you, because there is no taxable property profit to charge.`}</p>`;
+  }
+
   // ---- selling ----------------------------------------------------------
   const lb = els("propSell");
   if (lb) {
@@ -12997,9 +13502,10 @@ function renderProperty() {
       additional-property surcharge (raised from 3% on 31 October 2024) and the 17% flat charge on company
       purchases over £500,000 without relief; corporation tax 19% to £50,000 and 25% above £250,000 with
       marginal relief; CGT on residential property 18% and 24% with a £3,000 annual exempt amount and 60-day
-      reporting; dividend tax 8.75/33.75/39.35% after a £500 allowance; inheritance tax 40%, with Business
-      Property Relief unavailable to property investment companies. Transaction and running costs are typical
-      middle-of-range figures, not quotes.`;
+      reporting; dividend tax 10.75/35.75/39.35% after a £500 allowance, the first two rates having risen two
+      points on 6 April 2026; property income moving to its own 22/42/47% rates on 6 April 2027, shown in its
+      own card above; inheritance tax 40%, with Business Property Relief unavailable to property investment
+      companies. Transaction and running costs are typical middle-of-range figures, not quotes.`;
   }
 }
 
@@ -13817,6 +14323,8 @@ function personalContribLabels(country) {
     case "US": return { field: `Your 401(k) / IRA contribution <span class="hint-inline">(pre-tax)</span>`, readout: "tax saved (off taxable income)" };
     case "AU": return { field: `Salary sacrifice into super <span class="hint-inline">(pre-tax, concessional)</span>`, readout: "&minus; 15% contributions tax" };
     case "FR": return { field: `Your PER contribution <span class="hint-inline">(pre-tax, d&eacute;ductible)</span>`, readout: "tax saved (d&eacute;duction)" };
+    case "HK": return { field: `Your MPF voluntary contribution <span class="hint-inline">(TVC, deductible to HK$60,000)</span>`, readout: "tax saved (deduction)" };
+    case "SG": return { field: `Your SRS contribution <span class="hint-inline">(deductible; S$15,300, or S$35,700 for foreigners)</span>`, readout: "tax saved (relief)" };
     default:   return { field: `Your contribution <span class="hint-inline">(from take-home pay)</span>`, readout: "+ tax relief added" };
   }
 }
@@ -15365,7 +15873,7 @@ function seedDemoProfiles() {
     spouseSalary: "0", spouseContribMonthly: "0", isaGrowth: "8", flatMoneyOn: false, levelIncomeOn: false,
     yourIncome: "0", yourIncomeGrowth: "2", cashCurrent: "0", spouseCashCurrent: "0",
     spousePot: "0", spouseDrawdown: "4", spousePotGrowth: "8", spouseIncome: "0", spouseIncomeGrowth: "2",
-    statePensionWeekly: "230.25", statePensionGrowth: "2.5", discountRate: "2.5", survivalWho: "either",
+    statePensionWeekly: "241.30", statePensionGrowth: "2.5", discountRate: "2.5", survivalWho: "either",
     numChildren: "0", numGrandchildren: "0", smallGiftAmount: "250", annualExemption: "3,000",
     giftPerRecipient: "", essentialSpending: "", plannedAnnualGift: "", giftStartYear: String(todayObj().y),
     country: "UK", scotland: "ruk", spouseCountry: "UK", spouseScotland: "ruk", mcSpend: "", mcRuns: "500",
@@ -16347,7 +16855,7 @@ paintIcons();            // draw the interface icons before anything is shown
    gone stale unless it knows its own age, and the whole app is made of tax
    rules that expire. Bump it with any release that changes a rate, a
    threshold or a rule. */
-const BUILD_DATE = "2026-09-11";
+const BUILD_DATE = "2026-09-12";
 const LIVE_URL = "https://davidmcv.github.io/Financial-Planner/";
 
 /* Two notes on the front page, both written from what the page actually does
